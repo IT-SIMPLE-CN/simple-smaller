@@ -114,7 +114,7 @@ static void set_lossy(int *method, int *threshold, int *to, int *recompress, cha
 
 int smaller_pdf_compress(const char *input, const char *output, int rewrite_images, int color_dpi,
                          int gray_dpi, int bitonal_dpi, int jpeg_quality, int subset_fonts,
-                         int strip_meta, char *err, size_t err_len) {
+                         int strip_meta, int grayscale, char *err, size_t err_len) {
   fz_context *ctx = new_context();
   if (ctx == NULL) {
     set_error(NULL, err, err_len);
@@ -128,6 +128,13 @@ int smaller_pdf_compress(const char *input, const char *output, int rewrite_imag
   fz_try(ctx) {
     doc = pdf_open_document(ctx, input);
     if (pdf_needs_password(ctx, doc)) fz_throw(ctx, FZ_ERROR_ARGUMENT, "文件有打开密码");
+
+    if (grayscale) {
+      // 整页（文字、矢量、图片）转灰度，放在图片重压之前，灰度图按灰度档压。
+      pdf_recolor_options ro = {1};
+      int n = pdf_count_pages(ctx, doc);
+      for (int i = 0; i < n; ++i) pdf_recolor_page(ctx, doc, i, &ro);
+    }
 
     pdf_image_rewriter_options io;
     memset(&io, 0, sizeof io);

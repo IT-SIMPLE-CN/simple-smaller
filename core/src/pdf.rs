@@ -14,7 +14,7 @@ unsafe extern "C" {
     fn smaller_pdf_compress(
         input: *const c_char, output: *const c_char, rewrite_images: c_int,
         color_dpi: c_int, gray_dpi: c_int, bitonal_dpi: c_int, jpeg_quality: c_int,
-        subset_fonts: c_int, strip_meta: c_int, err: *mut c_char, err_len: usize,
+        subset_fonts: c_int, strip_meta: c_int, grayscale: c_int, err: *mut c_char, err_len: usize,
     ) -> c_int;
     fn smaller_pdf_assemble(
         inputs: *const *const c_char, input_count: c_int,
@@ -108,6 +108,8 @@ pub struct PdfRecipe {
     pub target_bytes: Option<u64>,
     pub subset_fonts: bool,
     pub strip_metadata: bool,
+    /// 整页转灰度。
+    pub grayscale: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -131,7 +133,7 @@ fn compress_once(input: &Path, tmp: &Path, level: Option<CompressLevel>, recipe:
         smaller_pdf_compress(
             i.as_ptr(), o.as_ptr(), rewrite as c_int,
             level.color_dpi as c_int, level.gray_dpi as c_int, level.bitonal_dpi as c_int, level.jpeg_quality as c_int,
-            recipe.subset_fonts as c_int, recipe.strip_metadata as c_int, e, n,
+            recipe.subset_fonts as c_int, recipe.strip_metadata as c_int, recipe.grayscale as c_int, e, n,
         )
     })?;
     // 写出来的文件要能重新打开，页数不变，才算成功。
@@ -376,7 +378,7 @@ mod tests {
         let dir = scratch("compress");
         let input = image_pdf(&dir, "brochure", 1);
         let output = dir.join("brochure-small.pdf");
-        let recipe = PdfRecipe { level: CompressLevel::EMAIL, target_bytes: None, subset_fonts: true, strip_metadata: true };
+        let recipe = PdfRecipe { level: CompressLevel::EMAIL, target_bytes: None, subset_fonts: true, strip_metadata: true, grayscale: false };
         let original = std::fs::metadata(&input).unwrap().len();
         match compress(&input, &output, &recipe).unwrap() {
             CompressOutcome::Written { bytes, .. } => {
@@ -393,7 +395,7 @@ mod tests {
         let dir = scratch("target");
         let input = image_pdf(&dir, "big", 2);
         let output = dir.join("big-small.pdf");
-        let recipe = PdfRecipe { level: CompressLevel::PRINT, target_bytes: Some(150_000), subset_fonts: false, strip_metadata: true };
+        let recipe = PdfRecipe { level: CompressLevel::PRINT, target_bytes: Some(150_000), subset_fonts: false, strip_metadata: true, grayscale: false };
         match compress(&input, &output, &recipe).unwrap() {
             CompressOutcome::Written { bytes, level } => {
                 assert!(bytes <= 150_000, "{bytes} 字节，档位 {level:?}");
@@ -408,9 +410,9 @@ mod tests {
         let dir = scratch("keep");
         let input = image_pdf(&dir, "a", 3);
         let small = dir.join("a-small.pdf");
-        compress(&input, &small, &PdfRecipe { level: CompressLevel::SCREEN, target_bytes: None, subset_fonts: false, strip_metadata: true }).unwrap();
+        compress(&input, &small, &PdfRecipe { level: CompressLevel::SCREEN, target_bytes: None, subset_fonts: false, strip_metadata: true, grayscale: false }).unwrap();
         let again = dir.join("a-again.pdf");
-        let outcome = compress(&small, &again, &PdfRecipe { level: CompressLevel::PRINT, target_bytes: None, subset_fonts: false, strip_metadata: true }).unwrap();
+        let outcome = compress(&small, &again, &PdfRecipe { level: CompressLevel::PRINT, target_bytes: None, subset_fonts: false, strip_metadata: true, grayscale: false }).unwrap();
         assert_eq!(outcome, CompressOutcome::KeptOriginal);
         assert!(!again.exists());
     }
@@ -443,6 +445,17 @@ mod tests {
 
         let err = assemble(&[a], &[PageRef { doc: 0, page: 9 }], &dir.join("bad.pdf"), true).unwrap_err();
         assert!(err.to_string().contains("页码越界"), "{err}");
+    }
+
+    #[test]
+    fn 转灰度() {
+        let dir = scratch("gray");
+        let input = image_pdf(&dir, "color", 7);
+        let output = dir.join("gray.pdf");
+        let recipe = PdfRecipe { level: CompressLevel::EMAIL, target_bytes: None, subset_fonts: false, strip_metadata: true, grayscale: true };
+        assert!(matches!(compress(&input, &output, &recipe).unwrap(), CompressOutcome::Written { .. }));
+        let p = render_page(&output, 0, 200).unwrap();
+        assert!(p.rgba.chunks_exact(4).all(|c| c[0].abs_diff(c[1]) <= 2 && c[1].abs_diff(c[2]) <= 2), "还有彩色像素");
     }
 
     #[test]

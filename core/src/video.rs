@@ -446,6 +446,40 @@ fn cleanup_passlog(prefix: &str) {
     }
 }
 
+/// 只去掉声音：视频流原样复制，不重新编码，几秒完成。
+pub fn strip_audio(tools: &Tools, input: &Path, output: &Path, info: &VideoInfo, progress: &mut dyn FnMut(f64), cancel: &AtomicBool) -> Result<()> {
+    let tmp = temp_path(output);
+    let mut args = input_args(input, None);
+    args.extend(["-map", "0:v:0", "-c", "copy", "-an", "-map_metadata", "-1", "-movflags", "+faststart", "-f", "mp4"].map(String::from));
+    args.push(tmp.to_string_lossy().into_owned());
+    match run_ffmpeg(tools, &args, info.duration, (0.0, 1.0), progress, cancel) {
+        Ok(()) => {
+            std::fs::rename(&tmp, output)?;
+            progress(1.0);
+            Ok(())
+        }
+        Err(e) => {
+            let _ = std::fs::remove_file(&tmp);
+            Err(e)
+        }
+    }
+}
+
+/// 取某一时刻的一帧（封面）。
+pub fn grab_frame(tools: &Tools, input: &Path, info: &VideoInfo, at: f64, crop: Option<Crop>, hdr_to_sdr: bool) -> Result<Picture> {
+    let at = at.clamp(0.0, (info.duration - 0.05).max(0.0));
+    let options = FrameOptions { select: FrameSelect::All, width: None, trim: Some((at, at + 0.2)), crop, hdr_to_sdr };
+    let mut first: Option<Picture> = None;
+    let stop = AtomicBool::new(false);
+    let _ = extract_frames(tools, input, info, &options, &mut |_, _, p| {
+        if first.is_none() {
+            first = Some(p);
+        }
+        Err(VideoError::Cancelled)
+    }, &stop);
+    first.ok_or_else(|| VideoError::Encode("取不到这一帧".into()))
+}
+
 // ---------- 静态帧 ----------
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -687,6 +721,20 @@ mod tests {
         make_gif(&tools, &input, &gif, &info, &options, 90, &AtomicBool::new(false)).unwrap();
         let bytes = std::fs::read(&gif).unwrap();
         assert_eq!(&bytes[..3], b"GIF");
+    }
+
+    #[test]
+    fn 只去声音与取封面() {
+        let Some(tools) = tools_or_skip() else { return };
+        let dir = scratch("mute");
+        let input = sample(&tools, &dir, 3);
+        let info = probe(&tools, &input).unwrap();
+        let out = dir.join("mute.mp4");
+        strip_audio(&tools, &input, &out, &info, &mut |_| {}, &AtomicBool::new(false)).unwrap();
+        let o = probe(&tools, &out).unwrap();
+        assert!(!o.has_audio && o.codec == "h264" && (o.width, o.height) == (1280, 720));
+        let cover = grab_frame(&tools, &input, &info, 1.5, None, false).unwrap();
+        assert_eq!((cover.width, cover.height), (1280, 720));
     }
 
     #[test]

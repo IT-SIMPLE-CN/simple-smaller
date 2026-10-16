@@ -190,6 +190,51 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     result
 }
 
+/// 把一批文件打成 zip：只存不压（图片视频本身已压缩）、文件名按 UTF-8 标记，
+/// Windows 上打开中文不乱码；不带隐藏文件。
+pub fn write_zip(files: &[PathBuf], base: &Path, zip_path: &Path) -> Result<(), String> {
+    use std::io::Write;
+    let tmp = zip_path.with_file_name(format!(".{}.smaller-tmp", zip_path.file_name().unwrap_or_default().to_string_lossy()));
+    let result = (|| -> Result<(), String> {
+        let file = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored).large_file(true);
+        for f in files {
+            let name = f.strip_prefix(base).unwrap_or(f).to_string_lossy().replace('\\', "/");
+            zip.start_file(name, options).map_err(|e| e.to_string())?;
+            zip.write_all(&std::fs::read(f).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+        }
+        zip.finish().map_err(|e| e.to_string())?;
+        std::fs::rename(&tmp, zip_path).map_err(|e| e.to_string())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result
+}
+
+/// 拼图总览：等宽缩略图按网格排开，白色间隔。
+pub fn contact_sheet(pictures: &[Picture], columns: u32, cell_width: u32) -> Option<Picture> {
+    let first = pictures.first()?;
+    let cell_height = ((cell_width as f64) * first.height as f64 / first.width.max(1) as f64).round() as u32;
+    let gap = 8u32;
+    let rows = (pictures.len() as u32).div_ceil(columns);
+    let width = columns * cell_width + (columns + 1) * gap;
+    let height = rows * cell_height + (rows + 1) * gap;
+    let mut rgba = vec![255u8; (width * height * 4) as usize];
+    for (k, p) in pictures.iter().enumerate() {
+        let thumb = img::resize(p, SizeMode::Width, cell_width).ok()?;
+        let (cx, cy) = ((k as u32 % columns) * (cell_width + gap) + gap, (k as u32 / columns) * (cell_height + gap) + gap);
+        for y in 0..thumb.height.min(cell_height) {
+            let src = (y * thumb.width * 4) as usize;
+            let dst = (((cy + y) * width + cx) * 4) as usize;
+            let len = (thumb.width.min(cell_width) * 4) as usize;
+            rgba[dst..dst + len].copy_from_slice(&thumb.rgba[src..src + len]);
+        }
+    }
+    Some(img::from_rgba(width, height, rgba, false, img::SourceFormat::VideoFrame))
+}
+
 // ---------- 图片批量 ----------
 
 #[derive(Debug, Clone)]
@@ -459,6 +504,22 @@ mod tests {
         assert_eq!(results[0].status, ItemStatus::KeptOriginal);
         assert!(results[0].outputs.is_empty());
         assert!(!dir.join("low-small.jpg").exists());
+    }
+
+    #[test]
+    fn 打包_zip_与拼图总览() {
+        let dir = scratch("zip");
+        let a = dir.join("帧/秋季_0001.png");
+        let b = dir.join("帧/秋季_0002.png");
+        photo_file(&a, 120, 80);
+        photo_file(&b, 120, 80);
+        let zip_path = dir.join("帧.zip");
+        write_zip(&[a.clone(), b.clone()], &dir, &zip_path).unwrap();
+        let archive = zip::ZipArchive::new(std::fs::File::open(&zip_path).unwrap()).unwrap();
+        let names: Vec<String> = archive.file_names().map(|n| n.unwrap().into_owned()).collect();
+        assert!(names.iter().any(|n| n == "帧/秋季_0001.png") && names.len() == 2, "{names:?}");
+        let sheet = contact_sheet(&[img::load(&a).unwrap(), img::load(&b).unwrap(), img::load(&a).unwrap()], 2, 60).unwrap();
+        assert_eq!((sheet.width, sheet.height), (2 * 60 + 3 * 8, 2 * 40 + 3 * 8));
     }
 
     #[test]

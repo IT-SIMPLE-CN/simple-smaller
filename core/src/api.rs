@@ -310,8 +310,10 @@ pub enum FramePick {
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum VideoOutput {
     Mp4,
+    /// 只去声音，视频流原样复制。
+    Mute,
     Gif { fps: f64, width: u32, quality: u8 },
-    Frames { pick: FramePick, width: Option<u32>, format: ImageFormat, quality: u8 },
+    Frames { pick: FramePick, width: Option<u32>, format: ImageFormat, quality: u8, zip: bool, contact_sheet: bool },
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -327,6 +329,8 @@ pub struct VideoSettings {
     pub hdr_to_sdr: bool,
     pub max_fps: Option<f64>,
     pub output: VideoOutput,
+    /// 同时导出封面（JPG）：取这一秒的画面；None 不导出。
+    pub cover_at: Option<f64>,
 }
 
 impl VideoSettings {
@@ -397,7 +401,9 @@ pub enum PdfPageMode {
 
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum PdfOperation {
-    Compress { level: PdfLevel, target_bytes: Option<u64>, subset_fonts: bool },
+    Compress { level: PdfLevel, target_bytes: Option<u64>, subset_fonts: bool, grayscale: bool },
+    /// 从所有输入里按给定顺序挑页拼成一个文件（合并时排序、删页）。
+    Assemble { pages: Vec<PdfPageRef> },
     /// 所有输入按顺序合成一个文件。
     Merge,
     /// 每 `every` 页拆一个文件。
@@ -405,6 +411,13 @@ pub enum PdfOperation {
     ToImages { width: u32, format: ImageFormat, quality: u8, long_image: bool },
     /// 输入是图片，合成一个 PDF。
     FromImages { page_mode: PdfPageMode },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+pub struct PdfPageRef {
+    /// 第几个输入文件（从 0 起）。
+    pub file: u32,
+    pub page: u32,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -520,6 +533,13 @@ impl Engine {
         let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
         let p = jobs::plan(&inputs, kind.into(), &(&place).into());
         PlanSummary { files: p.items.len() as u32, skipped: p.skipped.iter().map(|(path, why)| format!("{}：{why}", path.display())).collect() }
+    }
+
+    /// 展开输入后实际会处理的文件（与任务用同一套规则）。
+    pub fn list_files(&self, inputs: Vec<String>, kind: Kind) -> Vec<String> {
+        let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
+        let p = jobs::plan(&inputs, kind.into(), &OutputPlace::BesideSource { folder_suffix: String::new() });
+        p.items.iter().map(|i| i.source.to_string_lossy().into_owned()).collect()
     }
 
     pub fn image_meta(&self, path: String) -> Result<ImageMeta, EngineError> {
@@ -700,6 +720,15 @@ impl Engine {
                     }
                 })
             }
+            VideoOutput::Mute => {
+                let ext = item.source.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_else(|| "mp4".into());
+                let ext = if ext == "mov" || ext == "m4v" { ext } else { "mp4".into() };
+                let path = naming::unique_path(&item.out_dir, &stem_name, &ext, reserved);
+                let _ = std::fs::create_dir_all(&item.out_dir);
+                video::strip_audio(tools, &item.source, &path, &info, &mut progress, cancel).map(|_| {
+                    result.outputs.push(OutputFile { bytes: file_bytes(&path), path, width: info.width, height: info.height });
+                })
+            }
             VideoOutput::Gif { fps, width, quality } => {
                 let path = naming::unique_path(&item.out_dir, &stem_name, "gif", reserved);
                 let _ = std::fs::create_dir_all(&item.out_dir);
@@ -708,7 +737,7 @@ impl Engine {
                     result.outputs.push(OutputFile { bytes: file_bytes(&path), path, width: *width, height: 0 });
                 })
             }
-            VideoOutput::Frames { pick, width, format, quality } => {
+            VideoOutput::Frames { pick, width, format, quality, zip, contact_sheet } => {
                 let select = match *pick {
                     FramePick::PerSecond { count } => video::FrameSelect::PerSecond(count),
                     FramePick::EverySeconds { seconds } => video::FrameSelect::EverySeconds(seconds),
@@ -737,10 +766,51 @@ impl Engine {
                     listener.on_progress(index as u32, ((i + 1) as f64 / expected).min(1.0));
                     Ok(())
                 }, cancel);
+                let r = r.map(|_| ()).and_then(|_| {
+                    let files: Vec<PathBuf> = outputs.iter().map(|o| o.path.clone()).collect();
+                    if *contact_sheet && !files.is_empty() {
+                        // 最多取 48 帧均匀排开。
+                        let step = (files.len() / 48).max(1);
+                        let picks: Vec<Picture> = files.iter().step_by(step).take(48).filter_map(|f| img::load(f).ok()).collect();
+                        if let Some(sheet) = jobs::contact_sheet(&picks, 6, 320) {
+                            let bytes = img::encode(&sheet, OutputFormat::Jpeg, 85, false).map_err(|e| video::VideoError::Encode(e.to_string()))?;
+                            let path = item.out_dir.join(format!("{stem_name}_总览.jpg"));
+                            jobs::write_atomic(&path, &bytes)?;
+                            outputs.push(OutputFile { path, bytes: bytes.len() as u64, width: sheet.width, height: sheet.height });
+                        }
+                    }
+                    if *zip && !files.is_empty() {
+                        let zip_path = naming::unique_path(&item.out_dir, &format!("{stem_name}_frames"), "zip", reserved);
+                        jobs::write_zip(&files, &item.out_dir, &zip_path).map_err(video::VideoError::Encode)?;
+                        let _ = std::fs::remove_dir_all(&dir);
+                        outputs.retain(|o| !o.path.starts_with(&dir));
+                        outputs.push(OutputFile { bytes: file_bytes(&zip_path), path: zip_path, width: 0, height: 0 });
+                    }
+                    Ok(())
+                });
                 result.outputs = outputs;
-                r.map(|_| ())
+                r
             }
         };
+        let outcome = outcome.and_then(|_| {
+            let Some(at) = settings.cover_at else { return Ok(()) };
+            if !matches!(settings.output, VideoOutput::Mp4 | VideoOutput::Mute) || result.status != ItemStatus::Done {
+                return Ok(());
+            }
+            let picture = video::grab_frame(tools, &item.source, &info, at, settings.crop(), settings.hdr_to_sdr)?;
+            let picture = match settings.max_short_edge {
+                Some(edge) if edge < picture.width.min(picture.height) => {
+                    let mode = if picture.width <= picture.height { SizeMode::Width } else { SizeMode::Height };
+                    img::resize(&picture, mode, edge).map_err(|e| video::VideoError::Encode(e.to_string()))?
+                }
+                _ => picture,
+            };
+            let bytes = img::encode(&picture, OutputFormat::Jpeg, 88, false).map_err(|e| video::VideoError::Encode(e.to_string()))?;
+            let path = naming::unique_path(&item.out_dir, &format!("{stem_name}-cover"), "jpg", reserved);
+            jobs::write_atomic(&path, &bytes)?;
+            result.outputs.push(OutputFile { path, bytes: bytes.len() as u64, width: picture.width, height: picture.height });
+            Ok(())
+        });
         if let Err(e) = outcome {
             result.status = match e {
                 video::VideoError::Cancelled => ItemStatus::Cancelled,
@@ -755,13 +825,17 @@ impl Engine {
         let mut out = Vec::new();
         let Some(first) = plan.items.first() else { return out };
         match &settings.operation {
-            PdfOperation::Merge | PdfOperation::FromImages { .. } => {
+            PdfOperation::Merge | PdfOperation::FromImages { .. } | PdfOperation::Assemble { .. } => {
                 let sources: Vec<PathBuf> = plan.items.iter().map(|i| i.source.clone()).collect();
                 let name = self.name(naming, &first.source, &first.folder, 0, 0, 0);
                 let path = naming::unique_path(&first.out_dir, &name, "pdf", &mut reserved);
                 let before: u64 = sources.iter().map(|s| file_bytes(s)).sum();
                 let r = match &settings.operation {
                     PdfOperation::Merge => pdf::merge(&sources, &path, settings.strip_metadata),
+                    PdfOperation::Assemble { pages } => {
+                        let refs: Vec<pdf::PageRef> = pages.iter().map(|p| pdf::PageRef { doc: p.file, page: p.page }).collect();
+                        pdf::assemble(&sources, &refs, &path, settings.strip_metadata)
+                    }
                     PdfOperation::FromImages { page_mode } => {
                         let mode = match page_mode {
                             PdfPageMode::FitImage => pdf::PageMode::FitImage,
@@ -788,14 +862,14 @@ impl Engine {
                     let mut result = ItemResult { index: i, source: item.source.clone(), before_bytes: before, outputs: vec![], status: ItemStatus::Done };
                     let _ = std::fs::create_dir_all(&item.out_dir);
                     let r: Result<(), String> = match op {
-                        PdfOperation::Compress { level, target_bytes, subset_fonts } => {
+                        PdfOperation::Compress { level, target_bytes, subset_fonts, grayscale } => {
                             let level = match level {
                                 PdfLevel::Screen => pdf::CompressLevel::SCREEN,
                                 PdfLevel::Email => pdf::CompressLevel::EMAIL,
                                 PdfLevel::Print => pdf::CompressLevel::PRINT,
                             };
                             let path = naming::unique_path(&item.out_dir, &name, "pdf", &mut reserved);
-                            let recipe = pdf::PdfRecipe { level, target_bytes: *target_bytes, subset_fonts: *subset_fonts, strip_metadata: settings.strip_metadata };
+                            let recipe = pdf::PdfRecipe { level, target_bytes: *target_bytes, subset_fonts: *subset_fonts, strip_metadata: settings.strip_metadata, grayscale: *grayscale };
                             pdf::compress(&item.source, &path, &recipe).map_err(|e| e.to_string()).map(|o| match o {
                                 pdf::CompressOutcome::Written { bytes, .. } => result.outputs.push(OutputFile { path, bytes, width: 0, height: 0 }),
                                 pdf::CompressOutcome::KeptOriginal => result.status = ItemStatus::KeptOriginal,

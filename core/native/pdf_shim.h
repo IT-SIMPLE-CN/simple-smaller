@@ -12,7 +12,7 @@ int smaller_pdf_page_size(const char *path, int page_index, float *width_pt, flo
 // dpi 为 0 表示该类图片不降采样；jpeg_quality 1–100。
 int smaller_pdf_compress(const char *input, const char *output, int rewrite_images, int color_dpi,
                          int gray_dpi, int bitonal_dpi, int jpeg_quality, int subset_fonts,
-                         int strip_meta, char *err, size_t err_len);
+                         int strip_meta, int grayscale, char *err, size_t err_len);
 // 按 (doc_index[k], page_index[k]) 的顺序挑页拼成新文件：合并、排序、删页、拆分共用。
 int smaller_pdf_assemble(const char **inputs, int input_count, const int *doc_index,
                          const int *page_index, int page_count, const char *output, int strip_meta,
