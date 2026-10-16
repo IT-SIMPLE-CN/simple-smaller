@@ -17,6 +17,10 @@ int smaller_webp_encode(const uint8_t *rgba, uint32_t width, uint32_t height, ui
   config.use_sharp_yuv = sharp_yuv;
   config.thread_level = 1;
   config.alpha_quality = 100;
+  // alpha_quality 100 加 method 6 时，libwebp 会按最高档无损去压透明通道（alpha_enc.c）：
+  // 1800×1024 的截图要 1.9 秒，悬停试压会卡。两者在 libwebp 里分不开，带透明时退到 method 5，
+  // 实测体积只大约 2%，耗时 58 ms。
+  if (has_alpha && !lossless && config.method > 5) config.method = 5;
   if (target_size > 0 && !lossless) {
     config.target_size = target_size;
     config.pass = 6;
