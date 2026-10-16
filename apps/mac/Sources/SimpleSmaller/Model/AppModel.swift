@@ -108,6 +108,33 @@ final class AppModel {
         }
     }
 
+    // MARK: 加密的 PDF
+
+    /// 解锁副本放这里；启动与退出时清空。
+    static var unlockedDir: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("cn.it-simple.smaller/unlocked", isDirectory: true)
+    }
+
+    /// 用密码解出一份不加密的副本，处理时代替原文件；输出照样放在原文件旁边。密码不对返回提示文字。
+    func unlock(_ item: FileItem, password: String) -> String? {
+        let out = Self.unlockedDir.appendingPathComponent(UUID().uuidString, isDirectory: true).appendingPathComponent(item.url.lastPathComponent)
+        do {
+            try engine.unlockPdf(path: item.url.path, password: password, output: out.path)
+        } catch {
+            return (error as? EngineError)?.userMessage ?? "解不开这个文件"
+        }
+        item.unlockedURL = out
+        item.metaError = nil
+        if case .failed = item.state { item.state = .waiting }
+        loadMeta(item)
+        return nil
+    }
+
+    static func clearUnlocked() {
+        try? FileManager.default.removeItem(at: unlockedDir)
+    }
+
     func remove(_ ids: Set<FileItem.ID>, from ws: Workspace) {
         ws.files.removeAll { ids.contains($0.id) }
         ws.selection.subtract(ids)
@@ -192,11 +219,13 @@ final class AppModel {
                     }
                 }
             case .pdf:
-                let meta = try? engine.pdfMeta(path: path)
+                let unlocked = await MainActor.run { item.unlockedURL?.path }
+                let meta = try? engine.pdfMeta(path: unlocked ?? path)
                 await MainActor.run {
                     if let m = meta {
-                        item.pages = Int(m.pages); item.bytes = m.bytes
-                        if m.needsPassword { item.metaError = "有打开密码" }
+                        item.pages = Int(m.pages)
+                        item.bytes = unlocked == nil ? m.bytes : ((try? FileManager.default.attributesOfItem(atPath: path)[.size] as? UInt64) ?? m.bytes)
+                        item.metaError = m.needsPassword ? "有打开密码" : nil
                     } else {
                         item.metaError = "读不出这个 PDF"
                     }
@@ -224,6 +253,7 @@ final class AppModel {
         let items = retrying ?? ws.files
         for f in items { f.state = .waiting; f.outputs = [] }
         ws.running = true
+        beginActivity()
         if retrying == nil {
             ws.finishedCount = 0
             ws.batchJobs = []
@@ -259,7 +289,7 @@ final class AppModel {
         // 失败重试：按原本的输出目录分组，逐组跑，结果落回同一个地方。
         if let retrying, ws.type != .video, !merging {
             let groups = Dictionary(grouping: retrying) { $0.outDir?.path ?? "" }
-            runGroups(ws, groups: groups.map { (paths: $0.value.map(\.url.path), place: $0.key.isEmpty ? place : Place.folder(path: $0.key)) },
+            runGroups(ws, groups: groups.map { (paths: $0.value.map { ($0.unlockedURL ?? $0.url).path }, place: $0.key.isEmpty ? place : Place.folder(path: $0.key)) },
                       naming: naming, recipe: recipe, listener: listener)
             return
         }
@@ -273,8 +303,23 @@ final class AppModel {
             // 剪辑里设的截取、裁切与封面按每段视频各自生效：逐段起任务，各自送到原本的输出目录。
             runVideos(ws, items: items, recipe: recipe, place: place, naming: naming, listener: listener)
         case .pdf:
-            let inputs = ws.pdfSegment == .fromImages ? ws.files.filter { $0.type == .image }.map(\.url.path) : ws.engineInputs
-            ws.planSources = ws.pdfSegment == .fromImages ? inputs : engine.listFiles(inputs: inputs, kind: .pdf)
+            let pdfs = ws.files.filter { $0.type == .pdf }
+            // 解锁过的文件用副本代替；输出照样回到原文件该去的地方。
+            if !merging, pdfs.contains(where: { $0.unlockedURL != nil }) {
+                let groups = Dictionary(grouping: items.filter { $0.type == .pdf }) { $0.outDir?.path ?? "" }
+                runGroups(ws, groups: groups.map { (paths: $0.value.map { ($0.unlockedURL ?? $0.url).path },
+                                                    place: $0.key.isEmpty ? place : Place.folder(path: $0.key)) },
+                          naming: naming, recipe: recipe, listener: listener)
+                return
+            }
+            let inputs: [String]
+            switch ws.pdfSegment {
+            case .fromImages: inputs = ws.files.filter { $0.type == .image }.map(\.url.path)
+            // 合并按页面顺序引用「第几个 PDF」，输入必须正好是列表里的 PDF 文件。
+            case .merge: inputs = pdfs.map { ($0.unlockedURL ?? $0.url).path }
+            default: inputs = ws.engineInputs
+            }
+            ws.planSources = merging ? inputs : engine.listFiles(inputs: inputs, kind: .pdf)
             ws.job = engine.runPdfs(inputs: inputs, place: place, naming: naming, settings: pdfSettings(ws, recipe: recipe), listener: listener)
             ws.batchJobs = ws.job.map { [$0] } ?? []
         }
@@ -289,7 +334,9 @@ final class AppModel {
         case .toImages: operation = .toImages(width: UInt32(recipe.pdf.imageWidth), format: recipe.pdf.imageFormat.ffi, quality: UInt8(clamping: recipe.pdf.imageQuality), longImage: recipe.pdf.longImage)
         case .fromImages: operation = .fromImages(pageMode: recipe.pdf.pageMode == .a4 ? .a4 : .fitImage)
         }
-        return PdfSettings(operation: operation, stripMetadata: recipe.stripMetadata)
+        // 转图片不出 PDF，不加密码。
+        let pw = ws.pdfSegment == .toImages || ws.outputPassword.isEmpty ? nil : ws.outputPassword
+        return PdfSettings(operation: operation, stripMetadata: recipe.stripMetadata, password: pw)
     }
 
     /// 失败的重试一遍（配方可以先改）。
@@ -363,6 +410,51 @@ final class AppModel {
     func cancel(_ ws: Workspace) {
         ws.job?.cancel()
         ws.running = false
+        endActivityIfIdle()
+    }
+
+    // MARK: 处理中：不睡眠、Dock 显示进度
+
+    private var activity: NSObjectProtocol?
+    /// 后台完成、还没回到应用时 Dock 上的角标数。
+    private var unseen = 0
+
+    /// 有任务在跑时，不让系统闲置睡眠（屏幕可以照常关）。
+    func beginActivity() {
+        if activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .idleSystemSleepDisabled], reason: "正在压缩文件")
+        }
+        updateDock()
+    }
+
+    func endActivityIfIdle() {
+        guard !isBusy, let a = activity else { updateDock(); return }
+        ProcessInfo.processInfo.endActivity(a)
+        activity = nil
+        updateDock()
+    }
+
+    /// 主窗口任意一类在跑，或圆环 / 小窗直接处理的任务没完。
+    var isBusy: Bool { MediaType.allCases.contains { workspace($0).running } || RingController.shared.hasRunning }
+
+    /// Dock：处理中写「3/9」；后台做完写完成个数，回到应用后清掉。
+    func updateDock() {
+        let running = MediaType.allCases.map(workspace).filter(\.running)
+        if let ws = running.first {
+            NSApp.dockTile.badgeLabel = "\(ws.finishedCount)/\(ws.files.count)"
+        } else {
+            NSApp.dockTile.badgeLabel = unseen > 0 ? "\(unseen)" : nil
+        }
+    }
+
+    func noteFinishedInBackground(_ n: Int) {
+        if !NSApp.isActive { unseen += n }
+        updateDock()
+    }
+
+    func clearUnseen() {
+        unseen = 0
+        updateDock()
     }
 
     func undo(_ ws: Workspace) {
@@ -415,10 +507,13 @@ final class AppModel {
             for f in ws.files where f.id != item.id { f.state = item.state }
         }
         ws.finishedCount = ws.files.filter { [.done, .kept].contains($0.state) || { if case .failed = $0.state { return true }; return false }($0) }.count
+        updateDock()
     }
 
     private func finished(_ ws: Workspace, started: Date) {
         ws.running = false
+        noteFinishedInBackground(ws.files.filter { $0.state == .done }.count)
+        endActivityIfIdle()
         // 只统计处理成功的（失败的不算进前后体积）。
         let ok = ws.files.filter { [.done, .kept].contains($0.state) }
         let before = ok.reduce(0) { $0 + $1.bytes }

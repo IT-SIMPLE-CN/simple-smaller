@@ -203,6 +203,16 @@ pub struct CropSetting {
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
+pub struct ClipboardImage {
+    /// true 为 PNG，否则 JPEG。
+    pub png: bool,
+    pub width: u32,
+    pub height: u32,
+    pub before_bytes: u64,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct PlanTarget {
     pub source: String,
     pub out_dir: String,
@@ -440,6 +450,8 @@ pub struct PdfPageRef {
 pub struct PdfSettings {
     pub operation: PdfOperation,
     pub strip_metadata: bool,
+    /// 输出的 PDF 加打开密码（AES-256）；None 不加。
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -549,6 +561,33 @@ impl Engine {
         let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
         let p = jobs::plan(&inputs, kind.into(), &(&place).into());
         PlanSummary { files: p.items.len() as u32, skipped: p.skipped.iter().map(|(path, why)| format!("{}：{why}", path.display())).collect() }
+    }
+
+    /// 剪贴板用：把一张图压成字节直接返回，不写文件。
+    /// 截图、图文类（颜色少）压成减色 PNG，照片压成 JPEG；长边超过 `max_long_edge` 时缩小。
+    /// 压完不比原来小时返回 None（剪贴板保持原样）。
+    pub fn compress_for_clipboard(&self, path: String, max_long_edge: u32) -> Result<Option<ClipboardImage>, EngineError> {
+        let source = Path::new(&path);
+        let picture = self.decode(source).map_err(|message| EngineError::Unsupported { message })?;
+        let graphic = picture.kind == img::ContentKind::Graphic;
+        let format = if graphic || picture.has_alpha { OutputFormat::Png } else { OutputFormat::Jpeg };
+        let resize = (max_long_edge > 0 && picture.width.max(picture.height) > max_long_edge).then_some((SizeMode::LongEdge, max_long_edge));
+        let recipe = ImageRecipe { format, quality: if graphic { 90 } else { 82 }, lossless: false, resize, target_bytes: None };
+        let encoded = img::render(&picture, &recipe).map_err(|e| EngineError::Failed { message: e.to_string() })?;
+        let before = file_bytes(source);
+        if encoded.bytes.len() as u64 >= before && resize.is_none() {
+            return Ok(None);
+        }
+        Ok(Some(ClipboardImage { png: format == OutputFormat::Png, width: encoded.width, height: encoded.height, before_bytes: before, bytes: encoded.bytes }))
+    }
+
+    /// 用密码解出一份不加密的副本（放在临时目录，处理时代替原文件）。密码不对报「密码不对」。
+    pub fn unlock_pdf(&self, path: String, password: String, output: String) -> Result<(), EngineError> {
+        if let Some(dir) = Path::new(&output).parent() { let _ = std::fs::create_dir_all(dir); }
+        pdf::unlock(Path::new(&path), Path::new(&output), &password).map_err(|e| match e {
+            pdf::PdfError::WrongPassword => EngineError::Unsupported { message: "密码不对".into() },
+            other => EngineError::Failed { message: other.to_string() },
+        })
     }
 
     /// 展开输入后每个文件的输出目录，以及会新建的输出根目录。视频逐段起任务、失败重试时用它
@@ -701,7 +740,15 @@ impl Engine {
             let kind = if matches!(settings.operation, PdfOperation::FromImages { .. }) { MediaKind::Image } else { MediaKind::Pdf };
             let plan = jobs::plan(&inputs, kind, &(&place).into());
             *job.created_roots.lock().unwrap() = plan.created_roots.clone();
-            for r in self.pdf_items(&plan, &naming, &settings, &listener, &job.cancel) {
+            for mut r in self.pdf_items(&plan, &naming, &settings, &listener, &job.cancel) {
+                if let Some(pw) = settings.password.as_deref().filter(|p| !p.is_empty()) {
+                    for o in r.outputs.iter_mut().filter(|o| o.path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))) {
+                        match pdf::encrypt_in_place(&o.path, pw) {
+                            Ok(()) => o.bytes = file_bytes(&o.path),
+                            Err(e) => r.status = ItemStatus::Failed(format!("加密码失败：{e}")),
+                        }
+                    }
+                }
                 job.record(&listener, r);
             }
             job.finish(&listener);
@@ -1023,6 +1070,24 @@ mod tests {
 
     fn settings() -> ImageSettings {
         ImageSettings { format: ImageFormat::Webp, quality: 78, lossless: false, target_bytes: None, sizes: vec![800], size_by: SizeBy::Width, crop: None, crop_boxes: vec![] }
+    }
+
+    #[test]
+    fn 剪贴板截图压成_png() {
+        let dir = std::env::temp_dir().join(format!("smaller-clip-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // 像截图：大块纯色、少量颜色，原图用无压缩的 BMP 当作「剪贴板里的大图」。
+        let (w, h) = (900u32, 600u32);
+        let mut rgba = Vec::new();
+        for y in 0..h { for x in 0..w { rgba.extend_from_slice(if y < 60 { &[239, 57, 34, 255] } else if x % 150 == 0 { &[40, 40, 48, 255] } else { &[250, 250, 252, 255] }); } }
+        let src = dir.join("clip.bmp");
+        image::save_buffer(&src, &rgba, w, h, image::ExtendedColorType::Rgba8).unwrap();
+        let engine = Engine::new(None);
+        let out = engine.compress_for_clipboard(src.to_string_lossy().into(), 0).unwrap().expect("应压小");
+        assert!(out.png, "截图应是 PNG");
+        assert!((out.bytes.len() as u64) < out.before_bytes / 10, "{} → {}", out.before_bytes, out.bytes.len());
+        let big = engine.compress_for_clipboard(src.to_string_lossy().into(), 450).unwrap().unwrap();
+        assert_eq!((big.width, big.height), (450, 300));
     }
 
     #[test]

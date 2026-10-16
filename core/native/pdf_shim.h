@@ -25,4 +25,9 @@ void smaller_pdf_free_pixels(uint8_t *rgba);
 int smaller_pdf_from_images(const uint8_t **images, const size_t *lengths, int count, int page_mode,
                             float dpi, const char *output, char *err, size_t err_len);
 
+// 用密码解出一份不加密的副本；密码不对返回 -2。
+int smaller_pdf_unlock(const char *input, const char *output, const char *password, char *err, size_t err_len);
+// 加打开密码（AES-256）另存。
+int smaller_pdf_encrypt(const char *input, const char *output, const char *password, char *err, size_t err_len);
+
 #endif

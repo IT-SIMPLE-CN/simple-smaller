@@ -41,6 +41,8 @@ final class FileItem: Identifiable {
     var state: State = .waiting
     /// 这个文件的输出目录（开始时按引擎的展开规则算好，失败重试与视频逐段用）。
     var outDir: URL?
+    /// 加密 PDF 输入密码后解出的临时副本，处理时代替原文件。
+    var unlockedURL: URL?
     var outputs: [Output] = []
 
     init(url: URL, root: URL?, type: MediaType) {
@@ -79,6 +81,8 @@ final class Workspace {
     var batchJobs: [Job] = []
     /// 这一批新建的输出根目录（如「素材-small」）。
     var createdRoots: [String] = []
+    /// PDF 输出加的打开密码。只在这次处理里用，不写进配方、不保存。
+    var outputPassword = ""
     var running = false
     /// 这一批任务里引擎展开后的文件顺序（进度回调按这个序号报）。
     var planSources: [String] = []
@@ -136,5 +140,5 @@ final class Workspace {
         return out
     }
 
-    func item(for path: String) -> FileItem? { files.first { $0.url.path == path } }
+    func item(for path: String) -> FileItem? { files.first { $0.url.path == path || $0.unlockedURL?.path == path } }
 }

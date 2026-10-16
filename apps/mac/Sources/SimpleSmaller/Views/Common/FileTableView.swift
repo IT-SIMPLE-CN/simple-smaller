@@ -1,9 +1,12 @@
+import QuickLook
 import SwiftUI
 
 /// 文件列表（设计稿 02 / 05）。图片、视频、PDF 共用，按类型换列。
 struct FileTableView: View {
     @Environment(AppModel.self) private var model
     @Bindable var ws: Workspace
+    @State private var quickLook: URL?
+    @State private var unlocking: FileItem?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,7 +28,7 @@ struct FileTableView: View {
     }
 
     private var table: some View {
-        Table(ws.files, selection: $ws.selection) {
+        Table(of: FileItem.self, selection: $ws.selection) {
             TableColumn("名称") { item in
                 HStack(spacing: 8) {
                     Thumb(image: item.thumbnail).frame(width: 22, height: 22)
@@ -53,15 +56,32 @@ struct FileTableView: View {
                 .width(64)
             TableColumn("状态") { item in StateLabel(item: item, queued: ws.running) }
                 .width(92)
+        } rows: {
+            ForEach(ws.files) { item in
+                // 处理完的行可以直接拖出：压好的文件拖进微信、浏览器、邮件。
+                TableRow(item)
+                    .itemProvider { item.outputs.first.flatMap { NSItemProvider(contentsOf: URL(fileURLWithPath: $0.path)) } }
+            }
         }
         .contextMenu(forSelectionType: FileItem.ID.self) { ids in
             let items = ws.files.filter { ids.contains($0.id) }
             Button("在访达中显示") { model.reveal(items.flatMap(outputsOrSource)) }
+            if let locked = items.first(where: { $0.metaError == "有打开密码" }) {
+                Button("输入密码…") { unlocking = locked }
+            }
             Button("从列表移除") { model.remove(ids, from: ws) }.disabled(ws.running)
         } primaryAction: { ids in
             model.reveal(ws.files.filter { ids.contains($0.id) }.flatMap(outputsOrSource))
         }
         .onDeleteCommand { if !ws.running { model.remove(ws.selection, from: ws) } }
+        // 空格 / ⌘Y 快速查看：处理完看输出，没处理看原文件（和访达一致）。
+        .quickLookPreview($quickLook)
+        .onReceive(NotificationCenter.default.publisher(for: .quickLookSelection)) { _ in
+            guard let item = ws.selectedItems.first else { return }
+            quickLook = item.outputs.first.map { URL(fileURLWithPath: $0.path) } ?? item.url
+        }
+        .background(SpaceKeyWatcher())
+        .sheet(item: $unlocking) { item in PasswordSheet(item: item) }
         // 与访达列表、设计稿一致：不画行线，用交替底色区分行。
         .tableStyle(.inset)
         .alternatingRowBackgrounds(.enabled)
@@ -113,6 +133,8 @@ struct StateLabel: View {
 
     var body: some View {
         switch item.state {
+        case .waiting where item.metaError == "有打开密码":
+            Text("需要密码").foregroundStyle(Color.warning).help("右键 →「输入密码…」，密码只在这次处理里用，不保存")
         case .waiting:
             if queued { Text("等待").foregroundStyle(.secondary) }
         case .running(let p):
@@ -220,6 +242,71 @@ struct NoTopScrollEdge: ViewModifier {
             content.scrollEdgeEffectHidden(true, for: .top)
         } else {
             content
+        }
+    }
+}
+
+extension Notification.Name {
+    static let quickLookSelection = Notification.Name("SimpleSmaller.quickLookSelection")
+}
+
+/// 表格会吞掉空格；焦点在表格上时按空格，转成「快速查看」。
+private struct SpaceKeyWatcher: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { Probe() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    final class Probe: NSView {
+        private var monitor: Any?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+                guard e.keyCode == 49, e.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,
+                      let w = self?.window, e.window === w, w.firstResponder is NSTableView else { return e }
+                NotificationCenter.default.post(name: .quickLookSelection, object: nil)
+                return nil
+            }
+        }
+        deinit { if let monitor { NSEvent.removeMonitor(monitor) } }
+    }
+}
+
+/// 加密 PDF 输入打开密码。密码只用来解出临时副本，不保存。
+struct PasswordSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let item: FileItem
+    @State private var password = ""
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(verbatim: "「\(item.name)」有打开密码").font(.system(size: 13, weight: .semibold))
+            Text("输入密码后就能压缩、合并。密码只在这次处理里用，不会保存；输出的文件不带密码，需要的话在「选项」里另加。")
+                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            SecureField("密码", text: $password)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(submit)
+            if let error {
+                Text(error).font(.system(size: 12)).foregroundStyle(Color.warning)
+            }
+            HStack {
+                Spacer()
+                Button("取消") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("解锁") { submit() }.keyboardShortcut(.defaultAction).disabled(password.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 380)
+    }
+
+    private func submit() {
+        guard !password.isEmpty else { return }
+        if let message = model.unlock(item, password: password) {
+            error = message
+        } else {
+            dismiss()
         }
     }
 }

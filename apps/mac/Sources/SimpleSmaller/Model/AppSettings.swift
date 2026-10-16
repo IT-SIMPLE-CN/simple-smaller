@@ -17,6 +17,17 @@ final class AppSettings {
     var outputFolder: String { didSet { d.set(outputFolder, forKey: "outputFolder") } }
     var ringEnabled: Bool { didSet { d.set(ringEnabled, forKey: "ringEnabled"); RingController.shared.refresh() } }
     var menuBarIcon: Bool { didSet { d.set(menuBarIcon, forKey: "menuBarIcon") } }
+    /// 复制图片时自动换成压缩版（默认关）。
+    var clipboardAuto: Bool { didSet { d.set(clipboardAuto, forKey: "clipboardAuto"); ClipboardWatcher.shared.refresh() } }
+    /// 剪贴板图片的长边上限；0 为不缩小。
+    var clipboardMaxEdge: Int { didSet { d.set(clipboardMaxEdge, forKey: "clipboardMaxEdge") } }
+    /// 监视的文件夹与各自的配方。
+    var watchFolders: [WatchFolder] {
+        didSet {
+            d.set(try? JSONEncoder().encode(watchFolders), forKey: "watchFolders")
+            FolderWatcher.shared.refresh()
+        }
+    }
 
     private init() {
         d.register(defaults: [
@@ -24,11 +35,16 @@ final class AppSettings {
             "outputFolder": "",
             "ringEnabled": true,
             "menuBarIcon": true,
+            "clipboardAuto": false,
+            "clipboardMaxEdge": 0,
         ])
         outputLocation = OutputLocation(rawValue: d.string(forKey: "outputLocation") ?? "") ?? .beside
         outputFolder = d.string(forKey: "outputFolder") ?? ""
         ringEnabled = d.bool(forKey: "ringEnabled")
         menuBarIcon = d.bool(forKey: "menuBarIcon")
+        clipboardAuto = d.bool(forKey: "clipboardAuto")
+        clipboardMaxEdge = d.integer(forKey: "clipboardMaxEdge")
+        watchFolders = d.data(forKey: "watchFolders").flatMap { try? JSONDecoder().decode([WatchFolder].self, from: $0) } ?? []
     }
 
     var place: Place {
@@ -36,6 +52,12 @@ final class AppSettings {
         return .besideSource(folderSuffix: "-small")
     }
 
+}
+
+struct WatchFolder: Codable, Hashable, Identifiable {
+    var id = UUID()
+    var path: String
+    var recipeID: String
 }
 
 /// 后台任务完成且应用不在前台时发系统通知，点按在访达中显示。
@@ -55,6 +77,18 @@ enum Notifier {
         let center = UNUserNotificationCenter.current()
         center.delegate = delegate
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    /// 监视文件夹处理完：不管应用在不在前台都发，因为用户通常不看本应用。
+    @MainActor
+    static func watchFinished(folder: String, run: QuickRun) {
+        guard Bundle.main.bundleIdentifier != nil, !run.outputs.isEmpty else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "简单小一点 · \(folder)"
+        content.body = "\(run.title) 已按「\(run.recipe.name)」处理，\(Format.size(run.before)) → \(Format.size(run.after))"
+        content.subtitle = "点按在访达中显示"
+        content.userInfo = ["paths": run.outputs.map(\.path)]
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
 
     @MainActor

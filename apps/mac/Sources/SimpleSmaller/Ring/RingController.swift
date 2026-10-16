@@ -22,6 +22,7 @@ final class RingController {
     private var runs: [QuickRun] = []
 
     var isTrusted: Bool { FileHit.isTrusted }
+    var hasRunning: Bool { runs.contains { !$0.isFinished } }
     func requestTrust() { FileHit.requestTrust() }
 
     /// 按开关与授权装卸监听。用户在系统设置里改了辅助功能授权时，系统会发分布式通知，稍等再查。
@@ -129,8 +130,15 @@ final class RingController {
     func track(_ run: QuickRun, at point: NSPoint) {
         runs.append(run)
         showCard(for: run, at: point)
-        run.onFinished = { [weak self] in self?.scheduleCardClose() }
+        AppModel.shared.beginActivity()
+        run.onFinished = { [weak self] in
+            self?.scheduleCardClose()
+            AppModel.shared.noteFinishedInBackground(run.outputs.isEmpty ? 0 : run.urls.count)
+            AppModel.shared.endActivityIfIdle()
+        }
     }
+
+    func cancelAll() { runs.forEach { $0.cancel() } }
 
     func dismissRing() {
         guard let panel = ringPanel else { return }

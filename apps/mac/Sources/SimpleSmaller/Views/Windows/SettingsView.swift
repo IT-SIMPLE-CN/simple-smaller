@@ -8,6 +8,8 @@ struct SettingsView: View {
                 .tabItem { Label("通用", systemImage: "gearshape") }
             FinderSettings()
                 .tabItem { Label("访达", systemImage: "folder") }
+            AutoSettings()
+                .tabItem { Label("自动", systemImage: "bolt") }
         }
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
@@ -97,5 +99,69 @@ private struct FinderSettings: View {
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
             trusted = RingController.shared.isTrusted
         }
+    }
+}
+
+/// 自动：剪贴板自动压缩、监视文件夹。
+private struct AutoSettings: View {
+    @Environment(AppModel.self) private var model
+    @Bindable private var settings = AppSettings.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("复制图片时自动压缩", isOn: $settings.clipboardAuto)
+                if settings.clipboardAuto {
+                    Picker("长边不超过", selection: $settings.clipboardMaxEdge) {
+                        Text("不缩小").tag(0)
+                        Text(verbatim: "2560 px").tag(2560)
+                        Text(verbatim: "1920 px").tag(1920)
+                        Text(verbatim: "1280 px").tag(1280)
+                    }
+                }
+            } footer: {
+                Text("截图或从网页复制的图片会自动换成压缩版，粘贴到公众号、飞书、微信就是小图。截图类压成 PNG，照片压成 JPG；复制的文件不受影响。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section {
+                ForEach($settings.watchFolders) { $watch in
+                    LabeledContent {
+                        HStack(spacing: 8) {
+                            Picker("配方", selection: $watch.recipeID) {
+                                ForEach(MediaType.allCases) { type in
+                                    Section(type.title) {
+                                        ForEach(model.store.all.filter { $0.type == type }) { Text($0.name).tag($0.id) }
+                                    }
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(maxWidth: 160)
+                            Button { settings.watchFolders.removeAll { $0.id == watch.id } } label: { Image(systemName: "minus.circle") }
+                                .buttonStyle(.borderless)
+                                .help("不再监视")
+                        }
+                    } label: {
+                        Label((watch.path as NSString).lastPathComponent, systemImage: "folder")
+                            .help((watch.path as NSString).abbreviatingWithTildeInPath)
+                    }
+                }
+                Button("添加文件夹…") { addFolder() }
+            } header: {
+                Text("监视文件夹")
+            } footer: {
+                Text("放进这些文件夹的新图片、视频、PDF，按右边的配方自动处理，结果放在同一个文件夹里，完成后发通知。适合截图、下载文件夹。只处理之后放进来的文件。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func addFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = "监视"
+        guard panel.runModal() == .OK, let url = panel.url, !settings.watchFolders.contains(where: { $0.path == url.path }) else { return }
+        settings.watchFolders.append(WatchFolder(path: url.path, recipeID: "img.web"))
     }
 }

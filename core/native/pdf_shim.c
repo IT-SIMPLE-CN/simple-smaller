@@ -344,3 +344,62 @@ int smaller_pdf_from_images(const uint8_t **images, const size_t *lengths, int c
   fz_drop_context(ctx);
   return rc;
 }
+
+// 用密码打开加密的 PDF，另存一份不加密的副本（只在本机临时目录里用，处理完即删）。
+// 密码不对时返回 -2。
+int smaller_pdf_unlock(const char *input, const char *output, const char *password, char *err, size_t err_len) {
+  fz_context *ctx = new_context();
+  if (ctx == NULL) {
+    set_error(NULL, err, err_len);
+    return -1;
+  }
+  int rc = 0;
+  pdf_document *doc = NULL;
+  fz_var(doc);
+  fz_try(ctx) {
+    doc = pdf_open_document(ctx, input);
+    if (pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, password)) {
+      rc = -2;
+      snprintf(err, err_len, "密码不对");
+    } else {
+      pdf_write_options wo = pdf_default_write_options;
+      wo.do_encrypt = PDF_ENCRYPT_NONE;
+      pdf_save_document(ctx, doc, output, &wo);
+    }
+  }
+  fz_always(ctx) { pdf_drop_document(ctx, doc); }
+  fz_catch(ctx) {
+    set_error(ctx, err, err_len);
+    rc = -1;
+  }
+  fz_drop_context(ctx);
+  return rc;
+}
+
+// 给 PDF 加打开密码（AES-256），另存到 output。
+int smaller_pdf_encrypt(const char *input, const char *output, const char *password, char *err, size_t err_len) {
+  fz_context *ctx = new_context();
+  if (ctx == NULL) {
+    set_error(NULL, err, err_len);
+    return -1;
+  }
+  int rc = 0;
+  pdf_document *doc = NULL;
+  fz_var(doc);
+  fz_try(ctx) {
+    doc = pdf_open_document(ctx, input);
+    pdf_write_options wo = compact_write_options();
+    wo.do_encrypt = PDF_ENCRYPT_AES_256;
+    wo.permissions = ~0;
+    fz_strlcpy(wo.upwd_utf8, password, sizeof wo.upwd_utf8);
+    fz_strlcpy(wo.opwd_utf8, password, sizeof wo.opwd_utf8);
+    pdf_save_document(ctx, doc, output, &wo);
+  }
+  fz_always(ctx) { pdf_drop_document(ctx, doc); }
+  fz_catch(ctx) {
+    set_error(ctx, err, err_len);
+    rc = -1;
+  }
+  fz_drop_context(ctx);
+  return rc;
+}

@@ -72,11 +72,22 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .appInfo) {
             Button("关于简单小一点") { openWindow(id: "about") }
         }
+        CommandGroup(before: .sidebar) {
+            ForEach(Array(MediaType.allCases.enumerated()), id: \.element) { i, type in
+                Button(type.title) { model.selectedType = type }
+                    .keyboardShortcut(KeyEquivalent(Character("\(i + 1)")), modifiers: .command)
+            }
+            Divider()
+        }
         CommandGroup(replacing: .newItem) {
             Button("选取文件…") { FilePicker.pick(into: model) }
                 .keyboardShortcut("o")
             Button("粘贴剪贴板") { model.pasteFromClipboard() }
                 .keyboardShortcut("v", modifiers: [.command, .shift])
+            Divider()
+            Button("快速查看") { NotificationCenter.default.post(name: .quickLookSelection, object: nil) }
+                .keyboardShortcut("y")
+                .disabled(model.current.selection.isEmpty)
         }
         CommandMenu("处理") {
             Button("开始") { model.start(model.current) }
@@ -113,10 +124,33 @@ enum FilePicker {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationWillFinishLaunching(_ notification: Notification) {
+    override init() {
         // 系统的自动填充启发式会在输入框获得焦点时建一个浮窗，没有可填的内容时就空着露在屏幕边上。
-        // 本应用的输入框（文件名、尺寸）都用不到自动填充，整体关掉。
-        UserDefaults.standard.register(defaults: ["NSAutoFillHeuristicControllerEnabled": false])
+        // 本应用的输入框（文件名、尺寸）都用不到自动填充，在应用初始化之前整体关掉。
+        UserDefaults.standard.set(false, forKey: "NSAutoFillHeuristicControllerEnabled")
+        super.init()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        AppModel.clearUnlocked()
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        AppModel.shared.clearUnseen()
+    }
+
+    /// 还有文件在处理时退出先确认，免得丢掉做到一半的视频。
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard AppModel.shared.isBusy else { return .terminateNow }
+        let alert = NSAlert()
+        alert.messageText = "还有文件在处理"
+        alert.informativeText = "现在退出会停止处理，做到一半的文件不会留下，原文件不受影响。"
+        alert.addButton(withTitle: "继续处理")
+        alert.addButton(withTitle: "停止并退出")
+        guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
+        for t in MediaType.allCases { AppModel.shared.cancel(AppModel.shared.workspace(t)) }
+        RingController.shared.cancelAll()
+        return .terminateNow
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -127,8 +161,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         default: break
         }
         Notifier.setup()
+        AppModel.clearUnlocked()
         Task { @MainActor in
             RingController.shared.refresh()
+            ClipboardWatcher.shared.refresh()
+            FolderWatcher.shared.refresh()
             ServiceProvider.register()
             // 命令行 `--open <路径>...` 等同拖入，供脚本化验证。
             let args = CommandLine.arguments

@@ -70,6 +70,7 @@ struct PdfInspector: View {
             InspectorToggle(label: "精简字体", isOn: $ws.draft.pdf.subsetFonts)
                 .help("只保留文件里用到的字，中文字体能省下很多")
         }
+        PasswordOption(ws: ws)
     }
 
     // MARK: 合并 / 拆分
@@ -82,6 +83,7 @@ struct PdfInspector: View {
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             InspectorToggle(label: "去掉作者与修改记录", isOn: $ws.draft.stripMetadata)
         }
+        PasswordOption(ws: ws)
     }
 
     @ViewBuilder private var splitSection: some View {
@@ -95,6 +97,7 @@ struct PdfInspector: View {
             Text(verbatim: splitSummary)
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
+        PasswordOption(ws: ws)
     }
 
     private var splitSummary: String {
@@ -137,6 +140,7 @@ struct PdfInspector: View {
             Text(p.pageMode == .a4 ? "每张图等比放进 A4 页面，四周留白，适合打印。" : "每页和图片一样大，没有白边，适合屏幕看。")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
+        PasswordOption(ws: ws)
     }
 }
 
@@ -171,5 +175,26 @@ private struct LevelRow: View {
         .animation(.smooth(duration: 0.2), value: selected)
         .accessibilityLabel("\(title)，\(subtitle)")
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+/// 输出加打开密码：发给客户的报价、合同常用。密码不写进配方、不保存。
+private struct PasswordOption: View {
+    @Bindable var ws: Workspace
+    @State private var on = false
+
+    var body: some View {
+        InspectorSection(title: "打开密码") {
+            InspectorToggle(label: "输出加打开密码", isOn: Binding(get: { on || !ws.outputPassword.isEmpty }, set: { v in
+                on = v
+                if !v { ws.outputPassword = "" }
+            }))
+            if on || !ws.outputPassword.isEmpty {
+                SecureField("设置密码", text: $ws.outputPassword)
+                    .textFieldStyle(.roundedBorder)
+                Text("只在这次处理里用，不保存。忘了密码就打不开，记得另外告诉对方。")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }

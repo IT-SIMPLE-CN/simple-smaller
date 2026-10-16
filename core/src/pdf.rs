@@ -26,6 +26,8 @@ unsafe extern "C" {
         rgba: *mut *mut u8, w: *mut c_int, h: *mut c_int, err: *mut c_char, err_len: usize,
     ) -> c_int;
     fn smaller_pdf_free_pixels(rgba: *mut u8);
+    fn smaller_pdf_unlock(input: *const c_char, output: *const c_char, password: *const c_char, err: *mut c_char, err_len: usize) -> c_int;
+    fn smaller_pdf_encrypt(input: *const c_char, output: *const c_char, password: *const c_char, err: *mut c_char, err_len: usize) -> c_int;
     fn smaller_pdf_from_images(
         images: *const *const u8, lengths: *const usize, count: c_int, page_mode: c_int,
         dpi: f32, output: *const c_char, err: *mut c_char, err_len: usize,
@@ -38,6 +40,8 @@ pub enum PdfError {
     Mupdf(String),
     #[error("文件有打开密码")]
     Password,
+    #[error("密码不对")]
+    WrongPassword,
     #[error("读写失败：{0}")]
     Io(#[from] std::io::Error),
 }
@@ -60,6 +64,33 @@ fn call(f: impl FnOnce(*mut c_char, usize) -> c_int) -> Result<()> {
         return Err(PdfError::Password);
     }
     Err(PdfError::Mupdf(msg))
+}
+
+/// 用密码解出一份不加密的副本。密码不对返回 `PdfError::WrongPassword`。
+pub fn unlock(input: &Path, output: &Path, password: &str) -> Result<()> {
+    let (i, o) = (cpath(input), cpath(output));
+    let pw = CString::new(password).map_err(|_| PdfError::WrongPassword)?;
+    let mut buf = vec![0 as c_char; 512];
+    let rc = unsafe { smaller_pdf_unlock(i.as_ptr(), o.as_ptr(), pw.as_ptr(), buf.as_mut_ptr(), buf.len()) };
+    match rc {
+        0 => Ok(()),
+        -2 => Err(PdfError::WrongPassword),
+        _ => Err(PdfError::Mupdf(unsafe { CStr::from_ptr(buf.as_ptr()) }.to_string_lossy().into_owned())),
+    }
+}
+
+/// 给写好的 PDF 加打开密码：先写同目录临时文件，成功再替换。
+pub fn encrypt_in_place(path: &Path, password: &str) -> Result<()> {
+    let tmp = path.with_file_name(format!(".{}.smaller-tmp", path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()));
+    let (i, o) = (cpath(path), cpath(&tmp));
+    let pw = CString::new(password).map_err(|_| PdfError::Mupdf("密码里不能有空字符".into()))?;
+    let r = call(|e, n| unsafe { smaller_pdf_encrypt(i.as_ptr(), o.as_ptr(), pw.as_ptr(), e, n) });
+    if r.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+        return r;
+    }
+    std::fs::rename(&tmp, path)?;
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -374,6 +405,21 @@ mod tests {
             .unwrap();
         assert!(st.status.success());
         pdf
+    }
+
+    #[test]
+    fn 加密码与解锁() {
+        let dir = scratch("password");
+        let input = image_pdf(&dir, "plain", 1);
+        let locked = dir.join("locked.pdf");
+        std::fs::copy(&input, &locked).unwrap();
+        encrypt_in_place(&locked, "1234").unwrap();
+        assert!(info(&locked).unwrap().needs_password, "加密后应要求密码");
+        let open = dir.join("open.pdf");
+        assert!(matches!(unlock(&locked, &open, "9999"), Err(PdfError::WrongPassword)));
+        unlock(&locked, &open, "1234").unwrap();
+        let i = info(&open).unwrap();
+        assert!(!i.needs_password && i.pages == 1);
     }
 
     #[test]

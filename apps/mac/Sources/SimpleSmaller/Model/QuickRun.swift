@@ -56,7 +56,7 @@ final class QuickRun {
             let operation: PdfOperation = recipe.pdf.longImage
                 ? .toImages(width: UInt32(recipe.pdf.imageWidth), format: recipe.pdf.imageFormat.ffi, quality: UInt8(clamping: recipe.pdf.imageQuality), longImage: true)
                 : .compress(level: recipe.pdfLevel, targetBytes: recipe.pdfTargetBytes, subsetFonts: recipe.pdf.subsetFonts, grayscale: recipe.pdf.grayscale)
-            jobs = [engine.runPdfs(inputs: inputs, place: place, naming: ffiNaming, settings: PdfSettings(operation: operation, stripMetadata: recipe.stripMetadata), listener: bridge)]
+            jobs = [engine.runPdfs(inputs: inputs, place: place, naming: ffiNaming, settings: PdfSettings(operation: operation, stripMetadata: recipe.stripMetadata, password: nil), listener: bridge)]
         case .video:
             runVideos(inputs, place: place, naming: ffiNaming)
         }
