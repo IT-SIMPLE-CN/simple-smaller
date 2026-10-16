@@ -51,7 +51,7 @@ struct DropZone: View {
     private var formats: String {
         switch type {
         case .image: "JPG · PNG · HEIC · WebP · AVIF · TIFF · GIF"
-        case .video: "MP4 · MOV · M4V · MKV · WebM · AVI"
+        case .video: "MP4 · MOV · M4V · MKV · WebM · AVI · GIF 动图"
         case .pdf: segment == .fromImages ? "JPG · PNG · HEIC · WebP · AVIF" : "PDF"
         }
     }

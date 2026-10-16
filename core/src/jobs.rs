@@ -25,11 +25,58 @@ pub enum MediaKind {
 pub fn media_kind(path: &Path) -> Option<MediaKind> {
     let ext = path.extension()?.to_string_lossy().to_lowercase();
     match ext.as_str() {
+        // 动图（多帧 GIF、动画 WebP、APNG）按视频处理：转 GIF、MP4 或抽帧，动画不会被压成一张静态图。
+        "gif" | "webp" | "png" if is_animated(path) => Some(MediaKind::Video),
         "jpg" | "jpeg" | "png" | "webp" | "avif" | "heic" | "heif" | "gif" | "tif" | "tiff" | "bmp" => Some(MediaKind::Image),
         "mp4" | "mov" | "m4v" | "mkv" | "webm" | "avi" | "mts" | "m2ts" => Some(MediaKind::Video),
         "pdf" => Some(MediaKind::Pdf),
         _ => None,
     }
+}
+
+/// 是不是动图：GIF 有不止一帧、WebP 带动画标记、PNG 带 acTL 块（APNG）。只读文件头和块结构，不解码。
+pub fn is_animated(path: &Path) -> bool {
+    let Ok(data) = std::fs::read(path) else { return false };
+    if data.starts_with(b"GIF8") {
+        return gif_frames(&data) > 1;
+    }
+    if data.len() > 30 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+        return &data[12..16] == b"VP8X" && data[20] & 0x02 != 0;
+    }
+    if data.starts_with(b"\x89PNG") {
+        let head = &data[..data.len().min(1 << 16)];
+        let idat = head.windows(4).position(|w| w == b"IDAT").unwrap_or(head.len());
+        return head[..idat].windows(4).any(|w| w == b"acTL");
+    }
+    false
+}
+
+/// 数 GIF 里的图像块（0x2C）；遇到第二个就够了。
+fn gif_frames(d: &[u8]) -> usize {
+    if d.len() < 13 { return 0; }
+    let mut i = 13;
+    if d[10] & 0x80 != 0 { i += 3 * (1 << ((d[10] & 0x07) + 1)); }
+    let mut frames = 0;
+    let skip_blocks = |mut j: usize| -> usize {
+        while j < d.len() && d[j] != 0 { j += d[j] as usize + 1; }
+        j + 1
+    };
+    while i < d.len() {
+        match d[i] {
+            0x2C => {
+                frames += 1;
+                if frames > 1 { return frames; }
+                if i + 10 > d.len() { break; }
+                let packed = d[i + 9];
+                i += 10;
+                if packed & 0x80 != 0 { i += 3 * (1 << ((packed & 0x07) + 1)); }
+                i = skip_blocks(i + 1); // 跳过 LZW 最小码长与图像数据子块
+            }
+            0x21 => i = skip_blocks(i + 2),
+            _ => break, // 0x3B 结束或数据损坏
+        }
+    }
+    frames
 }
 
 /// 输出放在哪。
@@ -591,6 +638,27 @@ mod tests {
         let names: Vec<String> = p.items.iter().map(|i| i.source.file_name().unwrap().to_string_lossy().into_owned()).collect();
         // b-small.png 没有对应原图，是用户自己的文件，照常处理。
         assert_eq!(names, vec!["a.png", "b-small.png"], "{names:?}");
+    }
+
+    #[test]
+    fn 动图按视频处理() {
+        let dir = scratch("anim");
+        // 两帧 GIF 与单帧 GIF。
+        let frame = |c: u8| image::Frame::new(image::RgbaImage::from_pixel(8, 8, image::Rgba([c, 0, 0, 255])));
+        let anim = dir.join("动.gif");
+        {
+            let mut enc = image::codecs::gif::GifEncoder::new(std::fs::File::create(&anim).unwrap());
+            enc.encode_frames(vec![frame(10), frame(200)]).unwrap();
+        }
+        let still = dir.join("静.gif");
+        {
+            let mut enc = image::codecs::gif::GifEncoder::new(std::fs::File::create(&still).unwrap());
+            enc.encode_frames(vec![frame(10)]).unwrap();
+        }
+        assert!(is_animated(&anim));
+        assert!(!is_animated(&still));
+        assert_eq!(media_kind(&anim), Some(MediaKind::Video));
+        assert_eq!(media_kind(&still), Some(MediaKind::Image));
     }
 
     #[test]

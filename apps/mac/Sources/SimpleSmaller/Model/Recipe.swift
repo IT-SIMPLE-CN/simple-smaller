@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import SmallerCore
 
 // MARK: - 文件类型
@@ -34,11 +35,18 @@ enum MediaType: String, Codable, CaseIterable, Identifiable, Sendable {
 
     static func of(_ url: URL) -> MediaType? {
         switch url.pathExtension.lowercased() {
+        // 动图（多帧 GIF、动画 WebP、APNG）按视频处理，和引擎同一规则：压成静态图会把动画弄丢。
+        case "gif", "webp", "png" where isAnimated(url): .video
         case "jpg", "jpeg", "png", "webp", "avif", "heic", "heif", "gif", "tif", "tiff", "bmp": .image
         case "mp4", "mov", "m4v", "mkv", "webm", "avi", "mts", "m2ts": .video
         case "pdf": .pdf
         default: nil
         }
+    }
+
+    static func isAnimated(_ url: URL) -> Bool {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return false }
+        return CGImageSourceGetCount(source) > 1
     }
 }
 

@@ -821,6 +821,7 @@ impl Engine {
                 let _ = std::fs::create_dir_all(&item.out_dir);
                 video::transcode(tools, &item.source, &path, &info, &settings.recipe(), &mut progress, cancel).map(|_| {
                     let bytes = file_bytes(&path);
+                    // 没截取、没裁、没缩小，压完还更大就保留原文件（包括动图转 MP4 反而变大的情况）。
                     let unchanged = settings.trim().is_none() && settings.crop.is_none() && settings.max_short_edge.is_none_or(|m| m >= info.width.min(info.height));
                     if unchanged && bytes >= before {
                         let _ = std::fs::remove_file(&path);

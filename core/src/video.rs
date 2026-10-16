@@ -140,8 +140,20 @@ pub fn probe(tools: &Tools, path: &Path) -> Result<VideoInfo> {
         .or_else(|| video.r_frame_rate.as_deref().and_then(parse_rate))
         .unwrap_or(30.0);
     let hdr = matches!(video.color_transfer.as_deref(), Some("smpte2084") | Some("arib-std-b67"));
+    let mut duration: f64 = parsed.format.duration.as_deref().and_then(|d| d.parse().ok()).unwrap_or(0.0);
+    // 动图 WebP 这类容器不写时长：数一遍帧，按帧率算。
+    if duration <= 0.0 {
+        let frames = Command::new(&tools.ffprobe)
+            .args(["-v", "error", "-count_frames", "-select_streams", "v:0", "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0"])
+            .arg(path)
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<f64>().ok())
+            .unwrap_or(0.0);
+        duration = frames / fps.max(1.0);
+    }
     Ok(VideoInfo {
-        duration: parsed.format.duration.as_deref().and_then(|d| d.parse().ok()).unwrap_or(0.0),
+        duration,
         width,
         height,
         fps,
@@ -319,6 +331,9 @@ pub fn transcode(
     cancel: &AtomicBool,
 ) -> Result<()> {
     let duration = recipe.trim.map(|(s, e)| e - s).unwrap_or(info.duration);
+    // 动图（GIF、动画 WebP、APNG）的码率没有参考意义，按画质档编码；转成 MP4 本来就会小得多。
+    let animated_source = matches!(info.codec.as_str(), "gif" | "webp" | "apng");
+    let recipe = &VideoRecipe { rate: if animated_source && matches!(recipe.rate, Rate::TargetBytes(_)) { Rate::Medium } else { recipe.rate }, ..recipe.clone() };
     let size = output_size(info, recipe.crop, recipe.max_short_edge);
     let fps = recipe.max_fps.filter(|m| *m < info.fps - 0.01);
     let vf = filter_chain(info, recipe.crop, recipe.hdr_to_sdr, size, fps, "yuv420p");
