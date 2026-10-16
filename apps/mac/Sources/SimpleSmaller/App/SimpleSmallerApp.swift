@@ -111,6 +111,12 @@ enum FilePicker {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 验证用：`SMALLER_APPEARANCE=light|dark` 强制外观，不动系统设置。
+        switch ProcessInfo.processInfo.environment["SMALLER_APPEARANCE"] {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        default: break
+        }
         Notifier.setup()
         Task { @MainActor in
             RingController.shared.refresh()

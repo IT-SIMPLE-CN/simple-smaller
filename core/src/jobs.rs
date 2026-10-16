@@ -376,6 +376,7 @@ pub fn run_images(
     plan: &Plan,
     job: &ImageJob,
     decoder: Decoder,
+    on_start: &(dyn Fn(usize) + Sync),
     on_result: &(dyn Fn(&ItemResult) + Sync),
     cancel: &AtomicBool,
 ) -> Vec<ItemResult> {
@@ -390,6 +391,7 @@ pub fn run_images(
                 let r = if cancel.load(Ordering::Relaxed) {
                     ItemResult { index: i, source: item.source.clone(), before_bytes: 0, outputs: Vec::new(), status: ItemStatus::Cancelled }
                 } else {
+                    on_start(i);
                     process_image(i, item, job, decoder, &reserved)
                 };
                 on_result(&r);
@@ -459,7 +461,7 @@ mod tests {
         j.sizes = vec![1280, 640];
         j.naming.template = "{name}".into();
         let p = plan(&[src.clone()], MediaKind::Image, &OutputPlace::BesideSource { folder_suffix: "-small".into() });
-        let results = run_images(&p, &j, &default_decoder, &|_| {}, &AtomicBool::new(false));
+        let results = run_images(&p, &j, &default_decoder, &|_| {}, &|_| {}, &AtomicBool::new(false));
         assert_eq!(results[0].status, ItemStatus::Done);
         let names: Vec<String> = results[0].outputs.iter().map(|o| o.path.file_name().unwrap().to_string_lossy().into_owned()).collect();
         assert_eq!(names, vec!["hero-1280.webp", "hero-640.webp"]);
@@ -482,7 +484,7 @@ mod tests {
         j.crop_overrides.insert(b.clone(), CropRect { x: 0, y: 0, width: 300, height: 400 });
         j.naming.template = "{name}-{ratio}-{w}x{h}".into();
         let p = plan(&[a, b], MediaKind::Image, &OutputPlace::BesideSource { folder_suffix: "-small".into() });
-        let results = run_images(&p, &j, &default_decoder, &|_| {}, &AtomicBool::new(false));
+        let results = run_images(&p, &j, &default_decoder, &|_| {}, &|_| {}, &AtomicBool::new(false));
         for r in &results {
             assert_eq!(r.status, ItemStatus::Done);
             assert_eq!((r.outputs[0].width, r.outputs[0].height), (300, 400));
@@ -500,7 +502,7 @@ mod tests {
         let src = dir.join("low.jpg");
         std::fs::write(&src, img::encode(&img::load(&png).unwrap(), OutputFormat::Jpeg, 20, false).unwrap()).unwrap();
         let p = plan(&[src], MediaKind::Image, &OutputPlace::BesideSource { folder_suffix: "-small".into() });
-        let results = run_images(&p, &job(OutputFormat::Original), &default_decoder, &|_| {}, &AtomicBool::new(false));
+        let results = run_images(&p, &job(OutputFormat::Original), &default_decoder, &|_| {}, &|_| {}, &AtomicBool::new(false));
         assert_eq!(results[0].status, ItemStatus::KeptOriginal);
         assert!(results[0].outputs.is_empty());
         assert!(!dir.join("low-small.jpg").exists());
@@ -531,7 +533,7 @@ mod tests {
         let broken = dir.join("broken.png");
         std::fs::write(&broken, b"not a png").unwrap();
         let p = plan(&[a, broken], MediaKind::Image, &OutputPlace::BesideSource { folder_suffix: "-small".into() });
-        let results = run_images(&p, &job(OutputFormat::Webp), &default_decoder, &|_| {}, &AtomicBool::new(false));
+        let results = run_images(&p, &job(OutputFormat::Webp), &default_decoder, &|_| {}, &|_| {}, &AtomicBool::new(false));
         assert!(results[0].outputs[0].path.ends_with("x-small-2.webp"));
         assert_eq!(std::fs::read(dir.join("x-small.webp")).unwrap(), b"old");
         assert!(matches!(results[1].status, ItemStatus::Failed(_)));

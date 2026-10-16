@@ -32,12 +32,10 @@ final class AppModel {
 
     var selectedType: MediaType = .image
     private(set) var workspaces: [MediaType: Workspace] = [:]
-    var showInspector = true
     var toast: String?
     /// 最近完成的任务（菜单栏小窗）。
     var recent: [RecentJob] = []
 
-    private var previewGeneration: [MediaType: Int] = [:]
 
     init() {
         for type in MediaType.allCases {
@@ -91,7 +89,6 @@ final class AppModel {
             if type == .pdf { rebuildPageOrder(ws) }
         }
         if byType[selectedType] == nil, let first = byType.keys.first { selectedType = first }
-        schedulePreviews(selectedType)
     }
 
     func remove(_ ids: Set<FileItem.ID>, from ws: Workspace) {
@@ -165,7 +162,6 @@ final class AppModel {
                     } else {
                         item.metaError = "读不出这段视频"
                     }
-                    self.schedulePreviews(.video)
                 }
             case .pdf:
                 let meta = try? engine.pdfMeta(path: path)
@@ -192,108 +188,6 @@ final class AppModel {
         ws.pageOrder = pdfs.enumerated().flatMap { (i, f) in (0..<max(0, f.pages)).map { PdfPageRef(file: UInt32(i), page: UInt32($0)) } }
     }
 
-    // MARK: 试压与估算
-
-    /// 配方或文件变了：停手 0.3 秒后按新参数重新试压（只在内存里压、不写文件），
-    /// 后台两路并行，换参数即作废旧的。
-    func schedulePreviews(_ type: MediaType) {
-        let generation = (previewGeneration[type] ?? 0) + 1
-        previewGeneration[type] = generation
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(300))
-            guard self.previewGeneration[type] == generation else { return }
-            self.runPreviews(type, generation: generation)
-        }
-    }
-
-    private func runPreviews(_ type: MediaType, generation: Int) {
-        let ws = workspace(type)
-        for f in ws.files { f.estimate = nil; f.estimateKept = false }
-        let items = ws.files.filter { $0.state == .waiting }
-        let recipe = ws.draft
-        switch type {
-        case .image:
-            let settings = recipe.imageSettings(cropBoxes: ws.cropBoxes)
-            runEstimates(items, type: type, generation: generation) { [engine] item in
-                let p = try engine.previewImage(path: item, settings: settings)
-                return (p.bytes, false)
-            }
-        case .video:
-            for item in items { item.estimate = estimateVideo(item, recipe: recipe, ws: ws) }
-        case .pdf:
-            guard ws.pdfSegment == .compress else { return }
-            let level = recipe.pdfLevel, target = recipe.pdfTargetBytes, subset = recipe.pdf.subsetFonts, gray = recipe.pdf.grayscale
-            runEstimates(items.filter { $0.type == .pdf }, type: type, generation: generation) { [engine] path in
-                let r = try engine.estimatePdf(path: path, level: level, targetBytes: target, subsetFonts: subset, grayscale: gray)
-                return (r ?? 0, r == nil)
-            }
-        }
-    }
-
-    private func runEstimates(_ items: [FileItem], type: MediaType, generation: Int, work: @escaping @Sendable (String) throws -> (UInt64, Bool)) {
-        let paths = items.map { ($0.id, $0.url.path) }
-        Task.detached(priority: .utility) {
-            await withTaskGroup(of: Void.self) { group in
-                var iterator = paths.makeIterator()
-                func next() -> Bool {
-                    guard let (id, path) = iterator.next() else { return false }
-                    group.addTask {
-                        let still = await MainActor.run { self.previewGeneration[type] == generation }
-                        guard still else { return }
-                        await MainActor.run { self.workspace(type).files.first { $0.id == id }?.estimating = true }
-                        let r = try? work(path)
-                        await MainActor.run {
-                            guard self.previewGeneration[type] == generation, let f = self.workspace(type).files.first(where: { $0.id == id }) else { return }
-                            f.estimating = false
-                            f.estimate = r?.0
-                            f.estimateKept = r?.1 ?? false
-                        }
-                    }
-                    return true
-                }
-                _ = next(); _ = next()
-                while await group.next() != nil { _ = next() }
-            }
-        }
-    }
-
-    /// 视频不试压：按码率 × 时长估算上限，不超过源码率。
-    func estimateVideo(_ item: FileItem, recipe: Recipe, ws: Workspace) -> UInt64? {
-        guard item.duration > 0 else { return nil }
-        let v = recipe.video
-        let range = ws.trim[item.url]
-        let duration = range.map { $0.upperBound - $0.lowerBound } ?? item.duration
-        if v.muteOnly {
-            let audio = item.hasAudio ? 128_000.0 * item.duration / 8 : 0
-            return UInt64(max(0, Double(item.bytes) - audio))
-        }
-        if v.outputFrames { return nil }
-        if v.codec == .gif {
-            let w = Double(v.gifWidth), h = w * Double(max(1, item.height)) / Double(max(1, item.width))
-            return UInt64(w * h * 0.35 * v.gifFps * duration)
-        }
-        var (w, h) = (Double(item.width), Double(item.height))
-        if let crop = ws.videoCrop[item.url] { (w, h) = (crop.width, crop.height) }
-        else if let c = v.crop, let a = c.aspect { if w / h > a { w = h * a } else { h = w / a } }
-        if let edge = v.shortEdge, Double(edge) < min(w, h) {
-            let s = Double(edge) / min(w, h)
-            w *= s; h *= s
-        }
-        let audioBps = (v.keepAudio && item.hasAudio) ? 128_000.0 : 0
-        var videoBps: Double
-        switch v.rate {
-        case .size:
-            return UInt64(v.targetMB * 1_000_000)
-        case .high: videoBps = 12_000_000
-        case .medium: videoBps = 6_000_000
-        case .low: videoBps = 3_000_000
-        }
-        videoBps *= (w * h) / (1920 * 1080)
-        if v.codec == .hevc { videoBps *= 0.6 }
-        if item.bitrate > 0 { videoBps = min(videoBps, Double(item.bitrate)) }
-        return UInt64((videoBps + audioBps) * duration / 8)
-    }
-
     // MARK: 开始、取消、撤销
 
     func start(_ ws: Workspace) {
@@ -312,6 +206,7 @@ final class AppModel {
         let recipe = ws.draft
         switch ws.type {
         case .image:
+            ws.planSources = engine.listFiles(inputs: ws.engineInputs, kind: .image)
             ws.job = engine.runImages(inputs: ws.engineInputs, place: place, naming: naming, settings: recipe.imageSettings(cropBoxes: ws.cropBoxes), listener: listener)
         case .video:
             // 剪辑里设的截取、裁切与封面按每段视频各自生效：逐段起任务。
@@ -398,7 +293,7 @@ final class AppModel {
         switch ws.type {
         case .video: return index < ws.files.count ? ws.files[index] : nil
         case .pdf: return index < ws.files.count ? ws.files[index] : nil
-        case .image: return nil
+        case .image: return index < ws.planSources.count ? ws.item(for: ws.planSources[index]) : nil
         }
     }
 

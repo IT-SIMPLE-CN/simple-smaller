@@ -619,8 +619,10 @@ impl Engine {
             *job.created_roots.lock().unwrap() = plan.created_roots.clone();
             let image_job = settings.job(&naming);
             let decoder = |p: &Path| self.decode(p);
+            // 开始处理某张时报 0 进度，界面据此把这一行标成「处理中」。
+            let on_start = |i: usize| listener.on_progress(i as u32, 0.0);
             let on_result = |r: &ItemResult| listener.on_item(JobItemResult::from(r));
-            let results = jobs::run_images(&plan, &image_job, &decoder, &on_result, &job.cancel);
+            let results = jobs::run_images(&plan, &image_job, &decoder, &on_start, &on_result, &job.cancel);
             *job.results.lock().unwrap() = results;
             job.finish(&listener);
         });

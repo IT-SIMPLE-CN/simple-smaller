@@ -37,10 +37,6 @@ final class FileItem: Identifiable {
     var metaError: String?
     var thumbnail: NSImage?
 
-    /// 试压 / 估算的输出体积；`estimateKept` 表示会保留原文件。
-    var estimate: UInt64?
-    var estimateKept = false
-    var estimating = false
 
     var state: State = .waiting
     var outputs: [Output] = []
@@ -78,6 +74,8 @@ final class Workspace {
 
     var job: Job?
     var running = false
+    /// 这一批任务里引擎展开后的文件顺序（进度回调按这个序号报）。
+    var planSources: [String] = []
     var finishedCount = 0
     var lastRunRoots: [URL] = []
 

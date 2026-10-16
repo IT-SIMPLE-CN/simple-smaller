@@ -62,7 +62,6 @@ struct SidebarView: View {
     private func apply(_ recipe: Recipe) {
         let ws = model.current
         ws.select(recipe: recipe)
-        model.schedulePreviews(ws.type)
     }
 }
 
@@ -150,8 +149,8 @@ struct RecipeRow: View {
 /// 边栏左下角的 IT·SIMPLE 小标，点了打开官网。
 struct BrandFooter: View {
     var body: some View {
+        // 不画分隔线：小标直接放在边栏材质上，避免和右侧底栏的线错位。
         VStack(spacing: 0) {
-            Divider()
             Link(destination: URL(string: "https://www.it-simple.cn/")!) {
                 HStack(spacing: 8) {
                     BrandMark().frame(width: 18, height: 17)
@@ -162,7 +161,7 @@ struct BrandFooter: View {
                     Spacer()
                 }
                 .padding(.horizontal, 18)
-                .frame(height: 44)
+                .frame(height: StatusBar.height)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

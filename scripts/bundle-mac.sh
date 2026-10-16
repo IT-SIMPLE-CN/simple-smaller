@@ -7,6 +7,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${1:-debug}"
 ARCH="$(uname -m)"
 cd "$ROOT/apps/mac"
+# 按本机 SDK 版本记链接记录，系统才会给 Liquid Glass（见 Package.swift）。
+export SMALLER_SDK_VERSION="$(xcrun --show-sdk-version)"
 swift build -c "$CONFIG" > "$ROOT/.local/swift-build.log" 2>&1 || { grep -E "error:" "$ROOT/.local/swift-build.log" | head -20; exit 1; }
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/SimpleSmaller"
 

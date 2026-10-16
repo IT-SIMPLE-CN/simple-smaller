@@ -6,6 +6,9 @@ import Foundation
 // 先跑 scripts/build-core-mac.sh 生成绑定与静态库，再 swift build。
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../..").standardizedFileURL.path
 
+// 链接用的 SDK 版本：打包脚本传 SMALLER_SDK_VERSION（xcrun --show-sdk-version），缺省按 26.0。
+let sdkVersion = ProcessInfo.processInfo.environment["SMALLER_SDK_VERSION"] ?? "26.0"
+
 let package = Package(
     name: "SimpleSmaller",
     platforms: [.macOS(.v14)],
@@ -26,7 +29,10 @@ let package = Package(
             name: "SimpleSmaller",
             dependencies: ["SmallerCore"],
             path: "Sources/SimpleSmaller",
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            // SwiftPM 会把链接记录里的 SDK 版本写成最低系统版本（14.0），系统据此把应用当旧应用、
+            // 不给 Liquid Glass。这里显式写明按新 SDK 链接；最低系统仍是 14。
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-platform_version", "-Xlinker", "macos", "-Xlinker", "14.0", "-Xlinker", sdkVersion])]
         ),
     ]
 )

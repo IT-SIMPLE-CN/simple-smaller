@@ -33,22 +33,23 @@ struct FileTableView: View {
                 }
                 .help(item.url.path)
             }
-            .width(min: 160, ideal: 220)
+            .width(min: 160)
             TableColumn(ws.type == .pdf ? "页数" : ws.type == .video ? "时长 · 尺寸" : "尺寸") { item in
                 Text(detail(item)).foregroundStyle(.secondary).monospacedDigit()
             }
-            .width(min: 70, ideal: ws.type == .video ? 130 : 90)
+            // 列宽按设计稿固定：尺寸 104、原大小 80、输出 80、变化 64、状态 92；名称列吃掉其余宽度。
+            .width(ws.type == .video ? 130 : 104)
             TableColumn("原大小") { item in
                 Text(Format.size(item.bytes)).foregroundStyle(.secondary).monospacedDigit()
             }
-            .width(min: 60, ideal: 72)
-            // 处理前是试压预估（只在内存里压、不写文件），写出后才叫「输出」。
-            TableColumn(ws.files.contains { $0.state == .done || $0.state == .kept } ? "输出" : "预估") { item in output(item) }
-                .width(min: 60, ideal: 72)
+            .width(80)
+            // 不做试压：点「开始」写出后才有输出体积。
+            TableColumn("输出") { item in output(item) }
+                .width(80)
             TableColumn("变化") { item in change(item) }
-                .width(min: 48, ideal: 56)
-            TableColumn("状态") { item in StateLabel(item: item) }
-                .width(min: 64, ideal: 84)
+                .width(64)
+            TableColumn("状态") { item in StateLabel(item: item, queued: ws.running) }
+                .width(92)
         }
         .contextMenu(forSelectionType: FileItem.ID.self) { ids in
             let items = ws.files.filter { ids.contains($0.id) }
@@ -58,9 +59,9 @@ struct FileTableView: View {
             model.reveal(ws.files.filter { ids.contains($0.id) }.flatMap(outputsOrSource))
         }
         .onDeleteCommand { if !ws.running { model.remove(ws.selection, from: ws) } }
-        // 只给有内容的行做底色，下面空白处保持干净；行边距与表头对齐。
+        // 与访达列表、设计稿一致：不画行线，用交替底色区分行。
         .tableStyle(.inset)
-        .alternatingRowBackgrounds(.disabled)
+        .alternatingRowBackgrounds(.enabled)
     }
 
     private func outputsOrSource(_ item: FileItem) -> [URL] {
@@ -83,42 +84,34 @@ struct FileTableView: View {
         case .kept:
             Text("—").foregroundStyle(.secondary)
         default:
-            if item.estimating {
-                ProgressView().controlSize(.mini)
-            } else if item.estimateKept {
-                Text("—").foregroundStyle(.secondary)
-            } else if let e = item.estimate, e > 0 {
-                Text((ws.type == .video ? "≤ " : "≈ ") + Format.size(e)).foregroundStyle(.secondary).monospacedDigit()
-                    .help("试压预估：点「开始」后才写出文件")
-            } else {
-                Text("—").foregroundStyle(.tertiary)
-            }
+            // 还没处理的行不写字（设计稿同）。
+            EmptyView()
         }
     }
 
     @ViewBuilder private func change(_ item: FileItem) -> some View {
-        let after: UInt64? = item.state == .done ? item.afterBytes : (item.estimateKept ? nil : item.estimate)
-        if item.state == .kept || item.estimateKept {
+        if item.state == .kept {
             Text(ws.type == .pdf ? "已很小" : "+0%").foregroundStyle(.secondary)
-        } else if let after, after > 0, item.bytes > 0 {
-            // 预估用浅一档的颜色，写出后才用实色。
-            Text(Format.change(item.bytes, after))
-                .foregroundStyle(after < item.bytes ? Color.saving : Color.warning)
-                .opacity(item.state == .done ? 1 : 0.7)
+        } else if item.state == .done, item.afterBytes > 0, item.bytes > 0 {
+            Text(Format.change(item.bytes, item.afterBytes))
+                .foregroundStyle(item.afterBytes < item.bytes ? Color.saving : Color.warning)
                 .monospacedDigit()
-        } else {
-            Text("—").foregroundStyle(.tertiary)
         }
     }
 }
 
 struct StateLabel: View {
     let item: FileItem
+    /// 处理中排队的行才写「等待」；还没点开始时留空。
+    var queued = true
 
     var body: some View {
         switch item.state {
         case .waiting:
-            Text("等待").foregroundStyle(.secondary)
+            if queued { Text("等待").foregroundStyle(.secondary) }
+        case .running(let p) where item.type == .image || p <= 0:
+            // 图片一张很快，没有中间进度，只标「处理中」。
+            Text("处理中").foregroundStyle(Color.brand)
         case .running(let p):
             HStack(spacing: 6) {
                 ProgressView(value: p).progressViewStyle(.linear).tint(.brand).frame(width: 40)
@@ -141,14 +134,16 @@ struct Thumb: View {
     let image: NSImage?
 
     var body: some View {
-        Group {
-            if let image {
-                Image(nsImage: image).resizable().scaledToFill()
-            } else {
-                Rectangle().fill(.quaternary)
+        // 先撑满外部给的方框再裁：横图、竖图都裁成方块，不会溢出。
+        Color.clear
+            .overlay {
+                if let image {
+                    Image(nsImage: image).resizable().scaledToFill()
+                } else {
+                    Rectangle().fill(.quaternary)
+                }
             }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
     }
 }
 
