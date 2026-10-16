@@ -194,6 +194,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let i = args.firstIndex(of: "--segment"), i + 1 < args.count {
                 AppModel.shared.openSegment(args[i + 1])
             }
+            // `--start`：读完文件信息后直接开始，供脚本化验证。
+            if args.contains("--start") {
+                try? await Task.sleep(for: .seconds(2))
+                AppModel.shared.start(AppModel.shared.current)
+            }
             // 带文件启动时 AppKit 按「打开文件」处理，SwiftUI 不会自动开主窗口。
             try? await Task.sleep(for: .milliseconds(300))
             if !NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeMain }) { WindowOpener.showMain() }

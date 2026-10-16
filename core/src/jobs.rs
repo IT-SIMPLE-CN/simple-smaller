@@ -335,6 +335,60 @@ fn same_format(format: OutputFormat, source: &Path) -> bool {
     )
 }
 
+/// 大图限流：一张 6000 万像素的图解码后约 250 MB，几张同时解会把内存吃满。
+/// 超过 2000 万像素（或读不出尺寸，如 HEIC）的图按内存限定同时处理的张数，小图不受影响。
+struct BigImageGate {
+    busy: Mutex<usize>,
+    freed: std::sync::Condvar,
+}
+
+static BIG_GATE: BigImageGate = BigImageGate { busy: Mutex::new(0), freed: std::sync::Condvar::new() };
+const BIG_PIXELS: u64 = 20_000_000;
+/// 按内存定同时处理几张大图：32 GB 以上 4 张，16 GB 以上 3 张，其余 2 张。
+fn big_parallel() -> usize {
+    static N: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *N.get_or_init(|| {
+        let mut mem: u64 = 0;
+        let mut len = std::mem::size_of::<u64>();
+        let name = c"hw.memsize";
+        let ok = unsafe { libc_sysctlbyname(name.as_ptr(), &mut mem as *mut u64 as *mut std::ffi::c_void, &mut len, std::ptr::null_mut(), 0) } == 0;
+        let gb = if ok { mem >> 30 } else { 8 };
+        if gb >= 32 { 4 } else if gb >= 16 { 3 } else { 2 }
+    })
+}
+
+unsafe extern "C" {
+    #[link_name = "sysctlbyname"]
+    fn libc_sysctlbyname(name: *const std::ffi::c_char, oldp: *mut std::ffi::c_void, oldlenp: *mut usize, newp: *mut std::ffi::c_void, newlen: usize) -> i32;
+}
+
+struct BigPermit;
+
+impl BigImageGate {
+    fn enter(&self) -> BigPermit {
+        let mut n = self.busy.lock().unwrap();
+        while *n >= big_parallel() {
+            n = self.freed.wait(n).unwrap();
+        }
+        *n += 1;
+        BigPermit
+    }
+}
+
+impl Drop for BigPermit {
+    fn drop(&mut self) {
+        *BIG_GATE.busy.lock().unwrap() -= 1;
+        BIG_GATE.freed.notify_one();
+    }
+}
+
+fn is_big(path: &Path) -> bool {
+    match image::ImageReader::open(path).and_then(|r| r.with_guessed_format()).map(|r| r.into_dimensions()) {
+        Ok(Ok((w, h))) => w as u64 * h as u64 > BIG_PIXELS,
+        _ => true,
+    }
+}
+
 fn process_image(
     index: usize,
     item: &PlannedItem,
@@ -342,6 +396,7 @@ fn process_image(
     decoder: Decoder,
     reserved: &Mutex<HashSet<PathBuf>>,
 ) -> ItemResult {
+    let _permit = is_big(&item.source).then(|| BIG_GATE.enter());
     let before_bytes = std::fs::metadata(&item.source).map(|m| m.len()).unwrap_or(0);
     let mut result = ItemResult { index, source: item.source.clone(), before_bytes, outputs: Vec::new(), status: ItemStatus::Done };
     let picture = match decoder(&item.source) {

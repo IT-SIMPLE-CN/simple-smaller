@@ -192,18 +192,14 @@ final class AppModel {
         Task.detached(priority: .userInitiated) {
             switch type {
             case .image:
-                var reason = "读不出这张图"
-                let meta: ImageMeta?
-                do { meta = try engine.imageMeta(path: path) } catch {
-                    meta = nil
-                    if let e = error as? EngineError { reason = e.userMessage }
-                }
+                // 只读文件头拿尺寸，不整张解码（30 张 6000 万像素的图同时整张解码要 6 GB 内存）。
+                let header = ImageHeader.read(path)
                 await MainActor.run {
-                    if let meta {
-                        item.width = Int(meta.width); item.height = Int(meta.height)
-                        item.hasAlpha = meta.hasAlpha; item.graphic = meta.graphic; item.bytes = meta.bytes
-                    } else {
-                        item.metaError = reason
+                    switch header {
+                    case .success(let h):
+                        item.width = h.width; item.height = h.height; item.hasAlpha = h.hasAlpha; item.bytes = h.bytes
+                    case .failure(let reason):
+                        item.metaError = reason.message
                         item.bytes = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? UInt64) ?? 0
                     }
                 }
@@ -432,6 +428,8 @@ final class AppModel {
         ProcessInfo.processInfo.endActivity(a)
         activity = nil
         updateDock()
+        // 大图处理完，分配器会把释放的大块内存留着备用（几百 MB）；空闲下来就还给系统。
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 1) { malloc_zone_pressure_relief(nil, 0) }
     }
 
     /// 主窗口任意一类在跑，或圆环 / 小窗直接处理的任务没完。

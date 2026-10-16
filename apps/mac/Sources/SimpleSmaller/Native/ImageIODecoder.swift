@@ -19,7 +19,8 @@ final class ImageIODecoder: PlatformDecoder, @unchecked Sendable {
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: max(w, h),
-            kCGImageSourceShouldCacheImmediately: true,
+            // 不让系统缓存解码结果：画进缓冲区后就不需要了。
+            kCGImageSourceShouldCache: false,
         ]
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
         let width = image.width, height = image.height
@@ -29,12 +30,16 @@ final class ImageIODecoder: PlatformDecoder, @unchecked Sendable {
             default: return true
             }
         }()
-        guard let srgb = CGColorSpace(name: CGColorSpace.sRGB),
-              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-                                      space: srgb, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        guard let data = context.data else { return nil }
-        var rgba = Data(bytes: data, count: width * height * 4)
+        // 直接画进最终交给引擎的缓冲区，不再多拷一份整图。
+        guard let srgb = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        var rgba = Data(count: width * height * 4)
+        let drawn: Bool = rgba.withUnsafeMutableBytes { raw in
+            guard let context = CGContext(data: raw.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: srgb, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
         if hasAlpha {
             // CoreGraphics 只给预乘的 RGBA，还原成引擎要的直通透明。
             rgba.withUnsafeMutableBytes { raw in
