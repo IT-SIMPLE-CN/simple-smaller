@@ -21,5 +21,8 @@ int smaller_pdf_assemble(const char **inputs, int input_count, const int *doc_in
 int smaller_pdf_render(const char *path, int page_index, int target_width, uint8_t **rgba,
                        int *width, int *height, char *err, size_t err_len);
 void smaller_pdf_free_pixels(uint8_t *rgba);
+// 图片转 PDF：每张图一页。page_mode 0 = 页面按图片尺寸（按 dpi 换算），1 = A4 竖版等比居中。
+int smaller_pdf_from_images(const uint8_t **images, const size_t *lengths, int count, int page_mode,
+                            float dpi, const char *output, char *err, size_t err_len);
 
 #endif

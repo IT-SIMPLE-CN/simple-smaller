@@ -26,6 +26,10 @@ unsafe extern "C" {
         rgba: *mut *mut u8, w: *mut c_int, h: *mut c_int, err: *mut c_char, err_len: usize,
     ) -> c_int;
     fn smaller_pdf_free_pixels(rgba: *mut u8);
+    fn smaller_pdf_from_images(
+        images: *const *const u8, lengths: *const usize, count: c_int, page_mode: c_int,
+        dpi: f32, output: *const c_char, err: *mut c_char, err_len: usize,
+    ) -> c_int;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -257,6 +261,77 @@ pub fn render_page(path: &Path, page: u32, width: u32) -> Result<Picture> {
     Ok(img::from_rgba(w as u32, h as u32, rgba, false, SourceFormat::VideoFrame))
 }
 
+// ---------- 图片转 PDF ----------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageMode {
+    /// 页面按图片尺寸，150 dpi 换算。
+    FitImage,
+    /// A4 竖版，图片等比放进页面并居中。
+    A4,
+}
+
+/// 每张图一页。JPG / PNG 原样嵌入不重新压缩；其他格式（HEIC、WebP、AVIF……）
+/// 先用 `decoder` 解码，再转成 JPEG（带透明的转 PNG）。
+pub fn images_to_pdf(
+    sources: &[PathBuf],
+    mode: PageMode,
+    output: &Path,
+    decoder: &dyn Fn(&Path) -> std::result::Result<Picture, String>,
+) -> Result<()> {
+    let mut blobs: Vec<Vec<u8>> = Vec::with_capacity(sources.len());
+    for src in sources {
+        let ext = src.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+        if matches!(ext.as_str(), "jpg" | "jpeg" | "png") {
+            blobs.push(std::fs::read(src)?);
+        } else {
+            let picture = decoder(src).map_err(PdfError::Mupdf)?;
+            let format = if picture.has_alpha { img::OutputFormat::Png } else { img::OutputFormat::Jpeg };
+            blobs.push(img::encode(&picture, format, 90, picture.has_alpha).map_err(|e| PdfError::Mupdf(e.to_string()))?);
+        }
+    }
+    let ptrs: Vec<*const u8> = blobs.iter().map(|b| b.as_ptr()).collect();
+    let lens: Vec<usize> = blobs.iter().map(|b| b.len()).collect();
+    let tmp = temp_path(output);
+    let o = cpath(&tmp);
+    let mode = match mode {
+        PageMode::FitImage => 0,
+        PageMode::A4 => 1,
+    };
+    let r = call(|e, n| unsafe {
+        smaller_pdf_from_images(ptrs.as_ptr(), lens.as_ptr(), ptrs.len() as c_int, mode, 150.0, o.as_ptr(), e, n)
+    })
+    .and_then(|_| Ok(std::fs::rename(&tmp, output)?));
+    if r.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    r
+}
+
+// ---------- PDF 转长图 ----------
+
+/// 逐页按同一宽度渲染后上下拼接；超过 `max_height` 时分成几张。
+pub fn render_long_image(path: &Path, width: u32, max_height: u32) -> Result<Vec<Picture>> {
+    let pages = info(path)?.pages;
+    let mut parts = Vec::new();
+    let mut rgba: Vec<u8> = Vec::new();
+    let mut height = 0u32;
+    for page in 0..pages {
+        let p = render_page(path, page, width)?;
+        if height > 0 && height + p.height > max_height {
+            parts.push(img::from_rgba(width, height, std::mem::take(&mut rgba), false, SourceFormat::VideoFrame));
+            height = 0;
+        }
+        // 单页本身就超过上限时照样单独成一张，交给编码器决定能不能写。
+        rgba.extend_from_slice(&p.rgba);
+        height += p.height;
+    }
+    if height > 0 {
+        parts.push(img::from_rgba(width, height, rgba, false, SourceFormat::VideoFrame));
+    }
+    Ok(parts)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -364,5 +439,39 @@ mod tests {
 
         let err = assemble(&[a], &[PageRef { doc: 0, page: 9 }], &dir.join("bad.pdf"), true).unwrap_err();
         assert!(err.to_string().contains("页码越界"), "{err}");
+    }
+
+    #[test]
+    fn 图片转_pdf_与长图() {
+        let dir = scratch("images");
+        let mut sources = Vec::new();
+        for (i, (w, h)) in [(600u32, 400u32), (300, 600)].iter().enumerate() {
+            let rgba: Vec<u8> = (0..w * h).flat_map(|k| [(k % 251) as u8, (i * 90) as u8, 120, 255]).collect();
+            let png = dir.join(format!("p{i}.png"));
+            image::save_buffer(&png, &rgba, *w, *h, image::ExtendedColorType::Rgba8).unwrap();
+            sources.push(png);
+        }
+        // 第三张是 WebP，要先转码再嵌入。
+        let webp = dir.join("p2.webp");
+        std::fs::write(&webp, img::encode(&img::load(&sources[0]).unwrap(), img::OutputFormat::Webp, 80, false).unwrap()).unwrap();
+        sources.push(webp);
+
+        let fit = dir.join("fit.pdf");
+        images_to_pdf(&sources, PageMode::FitImage, &fit, &|p| img::load(p).map_err(|e| e.to_string())).unwrap();
+        assert_eq!(info(&fit).unwrap().pages, 3);
+        let (w, h) = page_size(&fit, 1).unwrap();
+        assert!((w - 144.0).abs() < 0.5 && (h - 288.0).abs() < 0.5, "{w}×{h}");
+
+        let a4 = dir.join("a4.pdf");
+        images_to_pdf(&sources, PageMode::A4, &a4, &|p| img::load(p).map_err(|e| e.to_string())).unwrap();
+        let (w, h) = page_size(&a4, 0).unwrap();
+        assert!((w - 595.3).abs() < 0.5 && (h - 841.9).abs() < 0.5);
+
+        let parts = render_long_image(&fit, 300, 100_000).unwrap();
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0].width, 300);
+        assert!(parts[0].height > 900, "{}", parts[0].height);
+        let split = render_long_image(&fit, 300, 700).unwrap();
+        assert!(split.len() >= 2 && split.iter().all(|p| p.width == 300));
     }
 }

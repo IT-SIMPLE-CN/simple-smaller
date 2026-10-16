@@ -1,6 +1,7 @@
 // MuPDF 外壳。MuPDF 的错误处理基于 setjmp（fz_try / fz_catch），在这里接住，
 // 换成返回值与错误信息，不让异常跳转穿过 FFI。
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -268,3 +269,71 @@ int smaller_pdf_render(const char *path, int page_index, int target_width, uint8
 }
 
 void smaller_pdf_free_pixels(uint8_t *rgba) { free(rgba); }
+
+int smaller_pdf_from_images(const uint8_t **images, const size_t *lengths, int count, int page_mode,
+                            float dpi, const char *output, char *err, size_t err_len) {
+  fz_context *ctx = new_context();
+  if (ctx == NULL) {
+    set_error(NULL, err, err_len);
+    return -1;
+  }
+  int rc = 0;
+  pdf_document *doc = NULL;
+  fz_var(doc);
+  fz_try(ctx) {
+    doc = pdf_create_document(ctx);
+    for (int i = 0; i < count; ++i) {
+      fz_buffer *buf = NULL;
+      fz_image *image = NULL;
+      pdf_obj *resources = NULL;
+      fz_buffer *contents = NULL;
+      pdf_obj *page = NULL;
+      fz_var(buf);
+      fz_var(image);
+      fz_var(resources);
+      fz_var(contents);
+      fz_var(page);
+      fz_try(ctx) {
+        buf = fz_new_buffer_from_copied_data(ctx, images[i], lengths[i]);
+        // JPEG / PNG 的压缩数据原样嵌入，不重新编码。
+        image = fz_new_image_from_buffer(ctx, buf);
+        float iw = image->w * 72.0f / dpi, ih = image->h * 72.0f / dpi;
+        float pw = iw, ph = ih, x = 0, y = 0, w = iw, h = ih;
+        if (page_mode == 1) {
+          // A4 竖版，留 0 边距等比放进页面并居中。
+          pw = 595.276f;
+          ph = 841.89f;
+          float s = fminf(pw / iw, ph / ih);
+          w = iw * s;
+          h = ih * s;
+          x = (pw - w) / 2;
+          y = (ph - h) / 2;
+        }
+        resources = pdf_new_dict(ctx, doc, 1);
+        pdf_obj *xobjects = pdf_dict_put_dict(ctx, resources, PDF_NAME(XObject), 1);
+        pdf_dict_puts_drop(ctx, xobjects, "Im0", pdf_add_image(ctx, doc, image));
+        contents = fz_new_buffer(ctx, 64);
+        fz_append_printf(ctx, contents, "q %g 0 0 %g %g %g cm /Im0 Do Q", w, h, x, y);
+        page = pdf_add_page(ctx, doc, fz_make_rect(0, 0, pw, ph), 0, resources, contents);
+        pdf_insert_page(ctx, doc, -1, page);
+      }
+      fz_always(ctx) {
+        pdf_drop_obj(ctx, page);
+        fz_drop_buffer(ctx, contents);
+        pdf_drop_obj(ctx, resources);
+        fz_drop_image(ctx, image);
+        fz_drop_buffer(ctx, buf);
+      }
+      fz_catch(ctx) { fz_rethrow(ctx); }
+    }
+    pdf_write_options wo = compact_write_options();
+    pdf_save_document(ctx, doc, output, &wo);
+  }
+  fz_always(ctx) { pdf_drop_document(ctx, doc); }
+  fz_catch(ctx) {
+    set_error(ctx, err, err_len);
+    rc = -1;
+  }
+  fz_drop_context(ctx);
+  return rc;
+}
