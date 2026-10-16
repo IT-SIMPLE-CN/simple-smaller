@@ -36,6 +36,9 @@ enum MediaKind: String, CaseIterable, Identifiable {
     }
 }
 
+/// 全局一个引擎；HEIC 等交给 ImageIO。
+let engine = Engine(decoder: ImageIODecoder())
+
 struct LinkCheckView: View {
     @State private var kind: MediaKind? = .image
     @State private var result: String = "将图片拖到这里"
@@ -54,7 +57,7 @@ struct LinkCheckView: View {
                     .foregroundStyle(.secondary)
                 Text(result)
                     .font(.headline)
-                Text("引擎 \(engineVersion())")
+                Text("引擎 \(engine.version())")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -82,11 +85,21 @@ struct LinkCheckView: View {
     }
 
     private func probe(_ url: URL) {
-        do {
-            let info = try probeImage(path: url.path)
-            result = "\(url.lastPathComponent) · \(info.width) × \(info.height) · \(info.format)"
-        } catch {
-            result = "读不出这个文件：\(error.localizedDescription)"
+        result = "试压中…"
+        let path = url.path
+        Task.detached {
+            let settings = ImageSettings(format: .webp, quality: 78, lossless: false, targetBytes: nil,
+                                         sizes: [2560], sizeBy: .width, crop: nil, cropBoxes: [])
+            let text: String
+            do {
+                let meta = try engine.imageMeta(path: path)
+                let p = try engine.previewImage(path: path, settings: settings)
+                let fmt = ByteCountFormatter()
+                text = "\(url.lastPathComponent) · \(meta.width) × \(meta.height) · \(fmt.string(fromByteCount: Int64(p.beforeBytes))) → WebP \(p.width) × \(p.height) \(fmt.string(fromByteCount: Int64(p.bytes)))"
+            } catch {
+                text = "读不出这个文件：\(error)"
+            }
+            await MainActor.run { result = text }
         }
     }
 }

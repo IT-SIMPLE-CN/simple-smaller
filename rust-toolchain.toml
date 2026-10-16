@@ -1,0 +1,6 @@
+# 固定用 rustup 的官方工具链：官方标准库最低支持 macOS 11，并可编 Intel 版。
+# Homebrew 的 Rust 是按 macOS 26 编的，做出来的应用在 macOS 14 / 15 上打不开，不要用。
+[toolchain]
+channel = "1.97.1"
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+profile = "minimal"

@@ -114,7 +114,7 @@ pub struct PdfRecipe {
 pub enum CompressOutcome {
     /// 写出了新文件。
     Written { bytes: u64, level: CompressLevel },
-    /// 压完比原文件还大，保留原文件，没有写出。
+    /// 压完没有变小（省不到 2%），保留原文件，没有写出。
     KeptOriginal,
 }
 
@@ -142,6 +142,9 @@ fn compress_once(input: &Path, tmp: &Path, level: Option<CompressLevel>, recipe:
     }
     Ok(std::fs::metadata(tmp)?.len())
 }
+
+/// 输出至少要比原文件小 2% 才写出。
+const MIN_SAVING: f64 = 0.98;
 
 /// 限体积时逐档降的阶梯（dpi, 质量）。
 const LADDER: [(u32, u8); 6] = [(150, 75), (130, 70), (110, 68), (96, 62), (80, 55), (72, 50)];
@@ -176,7 +179,8 @@ pub fn compress(input: &Path, output: &Path, recipe: &PdfRecipe) -> Result<Compr
                 }
             }
         }
-        if size >= original {
+        // 省不到 2% 的不写出：对用户没有意义，只是多一个文件。
+        if size as f64 > original as f64 * MIN_SAVING {
             let _ = std::fs::remove_file(&tmp);
             return Ok(CompressOutcome::KeptOriginal);
         }

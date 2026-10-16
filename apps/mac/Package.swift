@@ -19,7 +19,8 @@ let package = Package(
             // 生成代码按 Swift 5 语义编，避免 Swift 6 严格并发检查报在生成文件上。
             swiftSettings: [.swiftLanguageMode(.v5)],
             // 直接给静态库的完整路径：用 -l 的话链接器会优先挑 target 目录里的同名 dylib。
-            linkerSettings: [.unsafeFlags(["\(root)/.local/lib/libsmaller_core.a"])]
+            // jpegli 是 C++ 写的，要带上 C++ 标准库。
+            linkerSettings: [.unsafeFlags(["\(root)/.local/lib/libsmaller_core.a", "-lc++"])]
         ),
         .executableTarget(
             name: "SimpleSmaller",
