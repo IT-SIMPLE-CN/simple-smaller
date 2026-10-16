@@ -62,6 +62,9 @@ struct FileTableView: View {
         // 与访达列表、设计稿一致：不画行线，用交替底色区分行。
         .tableStyle(.inset)
         .alternatingRowBackgrounds(.enabled)
+        .modifier(NoTopScrollEdge())
+        // 表格的滚动视图会延伸到工具栏下面、把表头底色画上去，和检查器上方一明一暗；裁在自己的区域内。
+        .clipped()
     }
 
     private func outputsOrSource(_ item: FileItem) -> [URL] {
@@ -207,5 +210,16 @@ struct Tag: View {
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
             .padding(.horizontal, 8)
+    }
+}
+
+/// macOS 26 的滚动边缘效果会让工具栏按表头取色，和右边检查器上方的底色一明一暗；关掉顶部这一侧。
+struct NoTopScrollEdge: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
     }
 }

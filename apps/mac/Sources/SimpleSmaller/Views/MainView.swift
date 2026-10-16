@@ -26,7 +26,8 @@ struct MainView: View {
                     InspectorFooter(ws: ws)
                 }
                 .frame(width: 300)
-                .background(Color(nsColor: .windowBackgroundColor))
+                // 底色只铺到工具栏下沿，不伸进工具栏：工具栏整条保持同一个底（深色下否则右上角发黑）。
+                .background(Color(nsColor: .windowBackgroundColor), ignoresSafeAreaEdges: [])
             }
             // 工具栏下沿的细线只画在详情区（列表 + 检查器），不伸进边栏，左上角不会断出缺口。
             .overlay(alignment: .top) { Divider() }
@@ -48,11 +49,7 @@ struct MainView: View {
             }
         }
         .animation(.smooth(duration: 0.3), value: model.toast)
-        // 窗口默认把第一个输入框设成初始焦点，一打开「文件名」就被选中；改成不聚焦任何输入框。
-        .task {
-            try? await Task.sleep(for: .milliseconds(80))
-            NSApp.keyWindow?.makeFirstResponder(nil)
-        }
+        .background(NoInitialFocus())
         .dropDestination(for: URL.self) { urls, _ in
             model.add(urls)
             return true
@@ -249,5 +246,22 @@ struct DetailView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// 窗口默认把第一个输入框设成初始焦点，一打开「文件名」就被选中。拿到所在窗口后清掉焦点。
+struct NoInitialFocus: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { Probe() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    final class Probe: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window else { return }
+            window.initialFirstResponder = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak window] in
+                if window?.firstResponder is NSText { window?.makeFirstResponder(nil) }
+            }
+        }
     }
 }
