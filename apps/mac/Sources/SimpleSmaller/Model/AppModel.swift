@@ -165,13 +165,18 @@ final class AppModel {
         Task.detached(priority: .userInitiated) {
             switch type {
             case .image:
-                let meta = try? engine.imageMeta(path: path)
+                var reason = "读不出这张图"
+                let meta: ImageMeta?
+                do { meta = try engine.imageMeta(path: path) } catch {
+                    meta = nil
+                    if let e = error as? EngineError { reason = e.userMessage }
+                }
                 await MainActor.run {
                     if let meta {
                         item.width = Int(meta.width); item.height = Int(meta.height)
                         item.hasAlpha = meta.hasAlpha; item.graphic = meta.graphic; item.bytes = meta.bytes
                     } else {
-                        item.metaError = "读不出这张图"
+                        item.metaError = reason
                         item.bytes = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? UInt64) ?? 0
                     }
                 }
@@ -213,12 +218,18 @@ final class AppModel {
 
     // MARK: 开始、取消、撤销
 
-    func start(_ ws: Workspace) {
+    /// 开始处理这一批；`retrying` 给出时只重做这几个（失败重试），其余结果保留。
+    func start(_ ws: Workspace, retrying: [FileItem]? = nil) {
         guard !ws.running, !ws.files.isEmpty else { return }
-        for f in ws.files { f.state = .waiting; f.outputs = [] }
+        let items = retrying ?? ws.files
+        for f in items { f.state = .waiting; f.outputs = [] }
         ws.running = true
-        ws.finishedCount = 0
-        ws.batchJobs = []
+        if retrying == nil {
+            ws.finishedCount = 0
+            ws.batchJobs = []
+        } else {
+            ws.finishedCount = ws.files.filter { [.done, .kept].contains($0.state) }.count
+        }
         var namingSettings = ws.draft.naming
         // 序列帧按「{name}_frames/{name}_0001」命名（设计稿 04b），不套用压缩时的后缀。
         if ws.type == .video, ws.draft.video.outputFrames { namingSettings.template = "{name}" }
@@ -235,52 +246,80 @@ final class AppModel {
             finished: { [weak self] in self?.finished(ws, started: started) }
         )
         let recipe = ws.draft
+        let merging = ws.type == .pdf && [.merge, .fromImages].contains(ws.pdfSegment)
+        // 每个文件该去的输出目录（拖入的文件夹照样进「文件夹-small」）。重试和视频逐段都靠它。
+        if retrying == nil, !merging {
+            let kind: Kind = ws.type == .image ? .image : ws.type == .video ? .video : .pdf
+            let targets = engine.planTargets(inputs: ws.engineInputs, kind: kind, place: place)
+            let dirs = Dictionary(targets.items.map { ($0.source, URL(fileURLWithPath: $0.outDir)) }, uniquingKeysWith: { a, _ in a })
+            for f in ws.files { f.outDir = dirs[f.url.path] }
+            ws.createdRoots = targets.createdRoots
+        }
+
+        // 失败重试：按原本的输出目录分组，逐组跑，结果落回同一个地方。
+        if let retrying, ws.type != .video, !merging {
+            let groups = Dictionary(grouping: retrying) { $0.outDir?.path ?? "" }
+            runGroups(ws, groups: groups.map { (paths: $0.value.map(\.url.path), place: $0.key.isEmpty ? place : Place.folder(path: $0.key)) },
+                      naming: naming, recipe: recipe, listener: listener)
+            return
+        }
+
         switch ws.type {
         case .image:
             ws.planSources = engine.listFiles(inputs: ws.engineInputs, kind: .image)
             ws.job = engine.runImages(inputs: ws.engineInputs, place: place, naming: naming, settings: recipe.imageSettings(cropBoxes: ws.cropBoxesForEngine), listener: listener)
             ws.batchJobs = ws.job.map { [$0] } ?? []
         case .video:
-            // 剪辑里设的截取、裁切与封面按每段视频各自生效：逐段起任务。
-            runVideos(ws, recipe: recipe, place: place, naming: naming, listener: listener)
+            // 剪辑里设的截取、裁切与封面按每段视频各自生效：逐段起任务，各自送到原本的输出目录。
+            runVideos(ws, items: items, recipe: recipe, place: place, naming: naming, listener: listener)
         case .pdf:
-            let operation: PdfOperation
-            switch ws.pdfSegment {
-            case .compress: operation = .compress(level: recipe.pdfLevel, targetBytes: recipe.pdfTargetBytes, subsetFonts: recipe.pdf.subsetFonts, grayscale: recipe.pdf.grayscale)
-            case .merge: operation = .assemble(pages: ws.pageOrder)
-            case .split: operation = .split(every: UInt32(max(1, recipe.pdf.splitEvery)))
-            case .toImages: operation = .toImages(width: UInt32(recipe.pdf.imageWidth), format: recipe.pdf.imageFormat.ffi, quality: UInt8(clamping: recipe.pdf.imageQuality), longImage: recipe.pdf.longImage)
-            case .fromImages: operation = .fromImages(pageMode: recipe.pdf.pageMode == .a4 ? .a4 : .fitImage)
-            }
-            let inputs = ws.pdfSegment == .fromImages ? ws.files.filter { $0.type == .image }.map(\.url.path) : ws.files.filter { $0.type == .pdf }.map(\.url.path)
-            ws.job = engine.runPdfs(inputs: inputs, place: place, naming: naming, settings: PdfSettings(operation: operation, stripMetadata: recipe.stripMetadata), listener: listener)
+            let inputs = ws.pdfSegment == .fromImages ? ws.files.filter { $0.type == .image }.map(\.url.path) : ws.engineInputs
+            ws.planSources = ws.pdfSegment == .fromImages ? inputs : engine.listFiles(inputs: inputs, kind: .pdf)
+            ws.job = engine.runPdfs(inputs: inputs, place: place, naming: naming, settings: pdfSettings(ws, recipe: recipe), listener: listener)
             ws.batchJobs = ws.job.map { [$0] } ?? []
         }
     }
 
-    private func runVideos(_ ws: Workspace, recipe: Recipe, place: Place, naming: Naming, listener: ListenerBridge) {
-        let items = ws.files
-        let engine = engine
-        // 视频逐段跑；每段一个任务，用同一个回调汇总。
-        let settingsList = items.map { item in
-            // 封面没单击指定时，取截取开头往后 1 秒（片头常是黑场）。
-            recipe.videoSettings(trim: ws.trim[item.url], crop: ws.videoCropBox(item),
-                                 coverAt: ws.coverAt[item.url] ?? (ws.trimRange(item).lowerBound + min(1, item.duration / 2)))
+    func pdfSettings(_ ws: Workspace, recipe: Recipe) -> PdfSettings {
+        let operation: PdfOperation
+        switch ws.pdfSegment {
+        case .compress: operation = .compress(level: recipe.pdfLevel, targetBytes: recipe.pdfTargetBytes, subsetFonts: recipe.pdf.subsetFonts, grayscale: recipe.pdf.grayscale)
+        case .merge: operation = .assemble(pages: ws.pageOrder)
+        case .split: operation = .split(every: UInt32(max(1, recipe.pdf.splitEvery)))
+        case .toImages: operation = .toImages(width: UInt32(recipe.pdf.imageWidth), format: recipe.pdf.imageFormat.ffi, quality: UInt8(clamping: recipe.pdf.imageQuality), longImage: recipe.pdf.longImage)
+        case .fromImages: operation = .fromImages(pageMode: recipe.pdf.pageMode == .a4 ? .a4 : .fitImage)
         }
-        let inputs = items.map(\.url.path)
+        return PdfSettings(operation: operation, stripMetadata: recipe.stripMetadata)
+    }
+
+    /// 失败的重试一遍（配方可以先改）。
+    func retryFailed(_ ws: Workspace) {
+        let failed = ws.files.filter { if case .failed = $0.state { return true }; return false }
+        guard !failed.isEmpty else { return }
+        // 文件可能已经换好了：重读一次尺寸与错误。
+        for f in failed { f.metaError = nil; loadMeta(f) }
+        start(ws, retrying: failed)
+    }
+
+    /// 按组逐个起任务（图片、PDF 的重试）；每组的进度按它自己的文件顺序对回列表。
+    private func runGroups(_ ws: Workspace, groups: [(paths: [String], place: Place)], naming: Naming, recipe: Recipe, listener: ListenerBridge) {
+        let engine = engine
+        let imageSettings = recipe.imageSettings(cropBoxes: ws.cropBoxesForEngine)
+        let pdf = pdfSettings(ws, recipe: recipe)
+        let type = ws.type
         Task.detached {
-            for (k, (path, settings)) in zip(inputs, settingsList).enumerated() {
+            for group in groups {
                 let done = DispatchSemaphore(value: 0)
                 let bridge = ListenerBridge(
-                    progress: { _, f in listener.progress(UInt32(k), f) },
-                    item: { r in
-                        var r = r
-                        r.index = UInt32(k)
-                        listener.item(r)
+                    progress: { i, f in
+                        if Int(i) < group.paths.count, let item = ws.item(for: group.paths[Int(i)]), item.state != .done { item.state = .running(f) }
                     },
+                    item: { r in listener.item(r) },
                     finished: { done.signal() }
                 )
-                let job = engine.runVideos(inputs: [path], place: place, naming: naming, settings: settings, listener: bridge)
+                let job = type == .image
+                    ? engine.runImages(inputs: group.paths, place: group.place, naming: naming, settings: imageSettings, listener: bridge)
+                    : engine.runPdfs(inputs: group.paths, place: group.place, naming: naming, settings: pdf, listener: bridge)
                 await MainActor.run { ws.job = job; ws.batchJobs.append(job) }
                 await withCheckedContinuation { c in DispatchQueue.global().async { done.wait(); c.resume() } }
                 if await MainActor.run(body: { ws.running == false }) { break }
@@ -289,7 +328,38 @@ final class AppModel {
         }
     }
 
-    /// 配方带画面比例、但这段没手动框时：居中取最大。
+    private func runVideos(_ ws: Workspace, items: [FileItem], recipe: Recipe, place: Place, naming: Naming, listener: ListenerBridge) {
+        let engine = engine
+        // 视频逐段跑；每段一个任务，用同一个回调汇总。
+        let jobs = items.map { item in
+            // 封面没单击指定时，取截取开头往后 1 秒（片头常是黑场）。
+            (path: item.url.path,
+             index: ws.files.firstIndex { $0.id == item.id } ?? 0,
+             place: item.outDir.map { Place.folder(path: $0.path) } ?? place,
+             settings: recipe.videoSettings(trim: ws.trim[item.url], crop: ws.videoCropBox(item),
+                                            coverAt: ws.coverAt[item.url] ?? (ws.trimRange(item).lowerBound + min(1, item.duration / 2))))
+        }
+        Task.detached {
+            for j in jobs {
+                let done = DispatchSemaphore(value: 0)
+                let bridge = ListenerBridge(
+                    progress: { _, f in listener.progress(UInt32(j.index), f) },
+                    item: { r in
+                        var r = r
+                        r.index = UInt32(j.index)
+                        listener.item(r)
+                    },
+                    finished: { done.signal() }
+                )
+                let job = engine.runVideos(inputs: [j.path], place: j.place, naming: naming, settings: j.settings, listener: bridge)
+                await MainActor.run { ws.job = job; ws.batchJobs.append(job) }
+                await withCheckedContinuation { c in DispatchQueue.global().async { done.wait(); c.resume() } }
+                if await MainActor.run(body: { ws.running == false }) { break }
+            }
+            await MainActor.run { listener.finished() }
+        }
+    }
+
     func cancel(_ ws: Workspace) {
         ws.job?.cancel()
         ws.running = false
@@ -300,11 +370,14 @@ final class AppModel {
         do {
             // 视频逐段各起一个任务，撤销要把这一批的每个任务都撤掉。
             for job in ws.batchJobs.isEmpty ? (ws.job.map { [$0] } ?? []) : ws.batchJobs { try job.undo() }
+            // 视频逐段按文件夹送出，新建的「文件夹-small」要另外清掉。
+            if ws.type == .video { try engine.trash(paths: ws.createdRoots) }
             for f in ws.files where f.state == .done || f.state == .kept { f.state = .waiting; f.outputs = [] }
             // 回到处理前：底栏不再显示上一批的结果。
             ws.finishedCount = 0
             ws.job = nil
             ws.batchJobs = []
+            ws.createdRoots = []
             flash("已撤销，\(files.count) 个新文件移到了废纸篓")
         } catch {
             flash("撤销失败：\(error.localizedDescription)")
@@ -322,7 +395,7 @@ final class AppModel {
     private func indexItem(_ ws: Workspace, _ index: Int) -> FileItem? {
         switch ws.type {
         case .video: return index < ws.files.count ? ws.files[index] : nil
-        case .pdf: return index < ws.files.count ? ws.files[index] : nil
+        case .pdf: return index < ws.planSources.count ? ws.item(for: ws.planSources[index]) : nil
         case .image: return index < ws.planSources.count ? ws.item(for: ws.planSources[index]) : nil
         }
     }
@@ -346,8 +419,10 @@ final class AppModel {
 
     private func finished(_ ws: Workspace, started: Date) {
         ws.running = false
-        let before = ws.files.reduce(0) { $0 + $1.bytes }
-        let after = ws.files.reduce(UInt64(0)) { $0 + ($1.state == .done ? $1.afterBytes : ($1.state == .kept ? $1.bytes : 0)) }
+        // 只统计处理成功的（失败的不算进前后体积）。
+        let ok = ws.files.filter { [.done, .kept].contains($0.state) }
+        let before = ok.reduce(0) { $0 + $1.bytes }
+        let after = ok.reduce(UInt64(0)) { $0 + ($1.state == .done ? $1.afterBytes : $1.bytes) }
         let title = ws.files.count == 1 ? ws.files[0].name : "\(ws.files.count) \(ws.type == .image ? "张图片" : ws.type == .video ? "段视频" : "个文件")"
         let outputs = ws.files.flatMap { $0.outputs.map { URL(fileURLWithPath: $0.path) } }
         recent.insert(RecentJob(title: title, recipe: ws.draft.name, before: before, after: after, date: Date(), outputs: outputs, thumbnail: ws.files.first?.thumbnail), at: 0)
@@ -378,4 +453,13 @@ struct RecentJob: Identifiable {
     let date: Date
     let outputs: [URL]
     let thumbnail: NSImage?
+}
+
+extension EngineError {
+    /// 给用户看的一句话（引擎已写成中文）。
+    var userMessage: String {
+        switch self {
+        case .Io(let m), .Unsupported(let m), .Failed(let m): m
+        }
+    }
 }

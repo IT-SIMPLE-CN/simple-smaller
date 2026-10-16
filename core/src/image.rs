@@ -98,6 +98,12 @@ pub fn load(path: &Path) -> Result<Picture, ImageError> {
     decode(&data)
 }
 
+/// 引擎自己认识的格式（解坏了就是文件有问题，不再交给系统兜底）。
+pub fn is_known_format(data: &[u8]) -> bool {
+    is_avif(data) || image::guess_format(data).is_ok_and(|f| matches!(f,
+        image::ImageFormat::Jpeg | image::ImageFormat::Png | image::ImageFormat::WebP | image::ImageFormat::Gif | image::ImageFormat::Tiff | image::ImageFormat::Bmp))
+}
+
 pub fn decode(data: &[u8]) -> Result<Picture, ImageError> {
     if is_avif(data) {
         let (rgba, width, height, has_alpha) =
@@ -117,6 +123,10 @@ pub fn decode(data: &[u8]) -> Result<Picture, ImageError> {
         Some(image::ImageFormat::Bmp) => SourceFormat::Bmp,
         other => return Err(ImageError::Decode(format!("不支持的格式 {other:?}"))),
     };
+    // JPEG 解码器遇到截断会把缺的部分补成灰色照样返回；没有结束标记（FFD9）就当文件不完整。
+    if source == SourceFormat::Jpeg && !data[data.len().saturating_sub(4096)..].windows(2).any(|w| w == [0xFF, 0xD9]) {
+        return Err(ImageError::Decode("文件不完整".into()));
+    }
     let mut decoder = reader.into_decoder().map_err(|e| ImageError::Decode(e.to_string()))?;
     let orientation = decoder.orientation().map_err(|e| ImageError::Decode(e.to_string()))?;
     let icc = decoder.icc_profile().ok().flatten();
@@ -428,6 +438,16 @@ mod tests {
             }
         }
         finish_picture(w, h, rgba, false, SourceFormat::Png)
+    }
+
+    #[test]
+    fn 截断的图片报错() {
+        let p = photo(320, 240);
+        let png = encode(&p, OutputFormat::Png, 100, true).unwrap();
+        assert!(decode(&png).is_ok());
+        assert!(decode(&png[..png.len() / 3]).is_err(), "截断的 PNG 不能当成功");
+        let jpg = encode(&p, OutputFormat::Jpeg, 90, false).unwrap();
+        assert!(decode(&jpg[..jpg.len() / 3]).is_err(), "截断的 JPEG 不能当成功");
     }
 
     #[test]

@@ -85,6 +85,9 @@ struct AppCommands: Commands {
             Button("取消") { model.cancel(model.current) }
                 .keyboardShortcut(".", modifiers: .command)
                 .disabled(!model.current.running)
+            Button("重试失败的") { model.retryFailed(model.current) }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .disabled(model.current.running || !model.current.files.contains { if case .failed = $0.state { return true }; return false })
             Button("撤销这一批") { model.undo(model.current) }
                 .disabled(model.current.job == nil || model.current.running)
             Divider()

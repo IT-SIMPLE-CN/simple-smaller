@@ -8,6 +8,9 @@ final class ImageIODecoder: PlatformDecoder, @unchecked Sendable {
     func decode(path: String) -> RawImage? {
         let url = URL(fileURLWithPath: path) as CFURL
         guard let source = CGImageSourceCreateWithURL(url, nil),
+              // 文件被截断时系统照样能「解」出一张缺了下半截（或全黑）的图，必须拒绝。
+              CGImageSourceGetStatus(source) == .statusComplete,
+              CGImageSourceGetStatusAtIndex(source, 0) == .statusComplete,
               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let w = props[kCGImagePropertyPixelWidth] as? Int,
               let h = props[kCGImagePropertyPixelHeight] as? Int else { return nil }

@@ -84,13 +84,41 @@ fn walk(dir: &Path, kind: MediaKind, out: &mut Vec<PathBuf>, skipped: &mut Vec<(
             continue;
         }
         if path.is_dir() {
-            if !is_package(&path) {
+            if is_previous_output_dir(&path) {
+                skipped.push((path, "之前的输出".into()));
+            } else if !is_package(&path) {
                 walk(&path, kind, out, skipped);
             }
         } else if media_kind(&path) == Some(kind) {
-            out.push(path);
+            if is_previous_output_file(&path) {
+                skipped.push((path, "之前的输出".into()));
+            } else {
+                out.push(path);
+            }
         }
     }
+}
+
+/// 本应用之前建的输出文件夹（「素材-small」「clip_frames」「提案-拆分」「提案-图片」，含 -2 这类编号）。
+/// 再次拖入上一级文件夹时跳过，不把结果再压一遍。
+fn is_previous_output_dir(path: &Path) -> bool {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let base = match name.rsplit_once('-') {
+        Some((head, tail)) if !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit()) => head.to_string(),
+        _ => name,
+    };
+    ["-small", "_frames", "-拆分", "-图片"].iter().any(|s| base.ends_with(s) && base.len() > s.len())
+}
+
+/// 「hero-small.webp」且同一文件夹里还有原图「hero.*」：是之前的输出，跳过。
+fn is_previous_output_file(path: &Path) -> bool {
+    let Some(stem) = path.file_stem().map(|s| s.to_string_lossy().into_owned()) else { return false };
+    let Some(original) = stem.strip_suffix("-small") else { return false };
+    let Some(dir) = path.parent() else { return false };
+    std::fs::read_dir(dir).map(|it| it.flatten().any(|e| {
+        let p = e.path();
+        p != path && p.file_stem().is_some_and(|s| s.to_string_lossy() == original)
+    })).unwrap_or(false)
 }
 
 /// 展开输入：文件直接收，文件夹递归收同类文件。
@@ -493,6 +521,21 @@ mod tests {
         undo(&results, &p.created_roots).unwrap();
         assert!(results[0].outputs.iter().all(|o| !o.path.exists()));
         assert!(src.exists());
+    }
+
+    #[test]
+    fn 文件夹里之前的输出不再处理() {
+        let dir = scratch("prev");
+        let src = dir.join("素材");
+        photo_file(&src.join("a.png"), 64, 48);
+        photo_file(&src.join("a-small.png"), 32, 24);
+        photo_file(&src.join("b-small.png"), 32, 24);
+        photo_file(&src.join("素材-small/a-small.png"), 32, 24);
+        photo_file(&src.join("旧-small-2/x.png"), 32, 24);
+        let p = plan(&[src.clone()], MediaKind::Image, &OutputPlace::BesideSource { folder_suffix: "-small".into() });
+        let names: Vec<String> = p.items.iter().map(|i| i.source.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        // b-small.png 没有对应原图，是用户自己的文件，照常处理。
+        assert_eq!(names, vec!["a.png", "b-small.png"], "{names:?}");
     }
 
     #[test]

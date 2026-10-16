@@ -39,6 +39,8 @@ final class FileItem: Identifiable {
 
 
     var state: State = .waiting
+    /// 这个文件的输出目录（开始时按引擎的展开规则算好，失败重试与视频逐段用）。
+    var outDir: URL?
     var outputs: [Output] = []
 
     init(url: URL, root: URL?, type: MediaType) {
@@ -75,6 +77,8 @@ final class Workspace {
     var job: Job?
     /// 这一批起过的全部任务（视频逐段各一个），撤销时逐个撤。
     var batchJobs: [Job] = []
+    /// 这一批新建的输出根目录（如「素材-small」）。
+    var createdRoots: [String] = []
     var running = false
     /// 这一批任务里引擎展开后的文件顺序（进度回调按这个序号报）。
     var planSources: [String] = []

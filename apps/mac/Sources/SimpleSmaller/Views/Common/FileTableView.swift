@@ -35,7 +35,10 @@ struct FileTableView: View {
             }
             .width(min: 160)
             TableColumn(ws.type == .pdf ? "页数" : ws.type == .video ? "时长 · 尺寸" : "尺寸") { item in
-                Text(detail(item)).foregroundStyle(.secondary).monospacedDigit()
+                Text(detail(item))
+                    .foregroundStyle(item.metaError == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.warning))
+                    .monospacedDigit()
+                    .help(item.metaError ?? "")
             }
             // 列宽按设计稿固定：尺寸 104、原大小 80、输出 80、变化 64、状态 92；名称列吃掉其余宽度。
             .width(ws.type == .video ? 150 : 104)

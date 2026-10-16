@@ -65,10 +65,19 @@ struct StatusBar: View {
             }
         case .finished:
             HStack(spacing: 6) {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.saving)
-                Text("\(ws.finishedCount) 个完成").foregroundStyle(.primary)
-                Text("·")
-                Text(sizes).monospacedDigit()
+                Image(systemName: okCount > 0 ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(okCount > 0 ? Color.saving : Color.warning)
+                if okCount > 0 {
+                    Text("\(okCount) 个完成").foregroundStyle(.primary)
+                }
+                if failedCount > 0 {
+                    if okCount > 0 { Text("·") }
+                    Text("\(failedCount) 个失败").foregroundStyle(Color.warning)
+                }
+                if okCount > 0 {
+                    Text("·")
+                    Text(sizes).monospacedDigit()
+                }
             }
         }
     }
@@ -77,6 +86,10 @@ struct StatusBar: View {
         switch phase {
         case .finished:
             HStack(spacing: 16) {
+                if failedCount > 0 {
+                    Button("重试失败的") { model.retryFailed(ws) }
+                        .help("按当前配方再处理一遍失败的文件；可以先改配方")
+                }
                 Button("在访达中显示") { model.reveal(ws.files.flatMap { $0.outputs.map { URL(fileURLWithPath: $0.path) } }) }
                 Button("撤销") { model.undo(ws) }
                     .help("把这一批写出的文件移到废纸篓")
@@ -99,14 +112,14 @@ struct StatusBar: View {
     }
 
     /// 「30.4 MB → 483 KB（−98%）」：只统计写出的结果，保留原文件的按原大小计。
+    private var okCount: Int { ws.files.filter { [.done, .kept].contains($0.state) }.count }
+    private var failedCount: Int { ws.files.filter { if case .failed = $0.state { return true }; return false }.count }
+
+    /// 只算处理成功的文件（失败的不进前后体积）。
     private var sizes: String {
-        let before = ws.files.reduce(UInt64(0)) { $0 + $1.bytes }
-        let after = ws.files.reduce(UInt64(0)) { sum, f in
-            switch f.state {
-            case .done: sum + f.afterBytes
-            default: sum + f.bytes
-            }
-        }
+        let ok = ws.files.filter { [.done, .kept].contains($0.state) }
+        let before = ok.reduce(UInt64(0)) { $0 + $1.bytes }
+        let after = ok.reduce(UInt64(0)) { $0 + ($1.state == .done ? $1.afterBytes : $1.bytes) }
         guard before > 0 else { return "—" }
         return "\(Format.size(before)) → \(Format.size(after))（\(Format.change(before, after))）"
     }

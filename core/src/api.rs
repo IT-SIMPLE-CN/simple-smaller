@@ -203,6 +203,18 @@ pub struct CropSetting {
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
+pub struct PlanTarget {
+    pub source: String,
+    pub out_dir: String,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct PlanTargets {
+    pub items: Vec<PlanTarget>,
+    pub created_roots: Vec<String>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct CropBox {
     pub path: String,
     pub x: u32,
@@ -539,6 +551,24 @@ impl Engine {
         PlanSummary { files: p.items.len() as u32, skipped: p.skipped.iter().map(|(path, why)| format!("{}：{why}", path.display())).collect() }
     }
 
+    /// 展开输入后每个文件的输出目录，以及会新建的输出根目录。视频逐段起任务、失败重试时用它
+    /// 把每个文件送到原本该去的地方（拖入文件夹的照样进「文件夹-small」）。
+    pub fn plan_targets(&self, inputs: Vec<String>, kind: Kind, place: Place) -> PlanTargets {
+        let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
+        let p = jobs::plan(&inputs, kind.into(), &(&place).into());
+        PlanTargets {
+            items: p.items.iter().map(|i| PlanTarget { source: i.source.to_string_lossy().into_owned(), out_dir: i.out_dir.to_string_lossy().into_owned() }).collect(),
+            created_roots: p.created_roots.iter().map(|r| r.to_string_lossy().into_owned()).collect(),
+        }
+    }
+
+    /// 把一批路径移到废纸篓（撤销时清掉新建的输出文件夹）。不存在的跳过。
+    pub fn trash(&self, paths: Vec<String>) -> Result<(), EngineError> {
+        let existing: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).filter(|p| p.exists()).collect();
+        if existing.is_empty() { return Ok(()); }
+        trash::delete_all(&existing).map_err(|e| EngineError::Failed { message: e.to_string() })
+    }
+
     /// 展开输入后实际会处理的文件（与任务用同一套规则）。
     pub fn list_files(&self, inputs: Vec<String>, kind: Kind) -> Vec<String> {
         let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
@@ -695,7 +725,12 @@ impl Engine {
         }
         match img::load(path) {
             Ok(p) => Ok(p),
-            Err(e) => platform(path).ok_or_else(|| e.to_string()),
+            Err(e) => {
+                // 引擎认识的格式解坏了，说明文件有问题（截断、损坏），直接报错；系统解码会把缺的部分补黑。
+                let known = std::fs::read(path).map(|d| img::is_known_format(&d)).unwrap_or(false);
+                if known { return Err(friendly_decode_error(&e.to_string())); }
+                platform(path).ok_or_else(|| e.to_string())
+            }
         }
     }
 
@@ -1039,5 +1074,15 @@ mod tests {
         let meta = Engine::new(Some(Arc::new(Fake))).image_meta(heic.to_string_lossy().into()).unwrap();
         assert_eq!((meta.width, meta.height), (4, 2));
         assert!(Engine::new(None).image_meta(heic.to_string_lossy().into()).is_err());
+    }
+}
+
+/// 解码错误写成用户能看懂的话。
+fn friendly_decode_error(raw: &str) -> String {
+    let lower = raw.to_lowercase();
+    if lower.contains("不完整") || lower.contains("eof") || lower.contains("unexpected end") || lower.contains("truncat") {
+        "文件不完整，可能没下载完".into()
+    } else {
+        "文件损坏，读不出来".into()
     }
 }
