@@ -83,7 +83,8 @@ struct MainView: View {
         guard !ws.files.isEmpty else { return "没有文件" }
         var parts = ["\(ws.files.count) 个文件"]
         if ws.type == .pdf, ws.pdfSegment != .fromImages {
-            parts.append("\(ws.files.reduce(0) { $0 + $1.pages }) 页")
+            // 合并时写删页、排序之后的页数。
+            parts.append("\(ws.pdfSegment == .merge ? ws.pageOrder.count : ws.files.reduce(0) { $0 + $1.pages }) 页")
         }
         parts.append(Format.size(ws.totalBytes))
         return parts.joined(separator: " · ")
@@ -272,19 +273,41 @@ struct DetailView: View {
     }
 }
 
-/// 窗口默认把第一个输入框设成初始焦点，一打开「文件名」就被选中。拿到所在窗口后清掉焦点。
+/// 窗口默认把第一个输入框设成初始焦点，一打开「文件名」就被选中。
+/// 在用户第一次点击或按 Tab 之前，窗口每次变前台、内容换了都把这种自动焦点清掉。
 struct NoInitialFocus: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { Probe() }
     func updateNSView(_ nsView: NSView, context: Context) {}
 
     final class Probe: NSView {
+        private var userActed = false
+        private var monitor: Any?
+        private var observers: [NSObjectProtocol] = []
+
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            guard let window else { return }
+            guard let window, monitor == nil else { return }
             window.initialFirstResponder = nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak window] in
-                if window?.firstResponder is NSText { window?.makeFirstResponder(nil) }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .keyDown]) { [weak self] e in
+                if e.type == .leftMouseDown || e.keyCode == 48 { self?.userActed = true }   // 48 = Tab
+                return e
             }
+            for name in [NSWindow.didBecomeKeyNotification, NSWindow.didUpdateNotification] {
+                observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.clear() }
+                })
+            }
+            clear()
+        }
+
+        private func clear() {
+            guard !userActed, let window, window.firstResponder is NSText else { return }
+            window.makeFirstResponder(nil)
+        }
+
+        deinit {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            observers.forEach(NotificationCenter.default.removeObserver)
         }
     }
 }

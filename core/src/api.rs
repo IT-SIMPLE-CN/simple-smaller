@@ -919,10 +919,19 @@ impl Engine {
                             };
                             pictures.and_then(|pictures| {
                                 let total = pictures.len();
+                                // 逐页的多张图放进「原名-图片」文件夹；长图（通常一张）放在旁边。编号按张数补零。
+                                let digits = total.to_string().len().max(2);
+                                let dir = if !*long_image && total > 1 {
+                                    let d = naming::unique_path(&item.out_dir, &format!("{name}-图片"), "", &mut reserved);
+                                    let _ = std::fs::create_dir_all(&d);
+                                    d
+                                } else {
+                                    item.out_dir.clone()
+                                };
                                 for (k, picture) in pictures.into_iter().enumerate() {
                                     let bytes = img::encode(&picture, format, *quality, false).map_err(|e| e.to_string())?;
-                                    let stem = if total == 1 { name.clone() } else { format!("{name}-{}", k + 1) };
-                                    let path = naming::unique_path(&item.out_dir, &stem, ext_for(format), &mut reserved);
+                                    let stem = if total == 1 { name.clone() } else { format!("{name}-{:0digits$}", k + 1) };
+                                    let path = naming::unique_path(&dir, &stem, ext_for(format), &mut reserved);
                                     jobs::write_atomic(&path, &bytes).map_err(|e| e.to_string())?;
                                     result.outputs.push(OutputFile { path, bytes: bytes.len() as u64, width: picture.width, height: picture.height });
                                     listener.on_progress(i as u32, (k + 1) as f64 / total as f64);

@@ -130,6 +130,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let i = args.firstIndex(of: "--type"), i + 1 < args.count, let t = MediaType(rawValue: args[i + 1]) {
                 AppModel.shared.selectedType = t
             }
+            // `--recipe <配方 id>`：选中某个配方，供脚本化验证。
+            if let i = args.firstIndex(of: "--recipe"), i + 1 < args.count, let r = AppModel.shared.store.recipe(id: args[i + 1]) {
+                AppModel.shared.selectedType = r.type
+                AppModel.shared.current.select(recipe: r)
+            }
             // `--segment <分段名>`（如「裁切」）：直接进某个分段，供脚本化验证。
             if let i = args.firstIndex(of: "--segment"), i + 1 < args.count {
                 AppModel.shared.openSegment(args[i + 1])

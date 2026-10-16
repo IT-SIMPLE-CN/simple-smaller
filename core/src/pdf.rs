@@ -246,9 +246,12 @@ pub fn split_every(input: &Path, n: u32, out_dir: &Path, strip_metadata: bool) -
     let stem = input.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "document".into());
     let mut written = Vec::new();
     let inputs = vec![input.to_path_buf()];
+    // 编号按份数补零（12 份写 01–12），访达里按名字排也是对的。
+    let parts = total.div_ceil(n.max(1)).max(1);
+    let digits = parts.to_string().len().max(2);
     for (k, start) in (0..total).step_by(n.max(1) as usize).enumerate() {
         let pages: Vec<PageRef> = (start..(start + n).min(total)).map(|p| PageRef { doc: 0, page: p }).collect();
-        let out = out_dir.join(format!("{stem}-{}.pdf", k + 1));
+        let out = out_dir.join(format!("{stem}-{:0digits$}.pdf", k + 1));
         assemble(&inputs, &pages, &out, strip_metadata)?;
         written.push(out);
     }
@@ -435,6 +438,7 @@ mod tests {
         assert_eq!(parts.len(), 2);
         assert_eq!(info(&parts[0]).unwrap().pages, 2);
         assert_eq!(info(&parts[1]).unwrap().pages, 1);
+        assert_eq!(parts[0].file_name().unwrap().to_string_lossy(), "merged-01.pdf");
 
         let (w, h) = page_size(&a, 0).unwrap();
         assert!((w - 576.0).abs() < 1.0 && (h - 384.0).abs() < 1.0, "{w}×{h}");

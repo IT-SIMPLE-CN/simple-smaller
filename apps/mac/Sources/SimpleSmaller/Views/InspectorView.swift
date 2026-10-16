@@ -332,6 +332,15 @@ struct OutputSection: View {
     @Environment(AppModel.self) private var model
     @Bindable var ws: Workspace
 
+    private var fixedName: String? {
+        guard ws.type == .pdf else { return nil }
+        switch ws.pdfSegment {
+        case .split: return "{name}-拆分/{name}-01"
+        case .toImages: return ws.draft.pdf.longImage ? "{name}-长图" : "{name}-图片/{name}-01"
+        default: return nil
+        }
+    }
+
     var body: some View {
         InspectorSection(title: "输出") {
             InspectorRow(label: "位置") {
@@ -339,15 +348,26 @@ struct OutputSection: View {
                     .foregroundStyle(.secondary)
                     .truncationMode(.middle)
             }
-            InspectorRow(label: "文件名") {
-                TextField("", text: $ws.draft.naming.template)
-                    .textFieldStyle(.plain)
-                    .font(.system(.body, design: .monospaced))
-                    .multilineTextAlignment(.trailing)
+            if let fixed = fixedName {
+                // 拆分、转图片按固定规则命名（文件夹 + 编号），不用配方里的模板。
+                InspectorRow(label: "文件名") {
+                    Text(verbatim: fixed).font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.head)
+                }
+            } else {
+                InspectorRow(label: "文件名") {
+                    TextField("", text: $ws.draft.naming.template)
+                        .textFieldStyle(.plain)
+                        .font(.system(.body, design: .monospaced))
+                        .multilineTextAlignment(.trailing)
+                }
             }
             if ws.type == .image {
                 InspectorRow(label: "去掉位置与设备信息") { Text("始终").foregroundStyle(.secondary) }
                     .help("图片重新编码时一律不带原图的位置与设备信息")
+            } else if ws.type == .pdf {
+                // PDF 的同一项写在「选项」/「合并」里（去掉作者与修改记录）。
+                EmptyView()
             } else {
                 InspectorToggle(label: "去掉位置与设备信息", isOn: $ws.draft.stripMetadata)
             }

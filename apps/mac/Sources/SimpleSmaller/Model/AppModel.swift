@@ -216,6 +216,10 @@ final class AppModel {
         var namingSettings = ws.draft.naming
         // 序列帧按「{name}_frames/{name}_0001」命名（设计稿 04b），不套用压缩时的后缀。
         if ws.type == .video, ws.draft.video.outputFrames { namingSettings.template = "{name}" }
+        // 拆分放进「原名-拆分」文件夹，里面按「原名-01」编号。
+        if ws.type == .pdf, ws.pdfSegment == .split { namingSettings.template = "{name}" }
+        // 转图片：逐页放进「原名-图片」，长图叫「原名-长图」。
+        if ws.type == .pdf, ws.pdfSegment == .toImages { namingSettings.template = ws.draft.pdf.longImage ? "{name}-长图" : "{name}" }
         let naming = namingSettings.ffi(date: Format.today)
         let place = settings.place
         let started = Date()
