@@ -25,7 +25,8 @@ let package = Package(
         .executableTarget(
             name: "SimpleSmaller",
             dependencies: ["SmallerCore"],
-            path: "Sources/SimpleSmaller"
+            path: "Sources/SimpleSmaller",
+            swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]
 )

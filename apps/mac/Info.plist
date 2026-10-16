@@ -18,6 +18,10 @@
 	<string>__BUILD__</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>NSAccentColorName</key>
+	<string>AccentColor</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>zh_CN</string>
 	<key>LSMinimumSystemVersion</key>

@@ -587,6 +587,23 @@ impl Engine {
         Ok(PdfMeta { pages: i.pages, needs_password: i.needs_password, bytes: file_bytes(Path::new(&path)) })
     }
 
+    /// 预估 PDF 压缩后的体积：压到临时文件再删掉。返回 None 表示会保留原文件（已经很小）。
+    pub fn estimate_pdf(&self, path: String, level: PdfLevel, target_bytes: Option<u64>, subset_fonts: bool, grayscale: bool) -> Result<Option<u64>, EngineError> {
+        let level = match level {
+            PdfLevel::Screen => pdf::CompressLevel::SCREEN,
+            PdfLevel::Email => pdf::CompressLevel::EMAIL,
+            PdfLevel::Print => pdf::CompressLevel::PRINT,
+        };
+        let tmp = std::env::temp_dir().join(format!("smaller-estimate-{}-{}.pdf", std::process::id(), modified_secs(Path::new(&path))));
+        let recipe = pdf::PdfRecipe { level, target_bytes, subset_fonts, strip_metadata: true, grayscale };
+        let r = pdf::compress(Path::new(&path), &tmp, &recipe).map_err(|e| EngineError::Failed { message: e.to_string() })?;
+        let _ = std::fs::remove_file(&tmp);
+        Ok(match r {
+            pdf::CompressOutcome::Written { bytes, .. } => Some(bytes),
+            pdf::CompressOutcome::KeptOriginal => None,
+        })
+    }
+
     /// 渲染 PDF 某一页（缩略图用）。
     pub fn pdf_page_image(&self, path: String, page: u32, width: u32) -> Result<RawImage, EngineError> {
         let p = pdf::render_page(Path::new(&path), page, width).map_err(|e| EngineError::Failed { message: e.to_string() })?;

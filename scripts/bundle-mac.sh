@@ -16,6 +16,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin"
 cp "$BIN" "$APP/Contents/MacOS/SimpleSmaller"
 cp "$ROOT/.local/ffmpeg/$ARCH/bin/ffmpeg" "$ROOT/.local/ffmpeg/$ARCH/bin/ffprobe" "$APP/Contents/Resources/bin/"
 cp "$ROOT/apps/mac/Resources/"* "$APP/Contents/Resources/" 2>/dev/null || true
+# 强调色（品牌红）与应用图标编成 Assets.car：系统按 macOS 规则在开关、滑杆、进度、选中处用强调色。
+xcrun actool "$ROOT/apps/mac/Assets.xcassets" --compile "$APP/Contents/Resources" --platform macosx \
+  --minimum-deployment-target 14.0 --app-icon AppIcon --accent-color AccentColor \
+  --output-partial-info-plist "$ROOT/.local/assets-partial.plist" > "$ROOT/.local/actool.log" 2>&1
 VERSION="$(grep '^version' "$ROOT/Cargo.toml" | head -1 | cut -d'"' -f2)"
 BUILD="$(git -C "$ROOT" rev-list --count HEAD)"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" "$ROOT/apps/mac/Info.plist" > "$APP/Contents/Info.plist"
