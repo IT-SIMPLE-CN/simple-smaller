@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import OSLog
 import QuickLookThumbnailing
 import SmallerCore
 
@@ -25,6 +26,7 @@ final class ListenerBridge: JobListener, @unchecked Sendable {
 @MainActor
 final class AppModel {
     static let shared = AppModel()
+    static let log = Logger(subsystem: "cn.it-simple.smaller", category: "job")
 
     let engine = Engine(decoder: ImageIODecoder())
     let store = RecipeStore()
@@ -250,6 +252,7 @@ final class AppModel {
     /// 开始处理这一批；`retrying` 给出时只重做这几个（失败重试），其余结果保留。
     func start(_ ws: Workspace, retrying: [FileItem]? = nil) {
         guard !ws.running, !ws.files.isEmpty else { return }
+        Self.log.info("开始 \(ws.type.title, privacy: .public)：\(ws.files.count) 个文件，配方「\(ws.draft.name, privacy: .public)」")
         let items = retrying ?? ws.files
         for f in items { f.state = .waiting; f.outputs = [] }
         ws.running = true
@@ -531,10 +534,15 @@ final class AppModel {
         let item = ws.type == .video ? indexItem(ws, Int(r.index)) : (ws.item(for: r.source) ?? indexItem(ws, Int(r.index)))
         guard let item else { return }
         item.outputs = r.outputs
+        if r.state != .failed {
+            Self.log.info("\(item.name, privacy: .public)：\(String(describing: r.state), privacy: .public)，\(r.outputs.count) 个输出")
+        }
         switch r.state {
         case .done: item.state = .done
         case .keptOriginal: item.state = .kept
-        case .failed: item.state = .failed(r.message ?? "失败")
+        case .failed:
+            item.state = .failed(r.message ?? "失败")
+            Self.log.error("处理失败 \(item.name, privacy: .public)：\(r.message ?? "", privacy: .public)")
         case .cancelled: item.state = .cancelled
         }
         // 合并、图片转 PDF 只出一个结果：其余文件也算完成。

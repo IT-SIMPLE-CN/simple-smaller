@@ -146,7 +146,7 @@ struct StateLabel: View {
             Text(item.outputs.count > 1 ? "\(item.outputs.count) 个文件" : "完成").foregroundStyle(Color.saving)
         case .kept:
             Text(item.type == .image ? "保留原图" : "保留原文件").foregroundStyle(Color.warning)
-                .help("压完没有变小，原文件保持不动")
+                .help("不用处理：压完没有变小，或已经符合配方（比如本来就没有声音），原文件保持不动")
         case .failed(let message):
             Text("失败").foregroundStyle(Color.warning).help(message)
         case .cancelled:

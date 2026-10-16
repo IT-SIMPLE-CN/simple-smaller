@@ -830,6 +830,11 @@ impl Engine {
                     }
                 })
             }
+            // 本来就没有声音：不用处理，保留原文件。
+            VideoOutput::Mute if !info.has_audio => {
+                result.status = ItemStatus::KeptOriginal;
+                Ok(())
+            }
             VideoOutput::Mute => {
                 let ext = item.source.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_else(|| "mp4".into());
                 let ext = if ext == "mov" || ext == "m4v" { ext } else { "mp4".into() };
