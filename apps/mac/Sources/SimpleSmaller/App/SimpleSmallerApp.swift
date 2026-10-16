@@ -110,6 +110,12 @@ enum FilePicker {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // 系统的自动填充启发式会在输入框获得焦点时建一个浮窗，没有可填的内容时就空着露在屏幕边上。
+        // 本应用的输入框（文件名、尺寸）都用不到自动填充，整体关掉。
+        UserDefaults.standard.register(defaults: ["NSAutoFillHeuristicControllerEnabled": false])
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 验证用：`SMALLER_APPEARANCE=light|dark` 强制外观，不动系统设置。
         switch ProcessInfo.processInfo.environment["SMALLER_APPEARANCE"] {
