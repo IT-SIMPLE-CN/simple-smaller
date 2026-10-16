@@ -9,6 +9,8 @@ pub mod ffi;
 pub mod image;
 pub mod video;
 pub mod pdf;
+pub mod naming;
+pub mod jobs;
 
 /// 引擎对外报错。界面按种类给出提示，`message` 只用于日志。
 #[derive(Debug, thiserror::Error, uniffi::Error)]

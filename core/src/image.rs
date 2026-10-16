@@ -206,6 +206,39 @@ pub fn resize(picture: &Picture, mode: SizeMode, size: u32) -> Result<Picture, I
     Ok(Picture { width: nw, height: nh, rgba: dst.into_vec(), ..picture.clone() })
 }
 
+// ---------- 裁切 ----------
+
+/// 裁切框，原图像素坐标。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CropRect {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// 按宽高比在图里取居中、最大的框（裁切的默认框）。
+pub fn center_max_rect(width: u32, height: u32, aspect: f64) -> CropRect {
+    let (w, h) = (width as f64, height as f64);
+    let (cw, ch) = if w / h > aspect { (h * aspect, h) } else { (w, w / aspect) };
+    let (cw, ch) = (cw.round().max(1.0) as u32, ch.round().max(1.0) as u32);
+    CropRect { x: (width - cw.min(width)) / 2, y: (height - ch.min(height)) / 2, width: cw.min(width), height: ch.min(height) }
+}
+
+/// 裁出一块；框超出画面时收进画面里。
+pub fn crop(picture: &Picture, rect: CropRect) -> Picture {
+    let x = rect.x.min(picture.width.saturating_sub(1));
+    let y = rect.y.min(picture.height.saturating_sub(1));
+    let w = rect.width.min(picture.width - x).max(1);
+    let h = rect.height.min(picture.height - y).max(1);
+    let mut rgba = Vec::with_capacity(w as usize * h as usize * 4);
+    for row in y..y + h {
+        let start = (row as usize * picture.width as usize + x as usize) * 4;
+        rgba.extend_from_slice(&picture.rgba[start..start + w as usize * 4]);
+    }
+    Picture { width: w, height: h, rgba, ..picture.clone() }
+}
+
 // ---------- 编码 ----------
 
 pub fn resolve_format(format: OutputFormat, picture: &Picture) -> OutputFormat {
@@ -417,6 +450,16 @@ mod tests {
             let bytes = encode(&p, format, 70, false).unwrap();
             assert!(decode(&bytes).unwrap().has_alpha, "{format:?} 丢了透明");
         }
+    }
+
+    #[test]
+    fn 居中最大裁切框() {
+        assert_eq!(center_max_rect(6000, 4000, 0.75), CropRect { x: 1500, y: 0, width: 3000, height: 4000 });
+        assert_eq!(center_max_rect(1000, 3000, 1.0), CropRect { x: 0, y: 1000, width: 1000, height: 1000 });
+        let p = photo(400, 200);
+        let c = crop(&p, CropRect { x: 350, y: 150, width: 200, height: 200 });
+        assert_eq!((c.width, c.height), (50, 50));
+        assert_eq!(&c.rgba[..4], &p.rgba[(150 * 400 + 350) * 4..(150 * 400 + 350) * 4 + 4]);
     }
 
     #[test]

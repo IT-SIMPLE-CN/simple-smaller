@@ -30,7 +30,7 @@
 
 - 图片：jpegli（JPEG）、libwebp 1.6、libavif + aom（tune=iq）、libimagequant + oxipng（PNG）、fast_image_resize、moxcms；HEIC：mac 用 ImageIO，Windows 优先系统扩展，缺失才用 libde265。
 - 视频：FFmpeg GPL 构建，作为独立进程。H.264 默认 x264 两遍编码；HEVC 只走系统 / 显卡硬件编码（规避专利，不内置 x265）；4K 长片默认硬件；GIF 用 gifski。
-- PDF：MuPDF（图片降采样重压、字体子集化、JBIG2）+ qpdf（无损优化）+ PDFium（缩略图、转图片）。
+- PDF：只用 MuPDF（图片降采样重压、字体子集化、去重保存、组装页面、渲染缩略图与转图片）。实测后不再需要 qpdf 与 PDFium，见 `docs/codecs.md`。
 - 随包引擎的源码与许可证声明同步公开。
 
 ## 体验标准
