@@ -1,22 +1,32 @@
 #!/bin/bash
 # 把 swift build 的产物装成 SimpleSmaller.app（Info.plist、随包 ffmpeg、临时签名）。
-# 用法：scripts/bundle-mac.sh [debug|release]，默认 debug。产物在 .local/app/SimpleSmaller.app。
+# 用法：scripts/bundle-mac.sh [debug|release] [universal]，默认 debug、本机架构。产物在 .local/app/SimpleSmaller.app。
+# universal：arm64 + x86_64 通用包（先跑 scripts/build-core-mac.sh release universal）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${1:-debug}"
+UNIVERSAL="${2:-}"
+ARCH_FLAGS=""
+[ "$UNIVERSAL" = "universal" ] && ARCH_FLAGS="--arch arm64 --arch x86_64"
 ARCH="$(uname -m)"
 cd "$ROOT/apps/mac"
 # 按本机 SDK 版本记链接记录，系统才会给 Liquid Glass（见 Package.swift）。
 export SMALLER_SDK_VERSION="$(xcrun --show-sdk-version)"
-swift build -c "$CONFIG" > "$ROOT/.local/swift-build.log" 2>&1 || { grep -E "error:" "$ROOT/.local/swift-build.log" | head -20; exit 1; }
-BIN="$(swift build -c "$CONFIG" --show-bin-path)/SimpleSmaller"
+swift build -c "$CONFIG" $ARCH_FLAGS > "$ROOT/.local/swift-build.log" 2>&1 || { grep -E "error:" "$ROOT/.local/swift-build.log" | head -20; exit 1; }
+BIN="$(swift build -c "$CONFIG" $ARCH_FLAGS --show-bin-path)/SimpleSmaller"
 
 APP="$ROOT/.local/app/SimpleSmaller.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin"
 cp "$BIN" "$APP/Contents/MacOS/SimpleSmaller"
-cp "$ROOT/.local/ffmpeg/$ARCH/bin/ffmpeg" "$ROOT/.local/ffmpeg/$ARCH/bin/ffprobe" "$APP/Contents/Resources/bin/"
+if [ "$UNIVERSAL" = "universal" ]; then
+  for t in ffmpeg ffprobe; do
+    lipo -create "$ROOT/.local/ffmpeg/arm64/bin/$t" "$ROOT/.local/ffmpeg/x86_64/bin/$t" -output "$APP/Contents/Resources/bin/$t"
+  done
+else
+  cp "$ROOT/.local/ffmpeg/$ARCH/bin/ffmpeg" "$ROOT/.local/ffmpeg/$ARCH/bin/ffprobe" "$APP/Contents/Resources/bin/"
+fi
 cp "$ROOT/apps/mac/Resources/"* "$APP/Contents/Resources/" 2>/dev/null || true
 # 强调色（品牌红）与应用图标编成 Assets.car：系统按 macOS 规则在开关、滑杆、进度、选中处用强调色。
 xcrun actool "$ROOT/apps/mac/Assets.xcassets" --compile "$APP/Contents/Resources" --platform macosx \

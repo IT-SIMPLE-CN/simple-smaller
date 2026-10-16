@@ -102,6 +102,9 @@ private struct RecentRow: View {
     var body: some View {
         Button { NSWorkspace.shared.activateFileViewerSelecting(job.outputs) } label: {
             HStack(spacing: 10) {
+                Thumb(image: job.thumbnail)
+                    .frame(width: 32, height: 32)
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(job.title).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
                     Text(verbatim: "\(job.recipe) · \(Format.size(job.before)) → \(Format.size(job.after))")

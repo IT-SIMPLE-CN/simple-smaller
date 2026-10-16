@@ -111,8 +111,9 @@ final class QuickRun {
         } else {
             phase = .finished
             let model = AppModel.shared
-            model.recent.insert(RecentJob(title: title, recipe: recipe.name, before: before, after: after, date: Date(), outputs: outputs,
-                                          thumbnail: nil), at: 0)
+            let job = RecentJob(title: title, recipe: recipe.name, before: before, after: after, date: Date(), outputs: outputs, thumbnail: nil)
+            model.recent.insert(job, at: 0)
+            model.loadRecentThumbnail(job.id, from: urls.first)
             model.recent = Array(model.recent.prefix(10))
             Notifier.jobFinished(title: title, after: after, outputs: outputs, elapsed: 0)
         }

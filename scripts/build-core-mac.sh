@@ -1,10 +1,12 @@
 #!/bin/bash
 # 编译 Rust 引擎并生成 Swift 绑定，供 apps/mac 链接。
-# 用法：scripts/build-core-mac.sh [debug|release]，默认 release。
+# 用法：scripts/build-core-mac.sh [debug|release] [universal]，默认 release、本机架构。
+# 带 universal 时同时编 arm64 与 x86_64，合成一个通用静态库（发布用；需先编好两种架构的编码库与 MuPDF）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROFILE="${1:-release}"
+UNIVERSAL="${2:-}"
 cd "$ROOT"
 
 # 用 rustup 的官方工具链（见 rust-toolchain.toml），不用 Homebrew 的 Rust：
@@ -23,12 +25,17 @@ unset MACOSX_DEPLOYMENT_TARGET
 export CFLAGS="-mmacosx-version-min=14.0"
 export CXXFLAGS="-mmacosx-version-min=14.0"
 
-if [ "$PROFILE" = "release" ]; then
-  cargo build --release -p smaller-core
+FLAG=""
+[ "$PROFILE" = "release" ] && FLAG="--release"
+if [ "$UNIVERSAL" = "universal" ]; then
+  for T in aarch64-apple-darwin x86_64-apple-darwin; do
+    cargo build $FLAG -p smaller-core --target "$T"
+  done
+  LIB_DIR="$ROOT/target/aarch64-apple-darwin/$PROFILE"
 else
-  cargo build -p smaller-core
+  cargo build $FLAG -p smaller-core
+  LIB_DIR="$ROOT/target/$PROFILE"
 fi
-LIB_DIR="$ROOT/target/$PROFILE"
 
 OUT="$ROOT/.local/bindings"
 rm -rf "$OUT"
@@ -51,5 +58,10 @@ EOF
 
 # SwiftPM 只认一个固定位置的静态库，按 profile 拷过去，避免链接器优先挑到同名 dylib。
 mkdir -p "$ROOT/.local/lib"
-cp "$LIB_DIR/libsmaller_core.a" "$ROOT/.local/lib/libsmaller_core.a"
-echo "引擎已就绪：$PROFILE"
+if [ "$UNIVERSAL" = "universal" ]; then
+  lipo -create "$ROOT/target/aarch64-apple-darwin/$PROFILE/libsmaller_core.a" "$ROOT/target/x86_64-apple-darwin/$PROFILE/libsmaller_core.a" \
+    -output "$ROOT/.local/lib/libsmaller_core.a"
+else
+  cp "$LIB_DIR/libsmaller_core.a" "$ROOT/.local/lib/libsmaller_core.a"
+fi
+echo "引擎已就绪：$PROFILE ${UNIVERSAL:-$(uname -m)}"

@@ -409,6 +409,18 @@ final class AppModel {
         endActivityIfIdle()
     }
 
+    /// 最近记录的缩略图：用系统 Quick Look 生成（视频、PDF 也有）。
+    func loadRecentThumbnail(_ id: UUID, from url: URL?) {
+        guard let url else { return }
+        let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 64, height: 64), scale: 2, representationTypes: .thumbnail)
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
+            guard let image = rep?.nsImage else { return }
+            Task { @MainActor in
+                if let i = self.recent.firstIndex(where: { $0.id == id }) { self.recent[i].thumbnail = image }
+            }
+        }
+    }
+
     // MARK: 处理中：不睡眠、Dock 显示进度
 
     private var activity: NSObjectProtocol?
@@ -538,14 +550,14 @@ final class AppModel {
 }
 
 struct RecentJob: Identifiable {
-    let id = UUID()
+    var id = UUID()
     let title: String
     let recipe: String
     let before: UInt64
     let after: UInt64
     let date: Date
     let outputs: [URL]
-    let thumbnail: NSImage?
+    var thumbnail: NSImage?
 }
 
 extension EngineError {

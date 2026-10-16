@@ -22,7 +22,8 @@ struct SimpleSmallerApp: App {
         Window("简单小一点", id: "main") {
             MainView()
                 .environment(model)
-                .frame(minWidth: 900, minHeight: 560)
+                // 边栏 200 + 列表 460 + 检查器 300，再留一点余量。
+                .frame(minWidth: 1000, minHeight: 560)
         }
         .defaultSize(width: 1180, height: 760)
         .commands { AppCommands(model: model) }
