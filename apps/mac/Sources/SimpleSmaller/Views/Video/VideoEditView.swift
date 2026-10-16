@@ -47,7 +47,9 @@ struct VideoStage: View {
             let layout = CropCanvas.Layout(canvas: geo.size, imageSize: CGSize(width: item.width, height: item.height), bottomInset: 24)
             let rect = CGRect(origin: layout.origin, size: layout.display)
             ZStack(alignment: .topLeading) {
-                PlayerLayerView(player: playback.player)
+                Group {
+                    if MediaType.isAnimated(item.url) { AnimatedImageView(url: item.url) } else { PlayerLayerView(player: playback.player) }
+                }
                     .frame(width: rect.width, height: rect.height)
                     .offset(x: rect.minX, y: rect.minY)
                     .accessibilityLabel("视频画面")

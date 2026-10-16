@@ -184,7 +184,7 @@ private struct FramePreviewGrid: View {
         for k in 0..<n {
             if Task.isCancelled { return }
             let t = ws.frameTime(item, index: k)
-            guard var cg = await TimelineThumbnails.frame(url: item.url, at: t, maxSide: 480) else { continue }
+            guard var cg = await TimelineThumbnails.frame(url: item.url, at: t, maxSide: 480, duration: item.duration) else { continue }
             if let box = ws.videoCropBox(item) {
                 let s = CGFloat(cg.width) / CGFloat(item.width)
                 let r = CGRect(x: box.minX * s, y: box.minY * s, width: box.width * s, height: box.height * s).integral

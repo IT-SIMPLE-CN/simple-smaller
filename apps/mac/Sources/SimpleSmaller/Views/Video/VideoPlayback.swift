@@ -1,5 +1,6 @@
 import AVFoundation
 import AppKit
+import ImageIO
 import SwiftUI
 
 /// 剪辑与序列帧共用的播放器：只在截取范围内播放，播到结尾回到开头停下。
@@ -103,7 +104,21 @@ struct PlayerLayerView: NSViewRepresentable {
 
 /// 时间轴缩略图：均匀取 n 帧，按视频转正后的方向。
 enum TimelineThumbnails {
+    /// 动图（GIF、动画 WebP、APNG）系统播放器读不了：按时间从图片的帧里取。
+    static func animatedFrame(url: URL, at t: Double, duration: Double, maxSide: CGFloat) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let n = CGImageSourceGetCount(source)
+        guard n > 1 else { return nil }
+        let k = min(n - 1, max(0, Int(Double(n) * t / max(0.001, duration))))
+        let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: maxSide,
+                                        kCGImageSourceCreateThumbnailWithTransform: true]
+        return CGImageSourceCreateThumbnailAtIndex(source, k, options as CFDictionary)
+    }
+
     static func make(url: URL, duration: Double, count: Int, height: CGFloat) async -> [CGImage] {
+        if MediaType.isAnimated(url) {
+            return (0..<count).compactMap { animatedFrame(url: url, at: duration * (Double($0) + 0.5) / Double(count), duration: duration, maxSide: height * 4) }
+        }
         let asset = AVURLAsset(url: url)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
@@ -123,7 +138,8 @@ enum TimelineThumbnails {
     }
 
     /// 精确取某一时刻的一帧（序列帧预览用）。
-    static func frame(url: URL, at t: Double, maxSide: CGFloat) async -> CGImage? {
+    static func frame(url: URL, at t: Double, maxSide: CGFloat, duration: Double = 0) async -> CGImage? {
+        if MediaType.isAnimated(url) { return animatedFrame(url: url, at: t, duration: duration, maxSide: maxSide) }
         let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: maxSide, height: maxSide)
@@ -131,4 +147,19 @@ enum TimelineThumbnails {
         generator.requestedTimeToleranceAfter = .zero
         return try? await generator.image(at: CMTime(seconds: t, preferredTimescale: 600)).image
     }
+}
+
+/// 动图在剪辑里的画面：系统图片视图自己会播放动画。
+struct AnimatedImageView: NSViewRepresentable {
+    let url: URL
+
+    func makeNSView(context: Context) -> NSImageView {
+        let v = NSImageView()
+        v.imageScaling = .scaleAxesIndependently
+        v.animates = true
+        v.image = NSImage(contentsOf: url)
+        return v
+    }
+
+    func updateNSView(_ v: NSImageView, context: Context) {}
 }
