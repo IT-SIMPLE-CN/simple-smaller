@@ -354,6 +354,14 @@ pub fn render(picture: &Picture, recipe: &ImageRecipe) -> Result<Encoded, ImageE
 
     let Some(target) = recipe.target_bytes else {
         let bytes = encode(&current, format, recipe.quality, recipe.lossless)?;
+        // WebP：截图、图文这类图形内容试一次无损，文字边缘不糊；
+        // 无损不比有损大 25% 以上就用无损（实测截图无损往往更小），照片仍用有损。
+        if format == OutputFormat::Webp && !recipe.lossless && current.kind == ContentKind::Graphic {
+            let lossless = encode(&current, format, recipe.quality, true)?;
+            if lossless.len() as f64 <= bytes.len() as f64 * 1.25 {
+                return Ok(Encoded { bytes: lossless, width: current.width, height: current.height, format, quality: 100 });
+            }
+        }
         return Ok(Encoded { bytes, width: current.width, height: current.height, format, quality: recipe.quality });
     };
 
@@ -408,6 +416,28 @@ mod tests {
             }
         }
         finish_picture(w, h, rgba, false, SourceFormat::Png)
+    }
+
+    /// 像截图：大块纯色加几条细线。
+    fn screenshot(w: u32, h: u32) -> Picture {
+        let mut rgba = Vec::with_capacity((w * h * 4) as usize);
+        for y in 0..h {
+            for x in 0..w {
+                let c: [u8; 4] = if y % 40 == 0 || x % 120 == 0 { [40, 40, 48, 255] } else if y < 60 { [239, 57, 34, 255] } else { [250, 250, 252, 255] };
+                rgba.extend_from_slice(&c);
+            }
+        }
+        finish_picture(w, h, rgba, false, SourceFormat::Png)
+    }
+
+    #[test]
+    fn webp_截图无损照片有损() {
+        let recipe = ImageRecipe { format: OutputFormat::Webp, quality: 78, lossless: false, resize: None, target_bytes: None };
+        let shot = screenshot(600, 400);
+        assert_eq!(shot.kind, ContentKind::Graphic);
+        assert_eq!(render(&shot, &recipe).unwrap().quality, 100, "截图应走无损");
+        let p = photo(600, 400);
+        assert_eq!(render(&p, &recipe).unwrap().quality, 78, "照片仍走有损");
     }
 
     #[test]
