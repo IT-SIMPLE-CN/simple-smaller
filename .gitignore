@@ -11,3 +11,4 @@ xcuserdata/
 apps/mac/Sources/SmallerCore/smaller_core.swift
 apps/mac/Sources/smaller_coreFFI/smaller_coreFFI.h
 apps/mac/Sources/smaller_coreFFI/module.modulemap
+*.log
