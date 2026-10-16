@@ -1,0 +1,12 @@
+[package]
+name = "bench-image"
+description = "图片编码器实测：同一画质分数下各编码器需要的体积"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+smaller-core = { path = "../../core" }
+ssimulacra2 = "0.5.1"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }

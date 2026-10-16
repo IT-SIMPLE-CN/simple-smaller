@@ -14,3 +14,12 @@ crate-type = ["lib", "staticlib", "cdylib"]
 uniffi.workspace = true
 thiserror.workspace = true
 imagesize = "0.15.0"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "tiff", "bmp"] }
+imagequant = "4"
+oxipng = { version = "10", default-features = false, features = ["parallel", "zopfli"] }
+fast_image_resize = "6"
+moxcms = "0.9"
+rgb = "0.8"
+
+[build-dependencies]
+cc = "1"
