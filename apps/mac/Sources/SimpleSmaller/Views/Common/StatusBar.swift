@@ -46,6 +46,9 @@ struct StatusBar: View {
                 // 裁切时写确认进度（设计稿 03 顶栏的「已确认 n / 12」）。
                 let items = ws.cropItems
                 Text("已确认 \(items.filter { ws.cropConfirmed.contains($0.url) }.count) / \(items.count)").monospacedDigit()
+            } else if ws.type == .video, ws.videoSegment == .frames {
+                // 序列帧：将生成多少张、约多大（设计稿 04b 底栏）。
+                Text(verbatim: framesSummary).monospacedDigit()
             } else {
                 Text("\(ws.files.filter { $0.state == .waiting }.count) 个待处理").monospacedDigit()
             }
@@ -86,7 +89,9 @@ struct StatusBar: View {
                 Color.clear.frame(width: 0, height: 0)
             }
         case .ready:
-            EmptyView()
+            if ws.type == .video, ws.videoSegment == .frames {
+                Text(framesHint).foregroundStyle(framesTotal > 200 ? AnyShapeStyle(Color.warning) : AnyShapeStyle(.tertiary))
+            }
         }
     }
 
@@ -101,6 +106,33 @@ struct StatusBar: View {
         }
         guard before > 0 else { return "—" }
         return "\(Format.size(before)) → \(Format.size(after))（\(Format.change(before, after))）"
+    }
+
+    private var framesTotal: Int { ws.videoItems.reduce(0) { $0 + ws.frameCount($1) } }
+
+    /// 每张的估算体积：按输出像素与格式粗算（WebP 1920 宽约 140 KB，与设计稿一致）。
+    private var bytesPerFrame: Double {
+        guard let item = ws.currentVideo else { return 140_000 }
+        let box = ws.videoCropBox(item)?.size ?? CGSize(width: item.width, height: item.height)
+        let w = Double(min(CGFloat(ws.draft.video.frameWidth ?? Int(box.width)), box.width))
+        let h = w * Double(box.height / max(1, box.width))
+        let bpp: Double = switch ws.draft.video.frameFormat {
+        case .png: 1.6
+        case .jpeg, .original: 0.11
+        case .avif: 0.045
+        case .webp: 0.065
+        }
+        return w * h * bpp * Double(ws.draft.video.frameQuality) / 80
+    }
+
+    private var framesSummary: String {
+        "将生成 \(framesTotal) 张 · 约 \(Format.size(UInt64(Double(framesTotal) * bytesPerFrame)))"
+    }
+
+    private var framesHint: String {
+        if framesTotal > 200 { return "张数较多，网页动画建议 60–120 张" }
+        let w = ws.draft.video.frameWidth.map { "，\($0)" } ?? ""
+        return "每张约 \(Format.size(UInt64(bytesPerFrame)))（\(ws.draft.video.frameFormat.title)\(w)）"
     }
 
     private var hint: String {

@@ -173,7 +173,20 @@ pub fn undo(results: &[ItemResult], created_roots: &[PathBuf]) -> Result<(), Str
     if targets.is_empty() {
         return Ok(());
     }
-    trash::delete_all(&targets).map_err(|e| e.to_string())
+    trash::delete_all(&targets).map_err(|e| e.to_string())?;
+    // 序列帧这类输出放在新建的文件夹里：文件移走后文件夹空了就一并删掉（只删空目录，原文件所在处不受影响）。
+    let mut dirs: Vec<PathBuf> = results.iter().flat_map(|r| r.outputs.iter().filter_map(|o| o.path.parent().map(Path::to_path_buf))).collect();
+    dirs.sort();
+    dirs.dedup();
+    for d in dirs {
+        // 访达会往打开过的文件夹里写 .DS_Store，只剩它时也算空。
+        let only_ds_store = std::fs::read_dir(&d).map(|it| it.flatten().all(|e| e.file_name() == ".DS_Store")).unwrap_or(false);
+        if only_ds_store {
+            let _ = std::fs::remove_file(d.join(".DS_Store"));
+            let _ = std::fs::remove_dir(&d);
+        }
+    }
+    Ok(())
 }
 
 /// 先写同目录隐藏临时文件，写完再改名，失败不留半截文件。
@@ -480,6 +493,21 @@ mod tests {
         undo(&results, &p.created_roots).unwrap();
         assert!(results[0].outputs.iter().all(|o| !o.path.exists()));
         assert!(src.exists());
+    }
+
+    #[test]
+    fn 撤销_清掉空的输出文件夹() {
+        let dir = scratch("undo-dir");
+        let src = dir.join("clip.mp4");
+        std::fs::write(&src, b"x").unwrap();
+        let frames = dir.join("clip_frames");
+        let a = frames.join("clip_0001.webp");
+        write_atomic(&a, b"frame").unwrap();
+        std::fs::write(frames.join(".DS_Store"), b"").unwrap();
+        let r = ItemResult { index: 0, source: src.clone(), before_bytes: 1, outputs: vec![OutputFile { path: a, bytes: 5, width: 1, height: 1 }], status: ItemStatus::Done };
+        undo(&[r], &[]).unwrap();
+        assert!(!frames.exists(), "空文件夹应一并删掉");
+        assert!(src.exists() && dir.exists(), "原文件和所在目录不动");
     }
 
     #[test]

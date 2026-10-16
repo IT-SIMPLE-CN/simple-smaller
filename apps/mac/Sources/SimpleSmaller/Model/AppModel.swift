@@ -212,7 +212,11 @@ final class AppModel {
         for f in ws.files { f.state = .waiting; f.outputs = [] }
         ws.running = true
         ws.finishedCount = 0
-        let naming = ws.draft.naming.ffi(date: Format.today)
+        ws.batchJobs = []
+        var namingSettings = ws.draft.naming
+        // 序列帧按「{name}_frames/{name}_0001」命名（设计稿 04b），不套用压缩时的后缀。
+        if ws.type == .video, ws.draft.video.outputFrames { namingSettings.template = "{name}" }
+        let naming = namingSettings.ffi(date: Format.today)
         let place = settings.place
         let started = Date()
         let listener = ListenerBridge(
@@ -225,6 +229,7 @@ final class AppModel {
         case .image:
             ws.planSources = engine.listFiles(inputs: ws.engineInputs, kind: .image)
             ws.job = engine.runImages(inputs: ws.engineInputs, place: place, naming: naming, settings: recipe.imageSettings(cropBoxes: ws.cropBoxesForEngine), listener: listener)
+            ws.batchJobs = ws.job.map { [$0] } ?? []
         case .video:
             // 剪辑里设的截取、裁切与封面按每段视频各自生效：逐段起任务。
             runVideos(ws, recipe: recipe, place: place, naming: naming, listener: listener)
@@ -239,6 +244,7 @@ final class AppModel {
             }
             let inputs = ws.pdfSegment == .fromImages ? ws.files.filter { $0.type == .image }.map(\.url.path) : ws.files.filter { $0.type == .pdf }.map(\.url.path)
             ws.job = engine.runPdfs(inputs: inputs, place: place, naming: naming, settings: PdfSettings(operation: operation, stripMetadata: recipe.stripMetadata), listener: listener)
+            ws.batchJobs = ws.job.map { [$0] } ?? []
         }
     }
 
@@ -247,11 +253,11 @@ final class AppModel {
         let engine = engine
         // 视频逐段跑；每段一个任务，用同一个回调汇总。
         let settingsList = items.map { item in
-            recipe.videoSettings(trim: ws.trim[item.url], crop: ws.videoCrop[item.url] ?? defaultVideoCrop(item, recipe: recipe), coverAt: ws.coverAt[item.url])
+            // 封面没单击指定时，取截取开头往后 1 秒（片头常是黑场）。
+            recipe.videoSettings(trim: ws.trim[item.url], crop: ws.videoCropBox(item),
+                                 coverAt: ws.coverAt[item.url] ?? (ws.trimRange(item).lowerBound + min(1, item.duration / 2)))
         }
         let inputs = items.map(\.url.path)
-        let perItem = ListenerBridge(progress: { _, _ in }, item: { _ in }, finished: {})
-        _ = perItem
         Task.detached {
             for (k, (path, settings)) in zip(inputs, settingsList).enumerated() {
                 let done = DispatchSemaphore(value: 0)
@@ -265,7 +271,7 @@ final class AppModel {
                     finished: { done.signal() }
                 )
                 let job = engine.runVideos(inputs: [path], place: place, naming: naming, settings: settings, listener: bridge)
-                await MainActor.run { ws.job = job }
+                await MainActor.run { ws.job = job; ws.batchJobs.append(job) }
                 await withCheckedContinuation { c in DispatchQueue.global().async { done.wait(); c.resume() } }
                 if await MainActor.run(body: { ws.running == false }) { break }
             }
@@ -274,14 +280,6 @@ final class AppModel {
     }
 
     /// 配方带画面比例、但这段没手动框时：居中取最大。
-    func defaultVideoCrop(_ item: FileItem, recipe: Recipe) -> CGRect? {
-        guard let a = recipe.video.crop?.aspect, item.width > 0 else { return nil }
-        let (w, h) = (Double(item.width), Double(item.height))
-        let (cw, ch) = w / h > a ? (h * a, h) : (w, w / a)
-        let even = { (v: Double) in (v / 2).rounded(.down) * 2 }
-        return CGRect(x: even((w - cw) / 2), y: even((h - ch) / 2), width: even(cw), height: even(ch))
-    }
-
     func cancel(_ ws: Workspace) {
         ws.job?.cancel()
         ws.running = false
@@ -290,11 +288,13 @@ final class AppModel {
     func undo(_ ws: Workspace) {
         let files = ws.files.flatMap { $0.outputs.map { URL(fileURLWithPath: $0.path) } }
         do {
-            try ws.job?.undo()
+            // 视频逐段各起一个任务，撤销要把这一批的每个任务都撤掉。
+            for job in ws.batchJobs.isEmpty ? (ws.job.map { [$0] } ?? []) : ws.batchJobs { try job.undo() }
             for f in ws.files where f.state == .done || f.state == .kept { f.state = .waiting; f.outputs = [] }
             // 回到处理前：底栏不再显示上一批的结果。
             ws.finishedCount = 0
             ws.job = nil
+            ws.batchJobs = []
             flash("已撤销，\(files.count) 个新文件移到了废纸篓")
         } catch {
             flash("撤销失败：\(error.localizedDescription)")

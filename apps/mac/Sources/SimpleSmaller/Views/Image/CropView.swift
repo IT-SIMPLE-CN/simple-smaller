@@ -316,8 +316,8 @@ struct CropCanvas: View {
         let display: CGSize
         let origin: CGPoint
 
-        init(canvas: CGSize, imageSize: CGSize) {
-            let inset = EdgeInsets(top: 24, leading: 24, bottom: 60, trailing: 24)
+        init(canvas: CGSize, imageSize: CGSize, bottomInset: CGFloat = 60) {
+            let inset = EdgeInsets(top: 24, leading: 24, bottom: bottomInset, trailing: 24)
             let aw = max(1, canvas.width - inset.leading - inset.trailing)
             let ah = max(1, canvas.height - inset.top - inset.bottom)
             scale = min(aw / max(1, imageSize.width), ah / max(1, imageSize.height))

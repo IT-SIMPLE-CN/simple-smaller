@@ -34,7 +34,7 @@ struct MainView: View {
         }
         // 不要工具栏下沿的硬分隔线：macOS 26 的悬浮边栏有圆角，硬线会在左上角断开成缺口。
         .modifier(HideToolbarSeparator())
-        .navigationTitle(model.selectedType.title)
+        .navigationTitle(title(ws))
         .navigationSubtitle(subtitle(ws))
         .toolbar { MainToolbar(ws: ws) }
         .overlay(alignment: .bottom) {
@@ -56,7 +56,30 @@ struct MainView: View {
         }
     }
 
+    /// 视频剪辑、序列帧一次看一段：标题写这段的文件名（设计稿 04）。
+    private func singleVideo(_ ws: Workspace) -> FileItem? {
+        guard ws.type == .video, ws.videoSegment != .compress else { return nil }
+        return ws.currentVideo
+    }
+
+    private func title(_ ws: Workspace) -> String {
+        singleVideo(ws)?.name ?? model.selectedType.title
+    }
+
     private func subtitle(_ ws: Workspace) -> String {
+        if let v = singleVideo(ws) {
+            // 「3840 × 2160 · 02:14 · HEVC HDR · 1.9 GB」；序列帧写帧率与总帧数。
+            var parts = ["\(v.width) × \(v.height)", Format.duration(v.duration)]
+            if ws.videoSegment == .frames {
+                parts.append("\(Int(v.fps.rounded())) fps")
+                parts.append("\(Int((v.duration * v.fps).rounded())) 帧")
+            } else {
+                let codec = v.codec.lowercased() == "h264" ? "H.264" : v.codec.uppercased()
+                parts.append(v.hdr ? "\(codec) HDR" : codec)
+                parts.append(Format.size(v.bytes))
+            }
+            return parts.joined(separator: " · ")
+        }
         guard !ws.files.isEmpty else { return "没有文件" }
         var parts = ["\(ws.files.count) 个文件"]
         if ws.type == .pdf, ws.pdfSegment != .fromImages {

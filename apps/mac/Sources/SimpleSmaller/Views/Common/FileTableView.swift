@@ -38,7 +38,7 @@ struct FileTableView: View {
                 Text(detail(item)).foregroundStyle(.secondary).monospacedDigit()
             }
             // 列宽按设计稿固定：尺寸 104、原大小 80、输出 80、变化 64、状态 92；名称列吃掉其余宽度。
-            .width(ws.type == .video ? 130 : 104)
+            .width(ws.type == .video ? 150 : 104)
             TableColumn("原大小") { item in
                 Text(Format.size(item.bytes)).foregroundStyle(.secondary).monospacedDigit()
             }
@@ -75,7 +75,7 @@ struct FileTableView: View {
         if let e = item.metaError { return e }
         switch ws.type {
         case .image: return item.dimensions
-        case .video: return item.duration > 0 ? "\(Format.duration(item.duration)) · \(item.width)×\(item.height)" : "—"
+        case .video: return item.duration > 0 ? "\(Format.duration(item.duration)) · \(item.width) × \(item.height)" : "—"
         case .pdf: return item.type == .image ? item.dimensions : (item.pages > 0 ? "\(item.pages)" : "—")
         }
     }
@@ -112,14 +112,11 @@ struct StateLabel: View {
         switch item.state {
         case .waiting:
             if queued { Text("等待").foregroundStyle(.secondary) }
-        case .running(let p) where item.type == .image || p <= 0:
-            // 图片一张很快，没有中间进度，只标「处理中」。
-            Text("处理中").foregroundStyle(Color.brand)
         case .running(let p):
-            HStack(spacing: 6) {
-                ProgressView(value: p).progressViewStyle(.linear).tint(.brand).frame(width: 40)
-                Text("\(Int(p * 100))%").monospacedDigit().foregroundStyle(Color.brand)
-            }
+            // 图片一张很快，没有中间进度，只标「处理中」；视频与 PDF 带百分比。
+            Text(item.type == .image || p <= 0 ? "处理中" : "处理中 \(Int(p * 100))%")
+                .foregroundStyle(Color.brand)
+                .monospacedDigit()
         case .done:
             Text(item.outputs.count > 1 ? "\(item.outputs.count) 个文件" : "完成").foregroundStyle(Color.saving)
         case .kept:

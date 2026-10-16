@@ -73,6 +73,8 @@ final class Workspace {
     var draft: Recipe
 
     var job: Job?
+    /// 这一批起过的全部任务（视频逐段各一个），撤销时逐个撤。
+    var batchJobs: [Job] = []
     var running = false
     /// 这一批任务里引擎展开后的文件顺序（进度回调按这个序号报）。
     var planSources: [String] = []
@@ -87,7 +89,8 @@ final class Workspace {
     /// 每张框的改动记录，⌘Z 撤回这一张用；nil 表示改之前是默认框。
     var cropHistory: [URL: [CGRect?]] = [:]
 
-    // 视频剪辑：当前这段的截取、裁切框、封面时间。
+    // 视频剪辑：当前是第几段，以及每段的截取、裁切框（原画面像素）、封面时间。
+    var videoIndex = 0
     var trim: [URL: ClosedRange<Double>] = [:]
     var videoCrop: [URL: CGRect] = [:]
     var coverAt: [URL: Double] = [:]
