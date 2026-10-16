@@ -230,10 +230,14 @@ impl ImageSettings {
             recipe: ImageRecipe { format: self.format.into(), quality: self.quality, lossless: self.lossless, resize: None, target_bytes: self.target_bytes },
             sizes: self.sizes.clone(),
             size_mode: self.size_by.into(),
-            crop: self.crop.as_ref().map(|c| ImageCrop {
-                aspect: c.ratio_width as f64 / c.ratio_height.max(1) as f64,
-                width: c.width,
-                label: c.label.clone().or_else(|| Some(format!("{}x{}", c.ratio_width, c.ratio_height))),
+            // 比例份数为 0 表示自由比例。
+            crop: self.crop.as_ref().map(|c| {
+                let free = c.ratio_width == 0 || c.ratio_height == 0;
+                ImageCrop {
+                    aspect: (!free).then(|| c.ratio_width as f64 / c.ratio_height as f64),
+                    width: c.width,
+                    label: c.label.clone().or_else(|| (!free).then(|| format!("{}x{}", c.ratio_width, c.ratio_height))),
+                }
             }),
             crop_overrides: self
                 .crop_boxes
@@ -559,7 +563,7 @@ impl Engine {
         let mut size = job.sizes.first().copied();
         let mut mode = job.size_mode;
         if let Some(c) = &job.crop {
-            let rect = job.crop_overrides.get(source).copied().unwrap_or_else(|| img::center_max_rect(picture.width, picture.height, c.aspect));
+            let rect = job.crop_overrides.get(source).copied().unwrap_or_else(|| c.default_rect(picture.width, picture.height));
             picture = img::crop(&picture, rect);
             size = Some(c.width);
             mode = SizeMode::Width;

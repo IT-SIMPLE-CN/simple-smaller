@@ -239,11 +239,21 @@ pub fn contact_sheet(pictures: &[Picture], columns: u32, cell_width: u32) -> Opt
 
 #[derive(Debug, Clone)]
 pub struct ImageCrop {
-    /// 宽 ÷ 高。
-    pub aspect: f64,
+    /// 宽 ÷ 高；None 是自由比例：按每张手调的框，没调过的用整张图。
+    pub aspect: Option<f64>,
     /// 输出宽度；高按比例算。
     pub width: u32,
     pub label: Option<String>,
+}
+
+impl ImageCrop {
+    /// 没手调过的图用的框：有比例时居中取最大，自由比例用整张图。
+    pub fn default_rect(&self, width: u32, height: u32) -> CropRect {
+        match self.aspect {
+            Some(a) => img::center_max_rect(width, height, a),
+            None => CropRect { x: 0, y: 0, width, height },
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -307,7 +317,7 @@ fn process_image(
     let mut sizes = job.sizes.clone();
     let mut mode = job.size_mode;
     if let Some(c) = &job.crop {
-        let rect = job.crop_overrides.get(&item.source).copied().unwrap_or_else(|| img::center_max_rect(base.width, base.height, c.aspect));
+        let rect = job.crop_overrides.get(&item.source).copied().unwrap_or_else(|| c.default_rect(base.width, base.height));
         base = img::crop(&base, rect);
         resized_or_cropped = true;
         ratio = c.label.clone();
@@ -480,7 +490,8 @@ mod tests {
         photo_file(&a, 1200, 800);
         photo_file(&b, 1200, 800);
         let mut j = job(OutputFormat::Jpeg);
-        j.crop = Some(ImageCrop { aspect: 0.75, width: 300, label: Some("3x4".into()) });
+        j.crop = Some(ImageCrop { aspect: Some(0.75), width: 300, label: Some("3x4".into()) });
+        assert_eq!(ImageCrop { aspect: None, width: 300, label: None }.default_rect(640, 480), CropRect { x: 0, y: 0, width: 640, height: 480 });
         j.crop_overrides.insert(b.clone(), CropRect { x: 0, y: 0, width: 300, height: 400 });
         j.naming.template = "{name}-{ratio}-{w}x{h}".into();
         let p = plan(&[a, b], MediaKind::Image, &OutputPlace::BesideSource { folder_suffix: "-small".into() });

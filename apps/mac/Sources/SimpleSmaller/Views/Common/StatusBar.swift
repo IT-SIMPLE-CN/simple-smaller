@@ -42,7 +42,13 @@ struct StatusBar: View {
         case .empty:
             Text("全部在本机处理")
         case .ready:
-            Text("\(ws.files.filter { $0.state == .waiting }.count) 个待处理").monospacedDigit()
+            if ws.type == .image, ws.imageSegment == .crop {
+                // 裁切时写确认进度（设计稿 03 顶栏的「已确认 n / 12」）。
+                let items = ws.cropItems
+                Text("已确认 \(items.filter { ws.cropConfirmed.contains($0.url) }.count) / \(items.count)").monospacedDigit()
+            } else {
+                Text("\(ws.files.filter { $0.state == .waiting }.count) 个待处理").monospacedDigit()
+            }
         case .running:
             HStack(spacing: 10) {
                 Text("\(ws.finishedCount) / \(ws.files.count)").monospacedDigit().foregroundStyle(.primary)

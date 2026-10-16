@@ -173,16 +173,27 @@ struct ImageInspector: View {
     var body: some View {
         InspectorScroll {
             InspectorHeader(ws: ws, description: description)
-            if !ws.files.isEmpty {
-                if ws.imageSegment == .crop {
-                    CropInspectorSections(ws: ws)
-                    formatSection
-                } else {
-                    formatSection
+            if !ws.files.isEmpty, ws.imageSegment == .crop {
+                // 裁切（设计稿 03）：比例、输出尺寸、框放在哪、格式与质量（与「压缩」共用）。
+                CropInspectorSections(ws: ws)
+                formatSection(formats: [.webp, .avif, .jpeg, .png] + (ws.draft.image.format == .original ? [.original] : []),
+                              note: "与「压缩」共用，任一处改都同步")
+                Text("每张默认居中、按比例取最大，不调也能直接开始。要调的拖框移动、拖四角缩放；↩ 确认并到下一张，←/→ 切换，⌘Z 撤回这一张。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, InspectorMetrics.margin)
+                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay(alignment: .top) { Divider() }
+            } else {
+                if !ws.files.isEmpty {
+                    formatSection(formats: ImageFormatChoice.allCases, note: nil)
                     sizeSection
                 }
+                OutputSection(ws: ws)
             }
-            OutputSection(ws: ws)
         }
     }
 
@@ -201,9 +212,9 @@ struct ImageInspector: View {
         return text
     }
 
-    @ViewBuilder var formatSection: some View {
+    @ViewBuilder func formatSection(formats: [ImageFormatChoice], note: String?) -> some View {
         InspectorSection(title: "格式与质量") {
-            SlidingSegmented(selection: $ws.draft.image.format, options: ImageFormatChoice.allCases.map { ($0, $0.title) })
+            SlidingSegmented(selection: $ws.draft.image.format, options: formats.map { ($0, $0.title) })
                 .accessibilityLabel("格式")
             if ws.draft.image.lossless {
                 InspectorRow(label: "质量") { Text("无损").foregroundStyle(.secondary) }
@@ -220,6 +231,9 @@ struct ImageInspector: View {
                         .frame(width: 60)
                     Text("KB").foregroundStyle(.secondary)
                 }
+            }
+            if let note {
+                Text(note).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -263,6 +277,11 @@ struct ImageInspector: View {
             }
             .buttonStyle(.plain)
             .help("到「裁切」里设置比例与每张的框")
+            .contextMenu {
+                if ws.draft.image.crop != nil {
+                    Button("不裁切") { ws.draft.image.crop = nil; ws.draft.image.cropWidth = nil; ws.resetCrop() }
+                }
+            }
             InspectorToggle(label: extraLabel, isOn: Binding(get: { !ws.draft.image.extraSizes.isEmpty }, set: { on in
                 ws.draft.image.extraSizes = on ? extraSizes : []
             }))

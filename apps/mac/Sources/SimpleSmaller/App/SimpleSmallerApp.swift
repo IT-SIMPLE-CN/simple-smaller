@@ -130,6 +130,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let i = args.firstIndex(of: "--type"), i + 1 < args.count, let t = MediaType(rawValue: args[i + 1]) {
                 AppModel.shared.selectedType = t
             }
+            // `--segment <分段名>`（如「裁切」）：直接进某个分段，供脚本化验证。
+            if let i = args.firstIndex(of: "--segment"), i + 1 < args.count {
+                AppModel.shared.openSegment(args[i + 1])
+            }
             // 带文件启动时 AppKit 按「打开文件」处理，SwiftUI 不会自动开主窗口。
             try? await Task.sleep(for: .milliseconds(300))
             if !NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeMain }) { WindowOpener.showMain() }

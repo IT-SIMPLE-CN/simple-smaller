@@ -1,8 +1,6 @@
 import SwiftUI
 
 // 占位：逐个替换成正式实现。
-struct CropView: View { let ws: Workspace; var body: some View { Text("裁切") } }
-struct CropInspectorSections: View { let ws: Workspace; var body: some View { Text("裁切设置") } }
 struct VideoInspector: View { let ws: Workspace; var body: some View { Text("视频") } }
 struct PdfInspector: View { let ws: Workspace; var body: some View { Text("PDF") } }
 struct VideoEditView: View { let ws: Workspace; var body: some View { Text("剪辑") } }

@@ -84,6 +84,8 @@ final class Workspace {
     var cropConfirmed: Set<URL> = []
     var cropIndex = 0
     var cropFollowLast = false
+    /// 每张框的改动记录，⌘Z 撤回这一张用；nil 表示改之前是默认框。
+    var cropHistory: [URL: [CGRect?]] = [:]
 
     // 视频剪辑：当前这段的截取、裁切框、封面时间。
     var trim: [URL: ClosedRange<Double>] = [:]

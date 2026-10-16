@@ -91,6 +91,23 @@ final class AppModel {
         if byType[selectedType] == nil, let first = byType.keys.first { selectedType = first }
     }
 
+    /// 按分段名切到当前类型的某个分段（与工具栏分段切换效果相同）。
+    func openSegment(_ name: String) {
+        let ws = current
+        switch ws.type {
+        case .image:
+            guard let s = Workspace.ImageSegment(rawValue: name) else { return }
+            if s == .crop, ws.draft.image.crop == nil { ws.draft.image.crop = CropPreset.imagePresets[0] }
+            ws.imageSegment = s
+        case .video:
+            guard let s = Workspace.VideoSegment(rawValue: name) else { return }
+            ws.draft.video.outputFrames = (s == .frames)
+            ws.videoSegment = s
+        case .pdf:
+            if let s = Workspace.PdfSegment(rawValue: name) { ws.pdfSegment = s }
+        }
+    }
+
     func remove(_ ids: Set<FileItem.ID>, from ws: Workspace) {
         ws.files.removeAll { ids.contains($0.id) }
         ws.selection.subtract(ids)
@@ -207,7 +224,7 @@ final class AppModel {
         switch ws.type {
         case .image:
             ws.planSources = engine.listFiles(inputs: ws.engineInputs, kind: .image)
-            ws.job = engine.runImages(inputs: ws.engineInputs, place: place, naming: naming, settings: recipe.imageSettings(cropBoxes: ws.cropBoxes), listener: listener)
+            ws.job = engine.runImages(inputs: ws.engineInputs, place: place, naming: naming, settings: recipe.imageSettings(cropBoxes: ws.cropBoxesForEngine), listener: listener)
         case .video:
             // 剪辑里设的截取、裁切与封面按每段视频各自生效：逐段起任务。
             runVideos(ws, recipe: recipe, place: place, naming: naming, listener: listener)
@@ -274,7 +291,10 @@ final class AppModel {
         let files = ws.files.flatMap { $0.outputs.map { URL(fileURLWithPath: $0.path) } }
         do {
             try ws.job?.undo()
-            for f in ws.files where f.state == .done { f.state = .waiting; f.outputs = [] }
+            for f in ws.files where f.state == .done || f.state == .kept { f.state = .waiting; f.outputs = [] }
+            // 回到处理前：底栏不再显示上一批的结果。
+            ws.finishedCount = 0
+            ws.job = nil
             flash("已撤销，\(files.count) 个新文件移到了废纸篓")
         } catch {
             flash("撤销失败：\(error.localizedDescription)")
