@@ -6,3 +6,8 @@
 xcuserdata/
 .local/
 .env*
+
+# UniFFI 生成物，由 scripts/build-core-mac.sh 重新生成
+apps/mac/Sources/SmallerCore/smaller_core.swift
+apps/mac/Sources/smaller_coreFFI/smaller_coreFFI.h
+apps/mac/Sources/smaller_coreFFI/module.modulemap

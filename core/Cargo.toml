@@ -1,0 +1,16 @@
+[package]
+name = "smaller-core"
+description = "简单小一点的压缩引擎：图片、视频、PDF 管线与配方"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lib]
+name = "smaller_core"
+# staticlib 链进 mac 应用；cdylib 只给 uniffi-bindgen 读接口元数据。
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+uniffi.workspace = true
+thiserror.workspace = true
+imagesize = "0.15.0"

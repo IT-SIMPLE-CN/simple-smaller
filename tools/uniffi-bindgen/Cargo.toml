@@ -1,0 +1,10 @@
+[package]
+name = "uniffi-bindgen"
+description = "生成 Swift / C# 绑定用的 UniFFI 命令行，与引擎同一版本"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+uniffi = { workspace = true, features = ["cli"] }

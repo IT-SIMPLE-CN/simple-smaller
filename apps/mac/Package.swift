@@ -1,0 +1,30 @@
+// swift-tools-version: 6.2
+import PackageDescription
+import Foundation
+
+// 简单小一点 macOS 应用。界面 SwiftUI + AppKit，压缩全部交给 Rust 引擎（core/）。
+// 先跑 scripts/build-core-mac.sh 生成绑定与静态库，再 swift build。
+let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../..").standardizedFileURL.path
+
+let package = Package(
+    name: "SimpleSmaller",
+    platforms: [.macOS(.v14)],
+    targets: [
+        // UniFFI 生成的 C 头文件，模块名必须是 smaller_coreFFI，生成的 Swift 按这个名字 import。
+        .systemLibrary(name: "smaller_coreFFI", path: "Sources/smaller_coreFFI"),
+        .target(
+            name: "SmallerCore",
+            dependencies: ["smaller_coreFFI"],
+            path: "Sources/SmallerCore",
+            // 生成代码按 Swift 5 语义编，避免 Swift 6 严格并发检查报在生成文件上。
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            // 直接给静态库的完整路径：用 -l 的话链接器会优先挑 target 目录里的同名 dylib。
+            linkerSettings: [.unsafeFlags(["\(root)/.local/lib/libsmaller_core.a"])]
+        ),
+        .executableTarget(
+            name: "SimpleSmaller",
+            dependencies: ["SmallerCore"],
+            path: "Sources/SimpleSmaller"
+        ),
+    ]
+)
