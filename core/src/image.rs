@@ -30,6 +30,8 @@ pub enum SourceFormat {
     Gif,
     Tiff,
     Bmp,
+    /// 从视频里取出的帧。
+    VideoFrame,
 }
 
 /// 内容大类，决定默认走有损还是无损。
@@ -129,6 +131,11 @@ pub fn decode(data: &[u8]) -> Result<Picture, ImageError> {
         to_srgb(&mut pixels, &icc);
     }
     Ok(finish_picture(width, height, pixels, has_alpha, source))
+}
+
+/// 用已有的 RGBA8 像素建一张图（视频帧、剪贴板等来源）。
+pub fn from_rgba(width: u32, height: u32, rgba: Vec<u8>, has_alpha: bool, source: SourceFormat) -> Picture {
+    finish_picture(width, height, rgba, has_alpha, source)
 }
 
 fn finish_picture(width: u32, height: u32, rgba: Vec<u8>, declared_alpha: bool, source: SourceFormat) -> Picture {

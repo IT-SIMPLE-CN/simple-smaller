@@ -7,6 +7,7 @@ uniffi::setup_scaffolding!();
 
 pub mod ffi;
 pub mod image;
+pub mod video;
 
 /// 引擎对外报错。界面按种类给出提示，`message` 只用于日志。
 #[derive(Debug, thiserror::Error, uniffi::Error)]

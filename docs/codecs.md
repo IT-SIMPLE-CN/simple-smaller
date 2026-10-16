@@ -37,3 +37,25 @@
 ## 实测方法
 
 `tools/bench-image`：每张图按质量 20–95 扫一遍，用 SSIMULACRA2 打分（70 分以上算好，80 分以上算高），插值出达到 70 / 80 分所需的体积，与普通 JPEG 编码、macOS ImageIO（等同「预览」导出）对比。结果写在 `docs/bench/`。
+
+## 视频管线（`core/src/video.rs`）
+
+随包的 ffmpeg / ffprobe 由 `scripts/build-ffmpeg-mac.sh` 编译：FFmpeg n9.0.2（GPL 构建）+ x264 stable（`b35605ac`）+ zimg 3.0.6，系统侧用 VideoToolbox 与 AudioToolbox。关掉自动探测，不链接本机 Homebrew 的库；产物只依赖系统库。x264 与 ffmpeg 的构建系统处理不了带空格的路径，所以在 `~/Library/Caches/simple-smaller` 里编译后拷回 `.local/ffmpeg/<架构>/bin`。
+
+| 组件 | 版本 | 许可证 |
+| --- | --- | --- |
+| FFmpeg | n9.0.2 | GPL-3.0（含 x264 后整体为 GPL） |
+| x264 | stable `b35605ac` | GPL-2.0-or-later |
+| zimg | 3.0.6 | WTFPL |
+| gifski | 1.34 | AGPL-3.0 |
+
+1. 探测：ffprobe 读时长、显示尺寸（按旋转修正）、帧率、码率、音轨、HDR（PQ / HLG）。
+2. 滤镜链：裁切 → HDR 转 SDR（zscale + hable 色调映射，输出 BT.709）→ 限帧率 → 缩放（Lanczos，宽高取偶数）→ yuv420p。
+3. 编码：
+   - H.264 画质优先：x264 `-preset slow`；码率档用 CRF 20 / 23 / 27；限体积用两遍编码，码率按「目标体积 × 0.97 ÷ 时长 − 音频 128k」倒推，不超过源码率，超出目标再按比例降码率重压一次。
+   - 速度优先与 HEVC：VideoToolbox，码率档用恒定质量 65 / 55 / 45，限体积用目标码率并校验重试。
+   - 音频：AudioToolbox AAC 128k；去掉元数据（含位置）；文件头前置。
+4. 静态帧：ffmpeg 输出 RGBA 原始帧。序列帧交给图片管线编码；GIF 交给 gifski。
+5. 进度读 `-progress`；取消时结束子进程。输出先写同目录隐藏临时文件，完成后改名，失败或取消时删除。
+
+实测见 `docs/bench/2026-10-16-video.md`。

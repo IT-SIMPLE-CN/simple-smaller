@@ -126,6 +126,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bench-video"
+version = "0.1.0"
+dependencies = [
+ "smaller-core",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -262,6 +269,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01a7799fd6b852db0e61728dde9a204c423b44d689dbd432522543614b490e78"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "crossbeam-channel"
+version = "0.5.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98b0cc327b5bc766e7fda9c9260cc0fa81b43a8e240440422dff70788e3f9ef1"
+dependencies = [
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -418,12 +434,52 @@ dependencies = [
 
 [[package]]
 name = "gif"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ae047235e33e2829703574b54fdec96bfbad892062d97fed2f76022287de61b"
+dependencies = [
+ "weezl",
+]
+
+[[package]]
+name = "gif"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee8cfcc411d9adbbaba82fb72661cc1bcca13e8bba98b364e62b2dba8f960159"
 dependencies = [
  "color_quant",
  "weezl",
+]
+
+[[package]]
+name = "gif-dispose"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e1aa07391f3d9c279f388cea6faf291555dd891df59bed01d4378583df946ac"
+dependencies = [
+ "gif 0.13.3",
+ "imgref",
+ "rgb",
+]
+
+[[package]]
+name = "gifski"
+version = "1.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c246c795a61d4a2476fb1c8ab70bedfaa825c734882adc40e117fc837df81190"
+dependencies = [
+ "crossbeam-channel",
+ "crossbeam-utils",
+ "gif 0.13.3",
+ "gif-dispose",
+ "imagequant",
+ "imgref",
+ "loop9",
+ "num-traits",
+ "ordered-channel",
+ "quick-error",
+ "resize",
+ "rgb",
 ]
 
 [[package]]
@@ -475,7 +531,7 @@ dependencies = [
  "bytemuck",
  "byteorder-lite",
  "color_quant",
- "gif",
+ "gif 0.14.2",
  "image-webp",
  "moxcms 0.8.1",
  "num-traits",
@@ -513,6 +569,12 @@ name = "imagesize"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65b27460c2c92b037f3f94c538ed9a3342f3fdf923606781629ccb35f82d042a"
+
+[[package]]
+name = "imgref"
+version = "1.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e44b0a4eaa4c82f441d50a963f2d5f05a787240aeee097597033e72accfd22f"
 
 [[package]]
 name = "indexmap"
@@ -574,6 +636,15 @@ name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
+
+[[package]]
+name = "loop9"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fae87c125b03c1d2c0150c90365d7d6bcc53fb73a9acaef207d2d065860f062"
+dependencies = [
+ "imgref",
+]
 
 [[package]]
 name = "memchr"
@@ -694,6 +765,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
+name = "ordered-channel"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95be4d57809897b5a7539fc15a7dfe0e84141bc3dfaa2e9b1b27caa90acf61ab"
+dependencies = [
+ "crossbeam-channel",
+]
+
+[[package]]
 name = "oxipng"
 version = "10.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -787,6 +867,16 @@ checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "resize"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71725ecd5e0197b54fe859055b108688472ab6a358f8fbe5cee4a556b1b5bfea"
+dependencies = [
+ "rayon",
+ "rgb",
 ]
 
 [[package]]
@@ -929,12 +1019,16 @@ version = "0.1.0"
 dependencies = [
  "cc",
  "fast_image_resize",
+ "gifski",
  "image",
  "imagequant",
  "imagesize",
+ "imgref",
  "moxcms 0.9.1",
  "oxipng",
  "rgb",
+ "serde",
+ "serde_json",
  "thiserror",
  "uniffi",
 ]

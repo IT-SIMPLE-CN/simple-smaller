@@ -1,0 +1,10 @@
+[package]
+name = "bench-video"
+description = "视频编码实测：同体积下 x264 两遍编码与系统硬件编码的画质对比"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+smaller-core = { path = "../../core" }
