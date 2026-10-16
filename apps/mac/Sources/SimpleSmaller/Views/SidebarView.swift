@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SidebarView: View {
     @Environment(AppModel.self) private var model
@@ -25,6 +26,7 @@ struct SidebarView: View {
                     RecipeRow(recipe: recipe, active: ws.recipeID == recipe.id) { apply(recipe) }
                         .contextMenu {
                             Button("编辑…") { editing = recipe }
+                            Button("导出…") { export(recipe) }
                             Button("删除", role: .destructive) { model.store.delete(id: recipe.id) }
                         }
                 }
@@ -56,6 +58,20 @@ struct SidebarView: View {
             RecipeEditorView(initial: recipe) { saved in
                 apply(saved)
             }
+        }
+    }
+
+    /// 导出成 .smaller 文件，发给同事后在「新建配方 → 从文件导入」里导入。
+    private func export(_ recipe: Recipe) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "\(recipe.name).smaller"
+        panel.allowedContentTypes = [.init(filenameExtension: "smaller") ?? .json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try model.store.export(ids: [recipe.id], to: url)
+            model.flash("已导出「\(recipe.name)」")
+        } catch {
+            model.flash("导出失败：\(error.localizedDescription)")
         }
     }
 

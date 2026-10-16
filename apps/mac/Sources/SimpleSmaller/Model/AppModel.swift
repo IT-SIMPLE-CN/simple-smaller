@@ -126,15 +126,21 @@ final class AppModel {
 
     /// 剪贴板里的图片存成临时 PNG 再处理；剪贴板里是文件就直接加。
     func pasteFromClipboard() {
+        guard let urls = clipboardFiles() else { return }
+        if urls.count == 1, urls[0].path.contains("/简单小一点/剪贴板-") { selectedType = .image }
+        add(urls, preferred: urls.count == 1 && urls[0].path.contains("/简单小一点/剪贴板-") ? .image : nil)
+    }
+
+    /// 剪贴板里的文件；是图片数据时先存成「图片/简单小一点/剪贴板-时间.png」。没有可处理的返回 nil 并提示。
+    func clipboardFiles() -> [URL]? {
         let pb = NSPasteboard.general
         if let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
-            add(urls)
-            return
+            return urls
         }
         guard let image = NSImage(pasteboard: pb), let tiff = image.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff), let png = rep.representation(using: .png, properties: [:]) else {
             flash("剪贴板里没有图片")
-            return
+            return nil
         }
         let dir = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask)[0].appendingPathComponent("简单小一点", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -143,10 +149,10 @@ final class AppModel {
         let url = dir.appendingPathComponent("剪贴板-\(f.string(from: Date())).png")
         do {
             try png.write(to: url)
-            selectedType = .image
-            add([url], preferred: .image)
+            return [url]
         } catch {
             flash("剪贴板图片存不下来：\(error.localizedDescription)")
+            return nil
         }
     }
 

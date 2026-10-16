@@ -18,8 +18,6 @@
 	<string>__BUILD__</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
-	<key>CFBundleIconName</key>
-	<string>AppIcon</string>
 	<key>NSAccentColorName</key>
 	<string>AccentColor</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -32,6 +30,29 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2021–2026 IT-SIMPLE · AGPL-3.0</string>
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>用简单小一点处理</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>processFiles</string>
+			<key>NSPortName</key>
+			<string>简单小一点</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.image</string>
+				<string>public.movie</string>
+				<string>com.adobe.pdf</string>
+				<string>public.folder</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

@@ -293,7 +293,11 @@ struct ImageInspector: View {
         return [base / 2, base / 4].filter { $0 >= 64 }
     }
 
-    private var extraLabel: String { "同时出 " + extraSizes.map(String.init).joined(separator: " / ") }
+    /// 已经开着时写实际的档位（配方里可能只勾了一档），没开时写打开后会出的两档。
+    private var extraLabel: String {
+        let list = ws.draft.image.extraSizes.isEmpty ? extraSizes : ws.draft.image.extraSizes
+        return "同时出 " + list.map(String.init).joined(separator: " / ")
+    }
 }
 
 enum QualityWord {
@@ -362,14 +366,10 @@ struct OutputSection: View {
                         .multilineTextAlignment(.trailing)
                 }
             }
-            if ws.type == .image {
+            // 图片、视频重新编码时一律不带原文件的位置与设备信息；PDF 的同类选项在「选项」里。
+            if ws.type != .pdf {
                 InspectorRow(label: "去掉位置与设备信息") { Text("始终").foregroundStyle(.secondary) }
-                    .help("图片重新编码时一律不带原图的位置与设备信息")
-            } else if ws.type == .pdf {
-                // PDF 的同一项写在「选项」/「合并」里（去掉作者与修改记录）。
-                EmptyView()
-            } else {
-                InspectorToggle(label: "去掉位置与设备信息", isOn: $ws.draft.stripMetadata)
+                    .help("重新编码时一律不带原文件的位置与设备信息")
             }
         }
     }

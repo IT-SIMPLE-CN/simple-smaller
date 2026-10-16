@@ -22,6 +22,16 @@ cp "$ROOT/apps/mac/Resources/"* "$APP/Contents/Resources/" 2>/dev/null || true
 xcrun actool "$ROOT/apps/mac/Assets.xcassets" --compile "$APP/Contents/Resources" --platform macosx \
   --minimum-deployment-target 14.0 --app-icon AppIcon --accent-color AccentColor \
   --output-partial-info-plist "$ROOT/.local/assets-partial.plist" > "$ROOT/.local/actool.log" 2>&1
+# 应用图标：从图标 PNG 生成 AppIcon.icns（Info.plist 的 CFBundleIconFile）。
+ICONSET="$ROOT/.local/AppIcon.iconset"
+SRC="$ROOT/apps/mac/Assets.xcassets/AppIcon.appiconset"
+rm -rf "$ICONSET"; mkdir -p "$ICONSET"
+for s in 16 32 128 256 512; do
+  cp "$SRC/icon_$s.png" "$ICONSET/icon_${s}x${s}.png"
+  cp "$SRC/icon_$((s * 2)).png" "$ICONSET/icon_${s}x${s}@2x.png"
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+rm -rf "$ICONSET"
 VERSION="$(grep '^version' "$ROOT/Cargo.toml" | head -1 | cut -d'"' -f2)"
 BUILD="$(git -C "$ROOT" rev-list --count HEAD)"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" "$ROOT/apps/mac/Info.plist" > "$APP/Contents/Info.plist"

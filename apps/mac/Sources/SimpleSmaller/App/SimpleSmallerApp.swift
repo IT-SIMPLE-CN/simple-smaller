@@ -42,7 +42,7 @@ struct SimpleSmallerApp: App {
             TrayView()
                 .environment(model)
         } label: {
-            Image(systemName: "arrow.down.right.and.arrow.up.left.square")
+            Label("简单小一点", systemImage: "arrow.down.right.and.arrow.up.left.square")
         }
         .menuBarExtraStyle(.window)
     }
@@ -130,6 +130,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let i = args.firstIndex(of: "--type"), i + 1 < args.count, let t = MediaType(rawValue: args[i + 1]) {
                 AppModel.shared.selectedType = t
             }
+            // `--ring <路径>...`：在屏幕中间为这些文件弹圆环，供脚本化验证（访达里需要辅助功能授权）。
+            if let i = args.firstIndex(of: "--ring") {
+                let urls = args[(i + 1)...].prefix { !$0.hasPrefix("--") }.map { URL(fileURLWithPath: $0) }
+                let mouse = NSEvent.mouseLocation
+                if let screen = NSScreen.screens.first(where: { NSMouseInRect(mouse, $0.frame, false) }) ?? NSScreen.main {
+                    RingController.shared.open(urls: urls, at: NSPoint(x: screen.frame.midX, y: screen.frame.midY))
+                }
+                return
+            }
             // `--recipe <配方 id>`：选中某个配方，供脚本化验证。
             if let i = args.firstIndex(of: "--recipe"), i + 1 < args.count, let r = AppModel.shared.store.recipe(id: args[i + 1]) {
                 AppModel.shared.selectedType = r.type
@@ -159,3 +168,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
+

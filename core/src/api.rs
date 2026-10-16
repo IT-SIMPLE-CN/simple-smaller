@@ -580,6 +580,11 @@ impl Engine {
         Ok(preview)
     }
 
+    /// 按命名规则算出示例文件名（不含扩展名），配方编辑里的「示例」用，与真实输出同一套规则。
+    pub fn preview_name(&self, naming: Naming, source_name: String, width: u32, height: u32) -> String {
+        self.name(&naming, Path::new(&source_name), "", 0, width, height)
+    }
+
     pub fn video_meta(&self, path: String) -> Result<VideoMeta, EngineError> {
         let tools = video::Tools::locate().map_err(|e| EngineError::Failed { message: e.to_string() })?;
         let i = video::probe(&tools, Path::new(&path)).map_err(|e| EngineError::Unsupported { message: e.to_string() })?;
@@ -983,6 +988,12 @@ mod tests {
 
     fn settings() -> ImageSettings {
         ImageSettings { format: ImageFormat::Webp, quality: 78, lossless: false, target_bytes: None, sizes: vec![800], size_by: SizeBy::Width, crop: None, crop_boxes: vec![] }
+    }
+
+    #[test]
+    fn 命名示例() {
+        let engine = Engine::new(None);
+        assert_eq!(engine.preview_name(naming("{name}-{w}"), "新品 发布.jpg".into(), 2560, 1440), "xin-pin-fa-bu-2560");
     }
 
     #[test]
