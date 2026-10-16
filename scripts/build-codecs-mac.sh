@@ -50,7 +50,9 @@ build libwebp \
 
 # aom（AV1 编解码，供 libavif 用）
 fetch_tag aom https://aomedia.googlesource.com/aom "$AOM_TAG"
-build aom \
+# aom 默认按本机 CPU 选优化代码（Apple 芯片上会选 NEON），交叉编译时要显式指定。
+AOM_CPU="$ARCH"; [ "$ARCH" = "x86_64" ] || AOM_CPU="arm64"
+build aom -DAOM_TARGET_CPU="$AOM_CPU" \
   -DENABLE_DOCS=0 -DENABLE_EXAMPLES=0 -DENABLE_TESTDATA=0 -DENABLE_TESTS=0 -DENABLE_TOOLS=0
 
 # libavif

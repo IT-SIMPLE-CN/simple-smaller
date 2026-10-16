@@ -190,7 +190,7 @@ private struct PasswordOption: View {
                 if !v { ws.outputPassword = "" }
             }))
             if on || !ws.outputPassword.isEmpty {
-                SecureField("设置密码", text: $ws.outputPassword)
+                SecureField("设置密码", text: Binding(get: { ws.outputPassword }, set: { ws.outputPassword = String($0.utf8.count > 127 ? String(decoding: Array($0.utf8.prefix(127)), as: UTF8.self) : $0) }))
                     .textFieldStyle(.roundedBorder)
                 Text("只在这次处理里用，不保存。忘了密码就打不开，记得另外告诉对方。")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

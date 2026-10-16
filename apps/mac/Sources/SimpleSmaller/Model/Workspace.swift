@@ -83,6 +83,10 @@ final class Workspace {
     var createdRoots: [String] = []
     /// PDF 输出加的打开密码。只在这次处理里用，不写进配方、不保存。
     var outputPassword = ""
+    /// 第几轮处理；取消后重开，上一轮的回调据此作废。
+    var runGeneration = 0
+    /// 这一轮处理的文件（重试时只是失败的那几个）。
+    var runItemIDs: Set<FileItem.ID> = []
     var running = false
     /// 这一批任务里引擎展开后的文件顺序（进度回调按这个序号报）。
     var planSources: [String] = []

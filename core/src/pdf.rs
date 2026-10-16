@@ -83,6 +83,10 @@ pub fn unlock(input: &Path, output: &Path, password: &str) -> Result<()> {
 pub fn encrypt_in_place(path: &Path, password: &str) -> Result<()> {
     let tmp = path.with_file_name(format!(".{}.smaller-tmp", path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()));
     let (i, o) = (cpath(path), cpath(&tmp));
+    // MuPDF 的密码缓冲区是 128 字节，超长会被悄悄截断，导致用完整密码打不开；直接拒绝。
+    if password.len() > 127 {
+        return Err(PdfError::Mupdf("密码太长（最多 127 个字节，约 40 个汉字）".into()));
+    }
     let pw = CString::new(password).map_err(|_| PdfError::Mupdf("密码里不能有空字符".into()))?;
     let r = call(|e, n| unsafe { smaller_pdf_encrypt(i.as_ptr(), o.as_ptr(), pw.as_ptr(), e, n) });
     if r.is_err() {

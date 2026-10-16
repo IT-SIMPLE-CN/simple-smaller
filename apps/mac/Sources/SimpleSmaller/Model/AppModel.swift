@@ -136,6 +136,10 @@ final class AppModel {
     }
 
     func remove(_ ids: Set<FileItem.ID>, from ws: Workspace) {
+        // 解锁出的临时副本跟着删掉。
+        for f in ws.files where ids.contains(f.id) {
+            if let u = f.unlockedURL { try? FileManager.default.removeItem(at: u.deletingLastPathComponent()) }
+        }
         ws.files.removeAll { ids.contains($0.id) }
         ws.selection.subtract(ids)
         if ws.type == .pdf { rebuildPageOrder(ws) }
@@ -249,6 +253,10 @@ final class AppModel {
         let items = retrying ?? ws.files
         for f in items { f.state = .waiting; f.outputs = [] }
         ws.running = true
+        // 每一轮一个编号：取消后马上重开，上一轮的后台循环与回调都认得出自己已经过期。
+        ws.runGeneration += 1
+        let gen = ws.runGeneration
+        ws.runItemIDs = Set(items.map(\.id))
         beginActivity()
         if retrying == nil {
             ws.finishedCount = 0
@@ -267,9 +275,18 @@ final class AppModel {
         let place = settings.place
         let started = Date()
         let listener = ListenerBridge(
-            progress: { [weak self] index, fraction in self?.progress(ws, index: Int(index), fraction: fraction) },
-            item: { [weak self] r in self?.finish(ws, result: r) },
-            finished: { [weak self] in self?.finished(ws, started: started) }
+            progress: { [weak self] index, fraction in
+                guard ws.runGeneration == gen else { return }
+                self?.progress(ws, index: Int(index), fraction: fraction)
+            },
+            item: { [weak self] r in
+                guard ws.runGeneration == gen else { return }
+                self?.finish(ws, result: r)
+            },
+            finished: { [weak self] in
+                guard ws.runGeneration == gen else { return }
+                self?.finished(ws, started: started)
+            }
         )
         let recipe = ws.draft
         let merging = ws.type == .pdf && [.merge, .fromImages].contains(ws.pdfSegment)
@@ -316,7 +333,12 @@ final class AppModel {
             default: inputs = ws.engineInputs
             }
             ws.planSources = merging ? inputs : engine.listFiles(inputs: inputs, kind: .pdf)
-            ws.job = engine.runPdfs(inputs: inputs, place: place, naming: naming, settings: pdfSettings(ws, recipe: recipe), listener: listener)
+            // 合并、图片转 PDF 的结果放在第一个文件的位置；第一个可能是解锁出的临时副本，按原文件的位置算。
+            var target = place
+            if merging, settings.outputLocation == .beside, let first = (ws.pdfSegment == .fromImages ? ws.files.first { $0.type == .image } : pdfs.first) {
+                target = .folder(path: first.url.deletingLastPathComponent().path)
+            }
+            ws.job = engine.runPdfs(inputs: inputs, place: target, naming: naming, settings: pdfSettings(ws, recipe: recipe), listener: listener)
             ws.batchJobs = ws.job.map { [$0] } ?? []
         }
     }
@@ -346,6 +368,7 @@ final class AppModel {
 
     /// 按组逐个起任务（图片、PDF 的重试）；每组的进度按它自己的文件顺序对回列表。
     private func runGroups(_ ws: Workspace, groups: [(paths: [String], place: Place)], naming: Naming, recipe: Recipe, listener: ListenerBridge) {
+        let gen = ws.runGeneration
         let engine = engine
         let imageSettings = recipe.imageSettings(cropBoxes: ws.cropBoxesForEngine)
         let pdf = pdfSettings(ws, recipe: recipe)
@@ -365,13 +388,14 @@ final class AppModel {
                     : engine.runPdfs(inputs: group.paths, place: group.place, naming: naming, settings: pdf, listener: bridge)
                 await MainActor.run { ws.job = job; ws.batchJobs.append(job) }
                 await withCheckedContinuation { c in DispatchQueue.global().async { done.wait(); c.resume() } }
-                if await MainActor.run(body: { ws.running == false }) { break }
+                if await MainActor.run(body: { !ws.running || ws.runGeneration != gen }) { break }
             }
             await MainActor.run { listener.finished() }
         }
     }
 
     private func runVideos(_ ws: Workspace, items: [FileItem], recipe: Recipe, place: Place, naming: Naming, listener: ListenerBridge) {
+        let gen = ws.runGeneration
         let engine = engine
         // 视频逐段跑；每段一个任务，用同一个回调汇总。
         let jobs = items.map { item in
@@ -397,7 +421,7 @@ final class AppModel {
                 let job = engine.runVideos(inputs: [j.path], place: j.place, naming: naming, settings: j.settings, listener: bridge)
                 await MainActor.run { ws.job = job; ws.batchJobs.append(job) }
                 await withCheckedContinuation { c in DispatchQueue.global().async { done.wait(); c.resume() } }
-                if await MainActor.run(body: { ws.running == false }) { break }
+                if await MainActor.run(body: { !ws.running || ws.runGeneration != gen }) { break }
             }
             await MainActor.run { listener.finished() }
         }
@@ -405,6 +429,7 @@ final class AppModel {
 
     func cancel(_ ws: Workspace) {
         ws.job?.cancel()
+        ws.batchJobs.forEach { $0.cancel() }
         ws.running = false
         endActivityIfIdle()
     }
@@ -445,7 +470,7 @@ final class AppModel {
     }
 
     /// 主窗口任意一类在跑，或圆环 / 小窗直接处理的任务没完。
-    var isBusy: Bool { MediaType.allCases.contains { workspace($0).running } || RingController.shared.hasRunning }
+    var isBusy: Bool { MediaType.allCases.contains { workspace($0).running } || RingController.shared.hasRunning || FolderWatcher.shared.hasRunning }
 
     /// Dock：处理中写「3/9」；后台做完写完成个数，回到应用后清掉。
     func updateDock() {
@@ -522,7 +547,7 @@ final class AppModel {
 
     private func finished(_ ws: Workspace, started: Date) {
         ws.running = false
-        noteFinishedInBackground(ws.files.filter { $0.state == .done }.count)
+        noteFinishedInBackground(ws.files.filter { ws.runItemIDs.contains($0.id) && $0.state == .done }.count)
         endActivityIfIdle()
         // 只统计处理成功的（失败的不算进前后体积）。
         let ok = ws.files.filter { [.done, .kept].contains($0.state) }

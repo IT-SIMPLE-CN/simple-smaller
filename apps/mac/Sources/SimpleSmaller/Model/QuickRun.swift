@@ -22,6 +22,8 @@ final class QuickRun {
     private var jobs: [Job] = []
     private var cancelled = false
     var onFinished: (() -> Void)?
+    /// 每写出一个文件回调一次（监视文件夹用来避开自己的输出）。
+    var onOutput: ((URL) -> Void)?
 
     init(recipe: Recipe, urls: [URL], type: MediaType) {
         self.recipe = recipe
@@ -91,7 +93,9 @@ final class QuickRun {
     private func record(_ r: JobItemResult) {
         switch r.state {
         case .done:
-            outputs += r.outputs.map { URL(fileURLWithPath: $0.path) }
+            let new = r.outputs.map { URL(fileURLWithPath: $0.path) }
+            outputs += new
+            new.forEach { onOutput?($0) }
             after += r.outputs.reduce(0) { $0 + $1.bytes }
         case .keptOriginal:
             kept += 1

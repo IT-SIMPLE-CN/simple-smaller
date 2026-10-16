@@ -42,6 +42,7 @@ final class FolderWatcher {
         }
         stream = nil
         settleTimer?.invalidate()
+        settleTimer = nil
         pending = [:]
     }
 
@@ -60,10 +61,18 @@ final class FolderWatcher {
         }
     }
 
+    var hasRunning: Bool { runs.contains { !$0.isFinished } }
+
+    /// 这个文件夹有任务在跑：期间新出现的文件先不认（可能是自己的输出），等任务结束再判断。
+    private func busy(_ folder: String) -> Bool {
+        runs.contains { !$0.isFinished && $0.urls.first?.deletingLastPathComponent().standardizedFileURL.path == folder }
+    }
+
     /// 每秒看一次大小，连续两次不变才算写完。
     private func settle() {
         var ready: [URL] = []
         for (url, state) in pending {
+            if busy(url.deletingLastPathComponent().standardizedFileURL.path) { continue }
             guard let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize else { pending[url] = nil; continue }
             if size == state.size, size > 0 { ready.append(url); pending[url] = nil }
             else if state.checks > 120 { pending[url] = nil }
@@ -81,6 +90,8 @@ final class FolderWatcher {
             let matching = files.filter { MediaType.of($0) == recipe.type }
             guard !matching.isEmpty else { continue }
             let run = QuickRun(recipe: recipe, urls: matching, type: recipe.type)
+            // 每写出一个结果就记下，哪怕命名里没有 -small 也不会被当成新文件。
+            run.onOutput = { url in FolderWatcher.shared.seen.insert(Self.key(url)) }
             run.onFinished = { [weak run] in
                 guard let run else { return }
                 // 结果写在同一个文件夹里，记下来不再当新文件处理。

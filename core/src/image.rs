@@ -98,6 +98,24 @@ pub fn load(path: &Path) -> Result<Picture, ImageError> {
     decode(&data)
 }
 
+/// JPEG 是否完整：找到第一个扫描段（SOS）之后的结束标记（EOI）。不能只看文件尾——
+/// 三星动态照片等会在 EOI 后面接一段视频或附加数据。
+pub fn jpeg_has_end(data: &[u8]) -> bool {
+    let mut i = 2;
+    while i + 4 <= data.len() {
+        if data[i] != 0xFF { return false; }
+        let marker = data[i + 1];
+        if marker == 0xFF { i += 1; continue; }
+        if marker == 0xD8 || (0xD0..=0xD7).contains(&marker) { i += 2; continue; }
+        let len = u16::from_be_bytes([data[i + 2], data[i + 3]]) as usize;
+        if marker == 0xDA {
+            return data[i + 2 + len.min(data.len() - i - 2)..].windows(2).any(|w| w == [0xFF, 0xD9]);
+        }
+        i += 2 + len;
+    }
+    false
+}
+
 /// 引擎自己认识的格式（解坏了就是文件有问题，不再交给系统兜底）。
 pub fn is_known_format(data: &[u8]) -> bool {
     is_avif(data) || image::guess_format(data).is_ok_and(|f| matches!(f,
@@ -124,7 +142,7 @@ pub fn decode(data: &[u8]) -> Result<Picture, ImageError> {
         other => return Err(ImageError::Decode(format!("不支持的格式 {other:?}"))),
     };
     // JPEG 解码器遇到截断会把缺的部分补成灰色照样返回；没有结束标记（FFD9）就当文件不完整。
-    if source == SourceFormat::Jpeg && !data[data.len().saturating_sub(4096)..].windows(2).any(|w| w == [0xFF, 0xD9]) {
+    if source == SourceFormat::Jpeg && !jpeg_has_end(data) {
         return Err(ImageError::Decode("文件不完整".into()));
     }
     let mut decoder = reader.into_decoder().map_err(|e| ImageError::Decode(e.to_string()))?;
@@ -448,6 +466,10 @@ mod tests {
         assert!(decode(&png[..png.len() / 3]).is_err(), "截断的 PNG 不能当成功");
         let jpg = encode(&p, OutputFormat::Jpeg, 90, false).unwrap();
         assert!(decode(&jpg[..jpg.len() / 3]).is_err(), "截断的 JPEG 不能当成功");
+        // EOI 后面接一大段附加数据（动态照片）仍算完整。
+        let mut motion = jpg.clone();
+        motion.extend(std::iter::repeat_n(0x42u8, 20_000));
+        assert!(decode(&motion).is_ok(), "带附加数据的 JPEG 应能正常读");
     }
 
     #[test]

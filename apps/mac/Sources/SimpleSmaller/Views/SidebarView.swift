@@ -18,12 +18,14 @@ struct SidebarView: View {
             Section("常用配方") {
                 ForEach(model.store.builtIns(for: model.selectedType)) { recipe in
                     RecipeRow(recipe: recipe, active: ws.recipeID == recipe.id) { apply(recipe) }
+                        .modifier(RecipeDrop(recipe: recipe))
                 }
             }
 
             Section("我的配方") {
                 ForEach(model.store.mine(for: model.selectedType)) { recipe in
                     RecipeRow(recipe: recipe, active: ws.recipeID == recipe.id) { apply(recipe) }
+                        .modifier(RecipeDrop(recipe: recipe))
                         .contextMenu {
                             Button("编辑…") { editing = recipe }
                             Button("导出…") { export(recipe) }
@@ -195,5 +197,30 @@ struct BrandMark: View {
         } else {
             Image(systemName: "circle.hexagongrid").resizable().scaledToFit().foregroundStyle(.secondary)
         }
+    }
+}
+
+/// 把文件拖到边栏的某个配方上：加进列表并换成这个配方（点「开始」才写出）。
+private struct RecipeDrop: ViewModifier {
+    @Environment(AppModel.self) private var model
+    let recipe: Recipe
+    @State private var targeted = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if targeted {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.brand, lineWidth: 2)
+                        .allowsHitTesting(false)
+                }
+            }
+            .dropDestination(for: URL.self) { urls, _ in
+                model.selectedType = recipe.type
+                model.add(urls, preferred: recipe.type)
+                model.current.select(recipe: recipe)
+                return true
+            } isTargeted: { targeted = $0 }
+            .animation(.easeOut(duration: 0.12), value: targeted)
     }
 }

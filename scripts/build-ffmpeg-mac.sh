@@ -44,7 +44,8 @@ rm -rf "$BUILD/zimg" && cp -R "$SRC/zimg" "$BUILD/zimg"
 (
   cd "$BUILD/zimg"
   ./autogen.sh > autogen.log 2>&1
-  ./configure --prefix="$PREFIX" --enable-static --disable-shared \
+  # --host 让 configure 按目标架构选优化代码（不写的话按本机，Apple 芯片上会选 NEON）。
+  ./configure --prefix="$PREFIX" --enable-static --disable-shared --host="$ARCH-apple-darwin" \
     CFLAGS="$CFLAGS_ARCH" CXXFLAGS="$CFLAGS_ARCH" LDFLAGS="$CFLAGS_ARCH" > configure.log
   make -j"$JOBS" > build.log && make install > install.log
 )
