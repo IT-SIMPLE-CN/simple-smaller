@@ -41,10 +41,28 @@ fn main() {
         .include(&include)
         .compile("smaller_codec_shims");
 
+    // MuPDF（PDF 压缩、组装、渲染），由 scripts/build-mupdf-mac.sh 装好。
+    let mupdf = env::var("SMALLER_MUPDF_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| root.join(".local/mupdf").join(&arch));
+    if !mupdf.join("lib/libmupdf.a").exists() {
+        panic!("找不到 MuPDF：{}。先运行 scripts/build-mupdf-mac.sh", mupdf.display());
+    }
+    cc::Build::new()
+        .file("native/pdf_shim.c")
+        .include("native")
+        .include(mupdf.join("include"))
+        .compile("smaller_pdf_shim");
+
     println!("cargo:rustc-link-search=native={}", codecs.join("lib").display());
     for lib in ["jpegli", "jpegli_cms", "lcms2", "hwy", "webp", "sharpyuv", "avif", "aom"] {
         println!("cargo:rustc-link-lib=static={lib}");
     }
+    println!("cargo:rustc-link-search=native={}", mupdf.join("lib").display());
+    for lib in ["mupdf", "mupdf-third"] {
+        println!("cargo:rustc-link-lib=static={lib}");
+    }
+    println!("cargo:rerun-if-env-changed=SMALLER_MUPDF_DIR");
     println!("cargo:rustc-link-lib=c++");
     println!("cargo:rerun-if-changed=native");
     println!("cargo:rerun-if-env-changed=SMALLER_CODECS_DIR");

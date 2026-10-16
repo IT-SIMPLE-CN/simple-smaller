@@ -126,6 +126,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bench-pdf"
+version = "0.1.0"
+dependencies = [
+ "smaller-core",
+ "ssimulacra2",
+]
+
+[[package]]
 name = "bench-video"
 version = "0.1.0"
 dependencies = [

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core", "tools/uniffi-bindgen", "tools/bench-image", "tools/bench-video"]
+members = ["core", "tools/uniffi-bindgen", "tools/bench-image", "tools/bench-video", "tools/bench-pdf"]
 
 [workspace.package]
 edition = "2024"

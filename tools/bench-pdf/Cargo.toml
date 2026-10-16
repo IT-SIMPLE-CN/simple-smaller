@@ -1,0 +1,11 @@
+[package]
+name = "bench-pdf"
+description = "PDF 压缩实测：各档体积、文字是否完好、页面画质损失"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+smaller-core = { path = "../../core" }
+ssimulacra2 = "0.5.1"
