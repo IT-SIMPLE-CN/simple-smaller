@@ -9,6 +9,7 @@
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Deserialize;
@@ -284,6 +285,27 @@ fn temp_path(output: &Path) -> PathBuf {
     crate::jobs::temp_sibling(output, "")
 }
 
+/// 进程运行期间另起一个线程盯着取消：一按停止就结束进程，`body` 里阻塞读管道的循环随即读到结束。
+/// 只在读到输出时检查取消的话，ffmpeg 卡住不再输出就永远停不下来。
+fn with_cancel<T>(child: Child, cancel: &AtomicBool, body: impl FnOnce(&Mutex<Child>) -> T) -> T {
+    let child = Mutex::new(child);
+    let done = AtomicBool::new(false);
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            while !done.load(Ordering::Relaxed) {
+                if cancel.load(Ordering::Relaxed) {
+                    let _ = child.lock().unwrap_or_else(|e| e.into_inner()).kill();
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+        });
+        let r = body(&child);
+        done.store(true, Ordering::Relaxed);
+        r
+    })
+}
+
 /// 跑一次 ffmpeg，读 `-progress` 输出换算成 [from, to] 区间的进度；取消时结束进程。
 fn run_ffmpeg(
     tools: &Tools,
@@ -306,22 +328,26 @@ fn run_ffmpeg(
         let _ = stderr.read_to_string(&mut s);
         s
     });
-    for line in BufReader::new(stdout).lines() {
+    let status = with_cancel(child, cancel, |child| {
+        for line in BufReader::new(stdout).lines() {
+            if cancel.load(Ordering::Relaxed) {
+                break;
+            }
+            let Ok(line) = line else { break };
+            if let Some(us) = line.strip_prefix("out_time_us=")
+                && let Ok(us) = us.parse::<f64>()
+                && duration > 0.0
+            {
+                let f = (us / 1e6 / duration).clamp(0.0, 1.0);
+                progress(span.0 + (span.1 - span.0) * f);
+            }
+        }
+        let mut c = child.lock().unwrap_or_else(|e| e.into_inner());
         if cancel.load(Ordering::Relaxed) {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(VideoError::Cancelled);
+            let _ = c.kill();
         }
-        let Ok(line) = line else { break };
-        if let Some(us) = line.strip_prefix("out_time_us=")
-            && let Ok(us) = us.parse::<f64>()
-            && duration > 0.0
-        {
-            let f = (us / 1e6 / duration).clamp(0.0, 1.0);
-            progress(span.0 + (span.1 - span.0) * f);
-        }
-    }
-    let status = child.wait()?;
+        c.wait()
+    })?;
     let stderr = err_thread.join().unwrap_or_default();
     if cancel.load(Ordering::Relaxed) {
         return Err(VideoError::Cancelled);
@@ -609,36 +635,51 @@ pub fn extract_frames(
     args.extend(["-loglevel".into(), "error".into(), "pipe:1".into()]);
     let mut child = tool(&tools.ffmpeg).args(&args).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
     let mut stdout = child.stdout.take().unwrap();
-    let frame_len = w as usize * h as usize * 4;
-    let mut index = 0usize;
-    let step = fps.map(|f| 1.0 / f).unwrap_or(1.0 / info.fps.max(1.0));
-    loop {
-        if cancel.load(Ordering::Relaxed) {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(VideoError::Cancelled);
-        }
-        let mut buf = vec![0u8; frame_len];
-        match stdout.read_exact(&mut buf) {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
-            Err(e) => return Err(e.into()),
-        }
-        let picture = img::from_rgba(w, h, buf, false, SourceFormat::VideoFrame);
-        if let Err(e) = on_frame(index, index as f64 * step, picture) {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(e);
-        }
-        index += 1;
-    }
-    let status = child.wait()?;
-    if !status.success() && index == 0 {
+    let mut stderr = child.stderr.take().unwrap();
+    let err_thread = std::thread::spawn(move || {
         let mut s = String::new();
-        if let Some(mut err) = child.stderr.take() {
-            let _ = err.read_to_string(&mut s);
+        let _ = stderr.read_to_string(&mut s);
+        s
+    });
+    let frame_len = w as usize * h as usize * 4;
+    let step = fps.map(|f| 1.0 / f).unwrap_or(1.0 / info.fps.max(1.0));
+    let (index, status) = with_cancel(child, cancel, |child| -> Result<(usize, std::process::ExitStatus)> {
+        let mut index = 0usize;
+        let stop = |child: &Mutex<Child>| {
+            let mut c = child.lock().unwrap_or_else(|e| e.into_inner());
+            let _ = c.kill();
+            let _ = c.wait();
+        };
+        loop {
+            if cancel.load(Ordering::Relaxed) {
+                stop(child);
+                return Err(VideoError::Cancelled);
+            }
+            let mut buf = vec![0u8; frame_len];
+            match stdout.read_exact(&mut buf) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
+                Err(e) => {
+                    stop(child);
+                    return Err(e.into());
+                }
+            }
+            let picture = img::from_rgba(w, h, buf, false, SourceFormat::VideoFrame);
+            if let Err(e) = on_frame(index, index as f64 * step, picture) {
+                stop(child);
+                return Err(e);
+            }
+            index += 1;
         }
-        return Err(VideoError::Encode(s.trim().to_string()));
+        let status = child.lock().unwrap_or_else(|e| e.into_inner()).wait()?;
+        Ok((index, status))
+    })?;
+    if cancel.load(Ordering::Relaxed) {
+        return Err(VideoError::Cancelled);
+    }
+    let stderr = err_thread.join().unwrap_or_default();
+    if !status.success() && index == 0 {
+        return Err(VideoError::Encode(stderr.trim().to_string()));
     }
     Ok(index)
 }
@@ -756,6 +797,38 @@ mod tests {
         let out = probe(&tools, &output).unwrap();
         assert_eq!((out.width, out.height), (960, 540));
         assert!(!temp_path(&output).exists());
+    }
+
+    #[test]
+    fn 中途停止马上结束进程() {
+        let Some(tools) = tools_or_skip() else { return };
+        let dir = scratch("cancel");
+        let input = sample(&tools, &dir, 20);
+        let info = probe(&tools, &input).unwrap();
+        let output = dir.join("cancel.mp4");
+        let recipe = VideoRecipe {
+            codec: VideoCodec::H264,
+            encoder: EncoderChoice::Quality,
+            rate: Rate::High,
+            max_short_edge: None,
+            keep_audio: true,
+            trim: None,
+            crop: None,
+            hdr_to_sdr: false,
+            max_fps: None,
+        };
+        let cancel = AtomicBool::new(false);
+        let started = std::time::Instant::now();
+        let result = std::thread::scope(|s| {
+            s.spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(400));
+                cancel.store(true, Ordering::Relaxed);
+            });
+            transcode(&tools, &input, &output, &info, &recipe, &mut |_| {}, &cancel)
+        });
+        assert!(matches!(result, Err(VideoError::Cancelled)), "{result:?}");
+        assert!(started.elapsed().as_secs_f64() < 3.0, "停止用了 {:?}", started.elapsed());
+        assert!(!output.exists() && !temp_path(&output).exists());
     }
 
     #[test]
