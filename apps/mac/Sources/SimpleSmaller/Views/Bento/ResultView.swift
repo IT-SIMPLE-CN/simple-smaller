@@ -66,7 +66,8 @@ struct ResultView: View {
         case (.image, _, _): return "压缩完成"
         case (.video, _, .frames): return "序列帧完成"
         case (.video, _, .edit): return "剪辑完成"
-        default: return "处理完成"
+        case (.video, _, .compress): return "压缩完成"
+        default: return ws.type == .pdf && ws.pdfSegment == .compress ? "压缩完成" : "处理完成"
         }
     }
 
