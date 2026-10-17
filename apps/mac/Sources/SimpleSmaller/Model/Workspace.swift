@@ -149,5 +149,19 @@ final class Workspace {
     /// PDF 合并、拆分、图片转 PDF 用不上配方：不显示配方条，换成一句说明。
     var usesRecipe: Bool { !(type == .pdf && [.merge, .split, .fromImages].contains(pdfSegment)) }
 
-    func item(for path: String) -> FileItem? { files.first { $0.url.path == path || $0.unlockedURL?.path == path } }
+    /// 路径 → 文件（含解锁副本的路径），开始处理时建好，进度与结果回调按路径找文件不用逐个比。
+    var pathIndex: [String: FileItem] = [:]
+
+    func rebuildPathIndex() {
+        var index: [String: FileItem] = [:]
+        for f in files {
+            index[f.url.path] = f
+            if let u = f.unlockedURL { index[u.path] = f }
+        }
+        pathIndex = index
+    }
+
+    func item(for path: String) -> FileItem? {
+        pathIndex[path] ?? files.first { $0.url.path == path || $0.unlockedURL?.path == path }
+    }
 }

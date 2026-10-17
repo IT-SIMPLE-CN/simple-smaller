@@ -26,6 +26,7 @@ extension AppModel {
         ws.runGeneration += 1
         let gen = ws.runGeneration
         ws.runItemIDs = Set(items.map(\.id))
+        ws.rebuildPathIndex()
         beginActivity()
         if retrying == nil {
             ws.finishedCount = 0
@@ -267,6 +268,7 @@ extension AppModel {
     func finish(_ ws: Workspace, result r: JobItemResult) {
         let item = ws.type == .video ? indexItem(ws, Int(r.index)) : (ws.item(for: r.source) ?? indexItem(ws, Int(r.index)))
         guard let item else { return }
+        let wasFinished = item.state.isFinished
         item.outputs = r.outputs
         if r.state != .failed {
             Self.log.info("\(item.name, privacy: .public)：\(String(describing: r.state), privacy: .public)，\(r.outputs.count) 个输出")
@@ -282,8 +284,11 @@ extension AppModel {
         // 合并、图片转 PDF 只出一个结果：其余文件也算完成。
         if ws.type == .pdf, [.merge, .fromImages].contains(ws.pdfSegment) {
             for f in ws.files where f.id != item.id { f.state = item.state }
+            ws.finishedCount = ws.files.filter(\.state.isFinished).count
+        } else if !wasFinished, item.state.isFinished {
+            // 逐个累加，不每次全表重数（几百个文件时不再是 n²）。
+            ws.finishedCount += 1
         }
-        ws.finishedCount = ws.files.filter { [.done, .kept].contains($0.state) || { if case .failed = $0.state { return true }; return false }($0) }.count
         updateDock()
     }
 

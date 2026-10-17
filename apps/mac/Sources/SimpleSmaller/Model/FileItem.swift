@@ -14,6 +14,14 @@ final class FileItem: Identifiable {
         case kept
         case failed(String)
         case cancelled
+
+        /// 这一轮里已经有结果（完成、保留原文件、失败）。
+        var isFinished: Bool {
+            switch self {
+            case .done, .kept, .failed: true
+            default: false
+            }
+        }
     }
 
     let id = UUID()

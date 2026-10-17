@@ -58,9 +58,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func hideAutoFillWindows() {
+        // didUpdate 每处理一个事件就来一次：只在可见窗口数变了时才逐个看类名，平时只数一下。
+        var lastCount = -1
         autoFillObserver = NotificationCenter.default.addObserver(forName: NSApplication.didUpdateNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
-                for w in NSApp.windows where w.isVisible && Self.isAutoFillWindow(w) {
+                // 按可见窗口数判断：自动填充浮窗可能被复用、只是重新显示，总数不变。
+                let visible = NSApp.windows.filter(\.isVisible)
+                guard visible.count != lastCount else { return }
+                lastCount = visible.count
+                for w in visible where Self.isAutoFillWindow(w) {
                     w.orderOut(nil)
                 }
             }
