@@ -20,7 +20,8 @@ internal static class LaunchArgs
                     while (i + 1 < args.Length && !args[i + 1].StartsWith("--")) paths.Add(args[++i]);
                     break;
                 case "--type" when i + 1 < args.Length:
-                    type = MediaTypes.All.FirstOrDefault(t => t.Title() == args[++i]);
+                    var typeName = args[++i];
+                    type = MediaTypes.All.FirstOrDefault(t => t.Title() == typeName);
                     break;
                 case "--segment" when i + 1 < args.Length:
                     segment = args[++i];

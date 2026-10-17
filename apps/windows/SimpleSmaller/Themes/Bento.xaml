@@ -18,17 +18,17 @@
             <Color x:Key="BentoAlertFillColor">#FDE8E4</Color>
             <Color x:Key="BentoAlertTextColor">#A8240F</Color>
             <Color x:Key="BentoFailedColor">#C81E1E</Color>
-            <SolidColorBrush x:Key="BentoWindow" Color="{StaticResource BentoWindowColor}" />
-            <SolidColorBrush x:Key="BentoCard" Color="{StaticResource BentoCardColor}" />
-            <SolidColorBrush x:Key="BentoFill" Color="{StaticResource BentoFillColor}" />
-            <SolidColorBrush x:Key="BentoInk" Color="{StaticResource BentoInkColor}" />
-            <SolidColorBrush x:Key="BentoOnInk" Color="{StaticResource BentoOnInkColor}" />
-            <SolidColorBrush x:Key="BentoPrimary" Color="{StaticResource BentoPrimaryColor}" />
-            <SolidColorBrush x:Key="BentoSecondary" Color="{StaticResource BentoSecondaryColor}" />
-            <SolidColorBrush x:Key="BentoLine" Color="{StaticResource BentoLineColor}" />
-            <SolidColorBrush x:Key="BentoAlertFill" Color="{StaticResource BentoAlertFillColor}" />
-            <SolidColorBrush x:Key="BentoAlertText" Color="{StaticResource BentoAlertTextColor}" />
-            <SolidColorBrush x:Key="BentoFailed" Color="{StaticResource BentoFailedColor}" />
+            <SolidColorBrush x:Key="BentoWindow" Color="{ThemeResource BentoWindowColor}" />
+            <SolidColorBrush x:Key="BentoCard" Color="{ThemeResource BentoCardColor}" />
+            <SolidColorBrush x:Key="BentoFill" Color="{ThemeResource BentoFillColor}" />
+            <SolidColorBrush x:Key="BentoInk" Color="{ThemeResource BentoInkColor}" />
+            <SolidColorBrush x:Key="BentoOnInk" Color="{ThemeResource BentoOnInkColor}" />
+            <SolidColorBrush x:Key="BentoPrimary" Color="{ThemeResource BentoPrimaryColor}" />
+            <SolidColorBrush x:Key="BentoSecondary" Color="{ThemeResource BentoSecondaryColor}" />
+            <SolidColorBrush x:Key="BentoLine" Color="{ThemeResource BentoLineColor}" />
+            <SolidColorBrush x:Key="BentoAlertFill" Color="{ThemeResource BentoAlertFillColor}" />
+            <SolidColorBrush x:Key="BentoAlertText" Color="{ThemeResource BentoAlertTextColor}" />
+            <SolidColorBrush x:Key="BentoFailed" Color="{ThemeResource BentoFailedColor}" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <Color x:Key="BentoWindowColor">#17181A</Color>
@@ -42,17 +42,17 @@
             <Color x:Key="BentoAlertFillColor">#3D201C</Color>
             <Color x:Key="BentoAlertTextColor">#FF9B8A</Color>
             <Color x:Key="BentoFailedColor">#FF6B6B</Color>
-            <SolidColorBrush x:Key="BentoWindow" Color="{StaticResource BentoWindowColor}" />
-            <SolidColorBrush x:Key="BentoCard" Color="{StaticResource BentoCardColor}" />
-            <SolidColorBrush x:Key="BentoFill" Color="{StaticResource BentoFillColor}" />
-            <SolidColorBrush x:Key="BentoInk" Color="{StaticResource BentoInkColor}" />
-            <SolidColorBrush x:Key="BentoOnInk" Color="{StaticResource BentoOnInkColor}" />
-            <SolidColorBrush x:Key="BentoPrimary" Color="{StaticResource BentoPrimaryColor}" />
-            <SolidColorBrush x:Key="BentoSecondary" Color="{StaticResource BentoSecondaryColor}" />
-            <SolidColorBrush x:Key="BentoLine" Color="{StaticResource BentoLineColor}" />
-            <SolidColorBrush x:Key="BentoAlertFill" Color="{StaticResource BentoAlertFillColor}" />
-            <SolidColorBrush x:Key="BentoAlertText" Color="{StaticResource BentoAlertTextColor}" />
-            <SolidColorBrush x:Key="BentoFailed" Color="{StaticResource BentoFailedColor}" />
+            <SolidColorBrush x:Key="BentoWindow" Color="{ThemeResource BentoWindowColor}" />
+            <SolidColorBrush x:Key="BentoCard" Color="{ThemeResource BentoCardColor}" />
+            <SolidColorBrush x:Key="BentoFill" Color="{ThemeResource BentoFillColor}" />
+            <SolidColorBrush x:Key="BentoInk" Color="{ThemeResource BentoInkColor}" />
+            <SolidColorBrush x:Key="BentoOnInk" Color="{ThemeResource BentoOnInkColor}" />
+            <SolidColorBrush x:Key="BentoPrimary" Color="{ThemeResource BentoPrimaryColor}" />
+            <SolidColorBrush x:Key="BentoSecondary" Color="{ThemeResource BentoSecondaryColor}" />
+            <SolidColorBrush x:Key="BentoLine" Color="{ThemeResource BentoLineColor}" />
+            <SolidColorBrush x:Key="BentoAlertFill" Color="{ThemeResource BentoAlertFillColor}" />
+            <SolidColorBrush x:Key="BentoAlertText" Color="{ThemeResource BentoAlertTextColor}" />
+            <SolidColorBrush x:Key="BentoFailed" Color="{ThemeResource BentoFailedColor}" />
         </ResourceDictionary>
         <!-- 高对比度：全部交给系统色。 -->
         <ResourceDictionary x:Key="HighContrast">
