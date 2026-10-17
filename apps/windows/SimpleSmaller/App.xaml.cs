@@ -50,7 +50,8 @@ public partial class App : Application
         main.Activate();
 
         // 后台的入口：托盘图标、剪贴板自动压缩、监视文件夹；设置一改就刷新。
-        _ = Updates.Shared;
+        Updates.Shared.Ask = UpdateDialog.AskAsync;
+        Updates.Shared.Start();
         TrayIcon.Refresh();
         ClipboardWatcher.Refresh();
         FolderWatcher.Refresh();

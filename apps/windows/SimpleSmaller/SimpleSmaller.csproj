@@ -23,6 +23,8 @@
     <!-- 不发布 AOT：[ObservableProperty] 用字段写法（可带初始值），关掉「建议改用分部属性」的提示。 -->
     <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
     <Product>简单小一点</Product>
+    <!-- 对外版本号写在 apps/windows/version.txt（发版脚本与 Velopack 用同一个）。 -->
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../version.txt').Trim())</Version>
     <Company>IT-SIMPLE</Company>
     <Copyright>IT-SIMPLE · AGPLv3</Copyright>
   </PropertyGroup>
@@ -36,6 +38,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
 
   <ItemGroup>
