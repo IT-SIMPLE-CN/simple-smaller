@@ -127,10 +127,7 @@ struct InspectorHeader: View {
         }
     }
 
-    /// PDF 合并、拆分、图片转 PDF 用不上压缩配方，不显示配方名，免得以为会按「邮件附件」压。
-    private var showsRecipe: Bool {
-        !(ws.type == .pdf && [.merge, .split, .fromImages].contains(ws.pdfSegment))
-    }
+    private var showsRecipe: Bool { ws.usesRecipe }
 
     private var recipeLine: some View {
         HStack(spacing: 4) {

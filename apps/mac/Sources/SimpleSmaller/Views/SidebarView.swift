@@ -17,14 +17,14 @@ struct SidebarView: View {
 
             Section("常用配方") {
                 ForEach(model.store.builtIns(for: model.selectedType)) { recipe in
-                    RecipeRow(recipe: recipe, active: ws.recipeID == recipe.id) { apply(recipe) }
+                    RecipeRow(recipe: recipe, active: ws.usesRecipe && ws.recipeID == recipe.id) { apply(recipe) }
                         .modifier(RecipeDrop(recipe: recipe))
                 }
             }
 
             Section("我的配方") {
                 ForEach(model.store.mine(for: model.selectedType)) { recipe in
-                    RecipeRow(recipe: recipe, active: ws.recipeID == recipe.id) { apply(recipe) }
+                    RecipeRow(recipe: recipe, active: ws.usesRecipe && ws.recipeID == recipe.id) { apply(recipe) }
                         .modifier(RecipeDrop(recipe: recipe))
                         .contextMenu {
                             Button("编辑…") { editing = recipe }

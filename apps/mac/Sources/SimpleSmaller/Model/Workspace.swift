@@ -169,5 +169,8 @@ final class Workspace {
         return out
     }
 
+    /// PDF 合并、拆分、图片转 PDF 用不上压缩配方：边栏不显示选中、批量头不写配方名。
+    var usesRecipe: Bool { !(type == .pdf && [.merge, .split, .fromImages].contains(pdfSegment)) }
+
     func item(for path: String) -> FileItem? { files.first { $0.url.path == path || $0.unlockedURL?.path == path } }
 }
