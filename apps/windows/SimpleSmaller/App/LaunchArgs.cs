@@ -20,8 +20,11 @@ internal static class LaunchArgs
                     while (i + 1 < args.Length && !args[i + 1].StartsWith("--")) paths.Add(args[++i]);
                     break;
                 case "--type" when i + 1 < args.Length:
+                {
+                    // 先取出参数再比较：写在 lambda 里的 ++i 会对每个类型各加一次而越界。
                     var name = args[++i];
                     type = MediaTypes.All.Cast<MediaType?>().FirstOrDefault(t => t!.Value.Title() == name);
+                }
                     break;
                 case "--segment" when i + 1 < args.Length:
                     segment = args[++i];
@@ -35,8 +38,10 @@ internal static class LaunchArgs
             }
         }
         if (type is { } t) model.SelectedType = t;
+        // 指定了类型时先切分段再加文件：「--type PDF --segment 图片转 PDF --open 图片…」图片才进 PDF 工作区。
+        if (type is not null && segment is not null) model.OpenSegment(segment);
         if (paths.Count > 0) model.Add(paths, type);
-        if (segment is not null) model.OpenSegment(segment);
+        if (type is null && segment is not null) model.OpenSegment(segment);
         if (start)
         {
             // 文件元信息是异步读的，稍等再开始。

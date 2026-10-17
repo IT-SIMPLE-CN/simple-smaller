@@ -92,11 +92,33 @@ internal sealed partial class AppModel
     /// 用密码解出一份不加密的副本，处理时代替原文件；输出照样放在原文件旁边。密码不对返回提示文字。
     public string? Unlock(FileItem item, string password)
     {
-        var output = Path.Combine(UnlockedDir, Guid.NewGuid().ToString().ToUpperInvariant(), Path.GetFileName(item.FilePath));
+        var output = UnlockedCopyPath(item);
+        if (UnlockCopy(Engine, item.FilePath, password, output) is { } message) return message;
+        Unlocked(item, output);
+        return null;
+    }
+
+    /// 同 Unlock，但引擎重写副本这一步在后台跑（大文件要几秒），界面线程只改状态。
+    public async Task<string?> UnlockAsync(FileItem item, string password)
+    {
+        var output = UnlockedCopyPath(item);
+        var engine = Engine;
+        var source = item.FilePath;
+        if (await Task.Run(() => UnlockCopy(engine, source, password, output)) is { } message) return message;
+        Unlocked(item, output);
+        return null;
+    }
+
+    private static string UnlockedCopyPath(FileItem item) =>
+        Path.Combine(UnlockedDir, Guid.NewGuid().ToString().ToUpperInvariant(), Path.GetFileName(item.FilePath));
+
+    private static string? UnlockCopy(Engine engine, string source, string password, string output)
+    {
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-            Engine.UnlockPdf(item.FilePath, password, output);
+            engine.UnlockPdf(source, password, output);
+            return null;
         }
         catch (EngineException e)
         {
@@ -106,12 +128,15 @@ internal sealed partial class AppModel
         {
             return "解不开这个文件";
         }
+    }
+
+    private void Unlocked(FileItem item, string output)
+    {
         item.UnlockedPath = output;
         item.MetaError = null;
         item.Thumbnail = null;
         if (item.State.IsFailed) item.State = FileState.Waiting;
         LoadMeta(item);
-        return null;
     }
 
     public static void ClearUnlocked()
