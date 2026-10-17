@@ -22,7 +22,7 @@ internal static class ResultColumns
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(84) });
         UIElement[] cells = [name, before, after, change, state];
         for (var i = 0; i < cells.Length; i++)
         {
@@ -60,7 +60,8 @@ internal sealed class ResultRow : Reactive
     private readonly TextBlock before = new() { FontSize = 12 };
     private readonly TextBlock after = new() { FontSize = 12 };
     private readonly TextBlock change = new() { FontSize = 12 };
-    private readonly FontIcon stateIcon = new() { FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.Bold };
+    private readonly StackPanel stateCell = new() { Orientation = Orientation.Horizontal, Spacing = 4 };
+    private LineIcon? stateIcon;
     private readonly TextBlock stateText = new() { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 };
 
     public ResultRow(FileItem item, Workspace ws, bool striped)
@@ -73,10 +74,10 @@ internal sealed class ResultRow : Reactive
         var nameCell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         nameCell.Children.Add(thumb);
         nameCell.Children.Add(name);
-        var stateCell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-        stateIcon.VerticalAlignment = VerticalAlignment.Center;
-        stateCell.Children.Add(stateIcon);
+        stateText.MaxWidth = 68;
         stateCell.Children.Add(stateText);
+        // PDF 没有缩略图：白底红色文件图标（与 PDF 页文件列表一致）。
+        if (item.Type == MediaType.Pdf) thumb.Child = new LineIcon(Icons.Pdf, 14, 1.8, "Brand") { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         back.Child = ResultColumns.Create(nameCell, before, after, change, stateCell);
         Content = back;
 
@@ -84,15 +85,19 @@ internal sealed class ResultRow : Reactive
         before.Text = Format.Size(item.Bytes);
         after.Text = item.State == FileState.Done ? Format.Size(item.AfterBytes) : "—";
         change.Text = item.State == FileState.Done ? Format.Change(item.Bytes, item.AfterBytes) : "—";
-        (stateIcon.Glyph, stateText.Text) = item.State.Kind switch
+        (var iconData, stateText.Text) = item.State.Kind switch
         {
-            FileStateKind.Done => ("", "完成"),
-            FileStateKind.Kept => ("", item.KeptText),
-            FileStateKind.Failed => ("", item.State.Message ?? "失败"),
+            FileStateKind.Done => (ResultIcons.Check, "完成"),
+            FileStateKind.Kept => (ResultIcons.Alert, item.KeptText),
+            FileStateKind.Failed => (ResultIcons.Cross, item.State.Message ?? "失败"),
             FileStateKind.Cancelled => ("", "已停止"),
             _ => ("", "—"),
         };
-        stateIcon.Visibility = stateIcon.Glyph.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (iconData.Length > 0)
+        {
+            stateIcon = new LineIcon(iconData, 12, 2.6) { VerticalAlignment = VerticalAlignment.Center };
+            stateCell.Children.Insert(0, stateIcon);
+        }
         ToolTipService.SetToolTip(this, Help);
         AutomationProperties.SetName(this, $"{item.Name}，原大小 {before.Text}，输出 {after.Text}，变化 {change.Text}，{stateText.Text}");
 
@@ -207,13 +212,14 @@ internal sealed class ResultRow : Reactive
             FileStateKind.Kept => Palette.Warning,
             _ => secondary,
         };
-        (stateIcon.Foreground, stateText.Foreground) = item.State.Kind switch
+        (var iconKey, stateText.Foreground) = item.State.Kind switch
         {
-            FileStateKind.Done => (Palette.Saving, secondary),
-            FileStateKind.Kept => (Palette.Warning, Palette.Warning),
-            FileStateKind.Failed => (Palette.Get(this, "BentoFailed"), Palette.Get(this, "BentoFailed")),
-            _ => (secondary, secondary),
+            FileStateKind.Done => ("Saving", secondary),
+            FileStateKind.Kept => ("Warning", Palette.Warning),
+            FileStateKind.Failed => ("BentoFailed", Palette.Get(this, "BentoFailed")),
+            _ => ("BentoSecondary", secondary),
         };
+        if (stateIcon is not null) stateIcon.ColorKey = iconKey;
         if (item.Thumbnail is ImageSource src)
         {
             thumb.Background = new ImageBrush { ImageSource = src, Stretch = Stretch.UniformToFill };

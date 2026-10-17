@@ -138,7 +138,6 @@ internal abstract class PdfReorderGrid<TKey> : Reactive where TKey : notnull
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.Children.Add(title);
         var hint = PdfUi.Text("拖动可排序 · 选中后按 Delete 删除", 11, "BentoSecondary");
-        hint.Opacity = 0.75;
         Grid.SetColumn(hint, 1);
         head.Children.Add(hint);
         root.Children.Add(head);
