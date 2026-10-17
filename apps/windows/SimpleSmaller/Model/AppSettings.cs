@@ -1,0 +1,83 @@
+using System.Text.Json.Serialization;
+using CommunityToolkit.Mvvm.ComponentModel;
+using uniffi.smaller_core;
+
+namespace SimpleSmaller;
+
+internal enum OutputLocation { Beside, Folder }
+
+internal sealed record WatchFolder
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public string Path { get; init; } = "";
+    [JsonPropertyName("recipeID")]
+    public string RecipeId { get; init; } = "";
+}
+
+/// 设置窗口里的选项，存在 %APPDATA%\SimpleSmaller\settings.json。
+/// 圆环、剪贴板、监视文件夹这些开关改了要刷新对应的监视器：由界面层订阅 PropertyChanged 处理。
+internal sealed partial class AppSettings : ObservableObject
+{
+    private static AppSettings? shared;
+    public static AppSettings Shared => shared ??= new AppSettings();
+
+    private readonly string filePath;
+
+    [ObservableProperty] private OutputLocation outputLocation = OutputLocation.Beside;
+    [ObservableProperty] private string outputFolder = "";
+    [ObservableProperty] private bool ringEnabled = true;
+    [ObservableProperty] private bool menuBarIcon = true;
+    /// 复制图片时自动换成压缩版（默认关）。
+    [ObservableProperty] private bool clipboardAuto;
+    /// 剪贴板图片的长边上限；0 为不缩小。
+    [ObservableProperty] private int clipboardMaxEdge;
+    /// 监视的文件夹与各自的配方。整份替换才会保存。
+    [ObservableProperty] private IReadOnlyList<WatchFolder> watchFolders = [];
+
+    private sealed class Saved
+    {
+        public OutputLocation OutputLocation { get; set; } = OutputLocation.Beside;
+        public string OutputFolder { get; set; } = "";
+        public bool RingEnabled { get; set; } = true;
+        public bool MenuBarIcon { get; set; } = true;
+        public bool ClipboardAuto { get; set; }
+        public int ClipboardMaxEdge { get; set; }
+        public List<WatchFolder> WatchFolders { get; set; } = [];
+    }
+
+    public AppSettings(string? directory = null)
+    {
+        filePath = Path.Combine(directory ?? Storage.Directory, "settings.json");
+        if (Storage.Load<Saved>(filePath) is { } s)
+        {
+            outputLocation = s.OutputLocation;
+            outputFolder = s.OutputFolder ?? "";
+            ringEnabled = s.RingEnabled;
+            menuBarIcon = s.MenuBarIcon;
+            clipboardAuto = s.ClipboardAuto;
+            clipboardMaxEdge = s.ClipboardMaxEdge;
+            watchFolders = s.WatchFolders ?? [];
+        }
+        PropertyChanged += (_, _) => Save();
+    }
+
+    private void Save() => Storage.Save(filePath, new Saved
+    {
+        OutputLocation = OutputLocation,
+        OutputFolder = OutputFolder,
+        RingEnabled = RingEnabled,
+        MenuBarIcon = MenuBarIcon,
+        ClipboardAuto = ClipboardAuto,
+        ClipboardMaxEdge = ClipboardMaxEdge,
+        WatchFolders = WatchFolders.ToList(),
+    });
+
+    public Place Place
+    {
+        get
+        {
+            if (OutputLocation == OutputLocation.Folder && OutputFolder.Length > 0) return new Place.Folder(OutputFolder);
+            return new Place.BesideSource("-small");
+        }
+    }
+}

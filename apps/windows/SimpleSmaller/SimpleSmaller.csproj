@@ -19,6 +19,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- 生成的绑定里有大量可空与命名告警，不影响使用。 -->
     <NoWarn>$(NoWarn);CS8618;CS8625;CS8603;CS8604;CS8600;CS8601;CS8602;CS0108;CS1591</NoWarn>
+    <!-- 不发布 AOT：[ObservableProperty] 用字段写法（可带初始值），关掉「建议改用分部属性」的提示。 -->
+    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
     <Product>简单小一点</Product>
     <Company>IT-SIMPLE</Company>
     <Copyright>IT-SIMPLE · AGPLv3</Copyright>
@@ -32,6 +34,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
   </ItemGroup>
 
   <!-- 引擎 DLL 由 scripts/build-core-windows.ps1 放到 Native\<架构>。 -->
