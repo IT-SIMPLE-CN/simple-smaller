@@ -84,7 +84,7 @@ private struct FinderSettings: View {
                     }
                 }
             } footer: {
-                Text("在访达里按住 ⌥ 点一下图片、视频或 PDF，圆环外圈是配方，点一下直接处理。")
+                Text("在访达里按住 ⌥ 点一下图片、视频、PDF 或文件夹，圆环外圈是配方，点一下直接处理。如果出现两个圆环，是别的工具也用了 ⌥ 点击，在那个工具里关掉即可。")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section {

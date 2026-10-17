@@ -75,14 +75,21 @@ final class RingController {
 
     private func open(_ hit: FileHit.Hit, at point: NSPoint) {
         dismissRing()
-        let type: MediaType = switch hit.kind {
+        let urls = [hit.file] + hit.batch.filter { $0 != hit.file }
+        var type: MediaType = switch hit.kind {
         case .video: .video
         case .pdf: .pdf
-        case .image, .folder: .image   // 目录按图片配方处理里面的图片，结构照搬到旁边的新文件夹
+        case .image, .folder: .image
         }
-        let urls = [hit.file] + hit.batch.filter { $0 != hit.file }
-        let unit = hit.kind == .folder ? "个目录" : type == .image ? "张" : type == .video ? "段" : "个"
-        let badge = urls.count > 1 || hit.kind == .folder ? "\(urls.count) \(unit)" : ""
+        var count = urls.count
+        if hit.kind == .folder {
+            // 文件夹：看里面哪一类最多就弹哪一类的配方，徽标写文件数（结构照搬到旁边的「文件夹-small」）。
+            let engine = AppModel.shared.engine
+            let counts = MediaType.allCases.map { t in (t, engine.listFiles(inputs: urls.map(\.path), kind: t.kind).count) }
+            if let best = counts.max(by: { $0.1 < $1.1 }), best.1 > 0 { type = best.0; count = best.1 } else { count = 0 }
+        }
+        let unit = type == .image ? "张" : type == .video ? "段" : "个"
+        let badge = hit.kind == .folder ? (count > 0 ? "\(count) \(unit)" : "空文件夹") : (urls.count > 1 ? "\(urls.count) \(unit)" : "")
         let slots = RingMenu.slots(for: type, store: AppModel.shared.store)
 
         let view = RingView(slots: slots, badge: badge,
@@ -217,7 +224,7 @@ final class RingController {
 
     /// 不抢焦点的透明浮窗：访达保持在前台，点击直接落到圆环上。
     private static func panel<V: View>(size: CGSize, content: V) -> NSPanel {
-        let panel = NSPanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        let panel = KeyablePanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -225,7 +232,8 @@ final class RingController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
-        panel.becomesKeyOnlyIfNeeded = true
+        // 能成为主窗口才接得住第一下点击（卡片上的按钮）；不激活应用，访达照样在前台。
+        panel.becomesKeyOnlyIfNeeded = false
         let host = FirstMouseHostingView(rootView: content)
         // 浮窗大小由这里定，不让 SwiftUI 按内容改窗口尺寸（会把窗口挪走）。
         host.sizingOptions = []
@@ -233,6 +241,11 @@ final class RingController {
         panel.contentView = host
         return panel
     }
+}
+
+/// 无边框浮窗默认不能成为主窗口，按钮的第一下点击会被吞掉。
+final class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
 }
 
 /// 第一次点击就生效（不用先点一下激活浮窗）。
