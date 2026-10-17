@@ -218,11 +218,17 @@ internal sealed class WorkView : Reactive
             MediaType.Pdf => Tabs(SimpleSmaller.Segments.AllPdf, ws.PdfSegment, s => s.Title(), s => { ws.EnterPdfSegment(s); ws.ShowResult = false; }),
             _ => null,
         };
-        if (seg is Control c)
-        {
-            c.IsEnabled = !ws.Running;
-        }
         return seg;
+    }
+
+    /// 标题栏分段跟着工作区走：选中项、处理中锁住。
+    public static void SyncSegments(UIElement? seg, Workspace ws)
+    {
+        switch (seg)
+        {
+            case Bento.Segments<VideoSegment> v: v.Selected = ws.VideoSegment; v.IsHitTestVisible = !ws.Running; v.Opacity = ws.Running ? 0.45 : 1; break;
+            case Bento.Segments<PdfSegment> p: p.Selected = ws.PdfSegment; p.IsHitTestVisible = !ws.Running; p.Opacity = ws.Running ? 0.45 : 1; break;
+        }
     }
 
     private static UIElement Tabs<T>(IEnumerable<T> all, T selected, Func<T, string> title, Action<T> pick) where T : notnull

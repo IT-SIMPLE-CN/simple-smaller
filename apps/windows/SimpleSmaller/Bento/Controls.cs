@@ -8,6 +8,18 @@ using Windows.Foundation;
 
 namespace SimpleSmaller.Bento;
 
+/// 胶囊形：圆角始终等于高度的一半。
+/// WinUI 不会像 SwiftUI 那样把过大的圆角收成半圆，而是画成椭圆弧，所以不能写 CornerRadius(100)。
+public static class Capsule
+{
+    public static void Apply(Border border)
+    {
+        void fit() => border.CornerRadius = new CornerRadius(border.ActualHeight / 2);
+        border.SizeChanged += (_, _) => fit();
+        fit();
+    }
+}
+
 /// 白色圆角卡片（WinUI 的 Border 是密封类，用工厂方法）。
 public static class Card
 {
@@ -192,7 +204,7 @@ public sealed class Segments<T> : Grid where T : notnull
         this.selected = selected;
         var inset = kind == Kind.Top ? 4 : 3;
         HorizontalAlignment = HorizontalAlignment.Left;
-        track.CornerRadius = new CornerRadius(100);
+        Capsule.Apply(track);
         row.Margin = new Thickness(inset);
         thumb.Margin = new Thickness(0);
         Children.Add(track);
@@ -272,7 +284,7 @@ public sealed class Segments<T> : Grid where T : notnull
         }
         else
         {
-            Motion.VisualOf(thumb).Offset = to;
+            Motion.SetTranslation(thumb, to);
         }
         placed = true;
     }

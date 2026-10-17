@@ -25,7 +25,7 @@ public sealed partial class MainWindow : Window
     private readonly ContentPresenter center = new() { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
     private readonly StackPanel trailing = new() { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly Grid content = new();
-    private readonly Border toast = new() { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 28), Padding = new Thickness(14, 8, 14, 8), CornerRadius = new CornerRadius(100), Visibility = Visibility.Collapsed };
+    private readonly Border toast = new() { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 28), Padding = new Thickness(14, 8, 14, 8), Visibility = Visibility.Collapsed };
     private readonly TextBlock toastText = new() { FontSize = 13 };
     private readonly TextBlock title = new() { FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock subtitle = new() { FontSize = 11 };
@@ -56,6 +56,7 @@ public sealed partial class MainWindow : Window
         Grid.SetRow(content, 1);
         Root.Children.Add(content);
         toast.Child = toastText;
+        Capsule.Apply(toast);
         Grid.SetRow(toast, 1);
         Root.Children.Add(toast);
         SetTitleBar(titleBar);
@@ -196,8 +197,15 @@ public sealed partial class MainWindow : Window
         foreach (var type in MediaTypes.All)
         {
             var ws = model.Workspace(type);
-            ws.PropertyChanged += (_, _) => { if (ws == model.Current && !model.ShowHome) UpdateTitle(); };
-            ws.Files.CollectionChanged += (_, _) => { if (ws == model.Current && !model.ShowHome) UpdateTitle(); };
+            ws.PropertyChanged += (_, _) => { if (ws == model.Current && !model.ShowHome) QueueTitle(); };
+            // 文件的体积、时长等是异步读出来的：每个文件的变化也要刷新副标题。
+            System.ComponentModel.PropertyChangedEventHandler item = (_, _) => { if (ws == model.Current && !model.ShowHome) QueueTitle(); };
+            ws.Files.CollectionChanged += (_, e) =>
+            {
+                foreach (var f in e.NewItems?.OfType<FileItem>() ?? []) f.PropertyChanged += item;
+                foreach (var f in e.OldItems?.OfType<FileItem>() ?? []) f.PropertyChanged -= item;
+                if (ws == model.Current && !model.ShowHome) QueueTitle();
+            };
         }
     }
 
@@ -219,6 +227,17 @@ public sealed partial class MainWindow : Window
         UpdateTitle();
     }
 
+    private bool titleQueued;
+    private string segmentKey = "";
+
+    /// 同一轮里多次变化只更新一次标题。
+    private void QueueTitle()
+    {
+        if (titleQueued) return;
+        titleQueued = true;
+        Root.DispatcherQueue.TryEnqueue(() => { titleQueued = false; UpdateTitle(); });
+    }
+
     private void UpdateTitle()
     {
         var home = model.ShowHome;
@@ -227,6 +246,7 @@ public sealed partial class MainWindow : Window
         if (home)
         {
             center.Content = HomeView.Brand();
+            segmentKey = "";
             title.Text = "";
             subtitle.Text = "";
             var paste = new CircleIconButton("", "处理剪贴板里的图片或文件（Ctrl+Shift+V）", 34, "BentoCard");
@@ -239,7 +259,14 @@ public sealed partial class MainWindow : Window
         else
         {
             var ws = model.Current;
-            center.Content = WorkView.Segments(ws);
+            // 分段只在换类型时新建，其余时候原地改选中项，底块才能滑过去。
+            var segKey = ws.Type.ToString();
+            if (segmentKey != segKey || center.Content is null)
+            {
+                segmentKey = segKey;
+                center.Content = WorkView.Segments(ws);
+            }
+            WorkView.SyncSegments(center.Content as UIElement, ws);
             title.Text = Titles.Title(ws);
             subtitle.Text = Titles.Subtitle(ws);
             if (ws.ShowResult && !ws.Running)
