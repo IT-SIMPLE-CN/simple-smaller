@@ -3,6 +3,15 @@
 use std::env;
 use std::path::PathBuf;
 
+/// MSVC 默认按系统代码页（中文系统是 GBK）读源码，外壳里的中文注释会把代码读乱，统一按 UTF-8。
+fn cc_build(windows: bool) -> cc::Build {
+    let mut b = cc::Build::new();
+    if windows {
+        b.flag("/utf-8");
+    }
+    b
+}
+
 fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let root = manifest.parent().unwrap().to_path_buf();
@@ -29,7 +38,7 @@ fn main() {
     }
     let include = codecs.join("include");
 
-    cc::Build::new()
+    cc_build(windows)
         .cpp(true)
         .std("c++17")
         .file("native/jpegli_shim.cc")
@@ -39,7 +48,7 @@ fn main() {
         .warnings(false)
         .compile("smaller_jpegli_shim");
 
-    cc::Build::new()
+    cc_build(windows)
         .file("native/webp_shim.c")
         .file("native/avif_shim.c")
         .include("native")
@@ -53,7 +62,7 @@ fn main() {
     if !mupdf.join("lib").join(lib_file("mupdf")).exists() {
         panic!("找不到 MuPDF：{}。先运行 scripts/build-mupdf-mac.sh（Windows：build-mupdf-windows.ps1）", mupdf.display());
     }
-    cc::Build::new()
+    cc_build(windows)
         .file("native/pdf_shim.c")
         .include("native")
         .include(mupdf.join("include"))
@@ -64,8 +73,8 @@ fn main() {
         println!("cargo:rustc-link-lib=static={lib}");
     }
     println!("cargo:rustc-link-search=native={}", mupdf.join("lib").display());
-    // Windows 的 VS 解决方案把字体资源、签名拆成单独的库，有就一起链。
-    for lib in ["mupdf", "mupdf-third", "mupdf-resources", "mupdf-pkcs7"] {
+    // Windows 的 VS 解决方案把字体资源、签名、harfbuzz、条码等拆成单独的库，有就一起链。
+    for lib in ["mupdf", "mupdf-third", "mupdf-resources", "mupdf-pkcs7", "mupdf-harfbuzz", "mupdf-extract", "mupdf-barcode", "mupdf-zxing"] {
         if mupdf.join("lib").join(lib_file(lib)).exists() {
             println!("cargo:rustc-link-lib=static={lib}");
         }

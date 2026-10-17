@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 便当盒界面（设计稿 V2.2）的色板与尺寸，对应 mac 的 Views/Bento/Bento.swift。
+     浅灰窗口底上放白色圆角卡片；墨黑用于文字与选中胶囊，品牌红只用于主按钮、选中标记与进度。 -->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <Color x:Key="BentoWindowColor">#EEF0F2</Color>
+            <Color x:Key="BentoCardColor">#FFFFFF</Color>
+            <Color x:Key="BentoFillColor">#F2F3F5</Color>
+            <Color x:Key="BentoInkColor">#111214</Color>
+            <Color x:Key="BentoOnInkColor">#FFFFFF</Color>
+            <Color x:Key="BentoPrimaryColor">#111214</Color>
+            <Color x:Key="BentoSecondaryColor">#63676E</Color>
+            <Color x:Key="BentoLineColor">#D9DCE0</Color>
+            <Color x:Key="BentoAlertFillColor">#FDE8E4</Color>
+            <Color x:Key="BentoAlertTextColor">#A8240F</Color>
+            <Color x:Key="BentoFailedColor">#C81E1E</Color>
+            <SolidColorBrush x:Key="BentoWindow" Color="{StaticResource BentoWindowColor}" />
+            <SolidColorBrush x:Key="BentoCard" Color="{StaticResource BentoCardColor}" />
+            <SolidColorBrush x:Key="BentoFill" Color="{StaticResource BentoFillColor}" />
+            <SolidColorBrush x:Key="BentoInk" Color="{StaticResource BentoInkColor}" />
+            <SolidColorBrush x:Key="BentoOnInk" Color="{StaticResource BentoOnInkColor}" />
+            <SolidColorBrush x:Key="BentoPrimary" Color="{StaticResource BentoPrimaryColor}" />
+            <SolidColorBrush x:Key="BentoSecondary" Color="{StaticResource BentoSecondaryColor}" />
+            <SolidColorBrush x:Key="BentoLine" Color="{StaticResource BentoLineColor}" />
+            <SolidColorBrush x:Key="BentoAlertFill" Color="{StaticResource BentoAlertFillColor}" />
+            <SolidColorBrush x:Key="BentoAlertText" Color="{StaticResource BentoAlertTextColor}" />
+            <SolidColorBrush x:Key="BentoFailed" Color="{StaticResource BentoFailedColor}" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <Color x:Key="BentoWindowColor">#17181A</Color>
+            <Color x:Key="BentoCardColor">#242528</Color>
+            <Color x:Key="BentoFillColor">#303135</Color>
+            <Color x:Key="BentoInkColor">#F2F3F5</Color>
+            <Color x:Key="BentoOnInkColor">#111214</Color>
+            <Color x:Key="BentoPrimaryColor">#F2F3F5</Color>
+            <Color x:Key="BentoSecondaryColor">#9DA1A8</Color>
+            <Color x:Key="BentoLineColor">#45474C</Color>
+            <Color x:Key="BentoAlertFillColor">#3D201C</Color>
+            <Color x:Key="BentoAlertTextColor">#FF9B8A</Color>
+            <Color x:Key="BentoFailedColor">#FF6B6B</Color>
+            <SolidColorBrush x:Key="BentoWindow" Color="{StaticResource BentoWindowColor}" />
+            <SolidColorBrush x:Key="BentoCard" Color="{StaticResource BentoCardColor}" />
+            <SolidColorBrush x:Key="BentoFill" Color="{StaticResource BentoFillColor}" />
+            <SolidColorBrush x:Key="BentoInk" Color="{StaticResource BentoInkColor}" />
+            <SolidColorBrush x:Key="BentoOnInk" Color="{StaticResource BentoOnInkColor}" />
+            <SolidColorBrush x:Key="BentoPrimary" Color="{StaticResource BentoPrimaryColor}" />
+            <SolidColorBrush x:Key="BentoSecondary" Color="{StaticResource BentoSecondaryColor}" />
+            <SolidColorBrush x:Key="BentoLine" Color="{StaticResource BentoLineColor}" />
+            <SolidColorBrush x:Key="BentoAlertFill" Color="{StaticResource BentoAlertFillColor}" />
+            <SolidColorBrush x:Key="BentoAlertText" Color="{StaticResource BentoAlertTextColor}" />
+            <SolidColorBrush x:Key="BentoFailed" Color="{StaticResource BentoFailedColor}" />
+        </ResourceDictionary>
+        <!-- 高对比度：全部交给系统色。 -->
+        <ResourceDictionary x:Key="HighContrast">
+            <SolidColorBrush x:Key="BentoWindow" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="BentoCard" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="BentoFill" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="BentoInk" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="BentoOnInk" Color="{ThemeResource SystemColorHighlightTextColor}" />
+            <SolidColorBrush x:Key="BentoPrimary" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="BentoSecondary" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="BentoLine" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="BentoAlertFill" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="BentoAlertText" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="BentoFailed" Color="{ThemeResource SystemColorWindowTextColor}" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- 品牌红、变小了、提醒：两种外观一样。 -->
+    <Color x:Key="BrandColor">#EF3922</Color>
+    <SolidColorBrush x:Key="Brand" Color="#EF3922" />
+    <SolidColorBrush x:Key="BrandPressed" Color="#D93019" />
+    <SolidColorBrush x:Key="Saving" Color="#1B7F4E" />
+    <SolidColorBrush x:Key="Warning" Color="#C2410C" />
+    <SolidColorBrush x:Key="OnBrand" Color="#FFFFFF" />
+
+    <x:Double x:Key="BentoGap">14</x:Double>
+    <CornerRadius x:Key="BentoCardRadius">22</CornerRadius>
+    <CornerRadius x:Key="BentoRowRadius">15</CornerRadius>
+    <CornerRadius x:Key="BentoPanelRadius">18</CornerRadius>
+    <Thickness x:Key="BentoCardPadding">20,18,20,18</Thickness>
+
+    <!-- 中文优先雅黑，西文与数字用系统字体。 -->
+    <FontFamily x:Key="BentoFont">Segoe UI Variable Text, Microsoft YaHei UI</FontFamily>
+    <FontFamily x:Key="BentoIcons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+    <Style x:Key="BentoCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource BentoCard}" />
+        <Setter Property="CornerRadius" Value="{StaticResource BentoCardRadius}" />
+        <Setter Property="Padding" Value="{StaticResource BentoCardPadding}" />
+    </Style>
+
+    <Style x:Key="BentoPanelStyle" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource BentoFill}" />
+        <Setter Property="CornerRadius" Value="{StaticResource BentoPanelRadius}" />
+    </Style>
+
+    <Style x:Key="BentoTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{ThemeResource BentoPrimary}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="BentoCaption" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{ThemeResource BentoSecondary}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="BentoBody" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{ThemeResource BentoPrimary}" />
+    </Style>
+
+    <!-- 去掉系统按钮外观的透明按钮：外观全由内容画，按下回弹由 Press 附加行为做。 -->
+    <Style x:Key="BentoBareButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="FocusVisualMargin" Value="-2" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <ContentPresenter x:Name="ContentPresenter"
+                        Background="{TemplateBinding Background}"
+                        Content="{TemplateBinding Content}"
+                        ContentTemplate="{TemplateBinding ContentTemplate}"
+                        Padding="{TemplateBinding Padding}"
+                        HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                        VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                        AutomationProperties.AccessibilityView="Raw" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

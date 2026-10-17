@@ -1,5 +1,5 @@
 ﻿# 按固定版本编译 MuPDF 静态库（AGPL），装到 .local\mupdf\win-<arch>。Windows 版，对应 build-mupdf-mac.sh。
-# 用 MuPDF 自带的 VS 解决方案；和 mac 一样不带 OCR（tesseract / leptonica），不内置 Noto 兜底字体（TOFU）。
+# 用 MuPDF 自带的 VS 解决方案（工程写的是 VS 2019 工具集，按 VS 2022 的 v143 编）；和 mac 一样不带 OCR（tesseract / leptonica），不内置 Noto 兜底字体（TOFU）。
 # 用法：scripts\build-mupdf-windows.ps1 [-Arch arm64|x64]，默认本机架构。
 param([string]$Arch = $(if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'x64' }))
 $ErrorActionPreference = 'Stop'
@@ -37,14 +37,18 @@ foreach ($proj in Get-ChildItem "$Src\platform\win32" -Filter '*.vcxproj') {
 $platform = if ($Arch -eq 'x64') { 'x64' } else { 'ARM64' }
 $env:CL = '/DTOFU /DTOFU_CJK'
 $ErrorActionPreference = 'Continue'
-msbuild "$Src\platform\win32\mupdf.sln" /t:libmupdf /p:Configuration=Release /p:Platform=$platform /m /v:minimal /nologo *> $Log
+msbuild "$Src\platform\win32\mupdf.sln" /t:libmupdf /p:Configuration=Release /p:Platform=$platform /p:PlatformToolset=v143 /m /v:minimal /nologo *> $Log
 $code = $LASTEXITCODE
 Remove-Item Env:CL
 if ($code -ne 0) { Get-Content $Log -Tail 40; throw "MuPDF 编译失败，日志：$Log" }
 
 # 统一成 build.rs 认的库名。
 $built = "$Src\platform\win32\$platform\Release"
-$names = @{ 'libmupdf.lib' = 'mupdf.lib'; 'libthirdparty.lib' = 'mupdf-third.lib'; 'libresources.lib' = 'mupdf-resources.lib'; 'libpkcs7.lib' = 'mupdf-pkcs7.lib' }
+$names = @{
+  'libmupdf.lib' = 'mupdf.lib'; 'libthirdparty.lib' = 'mupdf-third.lib'; 'libresources.lib' = 'mupdf-resources.lib'
+  'libpkcs7.lib' = 'mupdf-pkcs7.lib'; 'libharfbuzz.lib' = 'mupdf-harfbuzz.lib'; 'libextract.lib' = 'mupdf-extract.lib'
+  'libmubarcode.lib' = 'mupdf-barcode.lib'; 'libzxing.lib' = 'mupdf-zxing.lib'
+}
 Remove-Item "$Out\lib\*.lib" -ErrorAction SilentlyContinue
 foreach ($k in $names.Keys) {
   if (Test-Path "$built\$k") { Copy-Item "$built\$k" "$Out\lib\$($names[$k])" }

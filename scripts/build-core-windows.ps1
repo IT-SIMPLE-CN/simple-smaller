@@ -16,16 +16,13 @@ $Triple = if ($Arch -eq 'x64') { 'x86_64-pc-windows-msvc' } else { 'aarch64-pc-w
 Enter-VsShell $Arch
 $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 
-function Invoke-Checked {
-  param([Parameter(ValueFromRemainingArguments)][string[]]$Cmd)
-  $ErrorActionPreference = 'Continue'
-  & $Cmd[0] @($Cmd | Select-Object -Skip 1)
-  if ($LASTEXITCODE -ne 0) { throw "$($Cmd -join ' ') 失败（$LASTEXITCODE）" }
-}
+# 原生命令写到 stderr 的进度在 PowerShell 5.1 里会被当成错误，这里只看退出码。
+$ErrorActionPreference = 'Continue'
+function Assert-Ok([string]$What) { if ($LASTEXITCODE -ne 0) { throw "$What 失败（$LASTEXITCODE）" } }
 
 Set-Location $Root
-$flag = if ($Profile -eq 'release') { @('--release') } else { @() }
-Invoke-Checked cargo build @flag -p smaller-core --target $Triple
+if ($Profile -eq 'release') { cargo build --release -p smaller-core --target $Triple } else { cargo build -p smaller-core --target $Triple }
+Assert-Ok 'cargo build' 
 $dll = "$Root\target\$Triple\$Profile\smaller_core.dll"
 
 # C# 绑定：uniffi-bindgen-cs 装在 .local\tools，版本不对就重装。
@@ -33,12 +30,14 @@ $tools = "$Root\.local\tools"
 $bindgen = "$tools\bin\uniffi-bindgen-cs.exe"
 $stamp = "$tools\bindgen-cs.tag"
 if (-not (Test-Path $bindgen) -or (Get-Content $stamp -ErrorAction SilentlyContinue) -ne $BINDGEN_CS_TAG) {
-  Invoke-Checked cargo install uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag $BINDGEN_CS_TAG --root $tools --force
+  cargo install uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag $BINDGEN_CS_TAG --root $tools --force
+  Assert-Ok '安装 uniffi-bindgen-cs' 
   Set-Content $stamp $BINDGEN_CS_TAG
 }
 $out = "$Root\.local\bindings-cs"
 if (Test-Path $out) { Remove-Item -Recurse -Force $out }
-Invoke-Checked $bindgen --library $dll --out-dir $out
+& $bindgen --library $dll --out-dir $out
+Assert-Ok '生成 C# 绑定' 
 
 $app = "$Root\apps\windows\SimpleSmaller"
 New-Item -ItemType Directory -Force "$app\Core", "$app\Native\$Arch" | Out-Null

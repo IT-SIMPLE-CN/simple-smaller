@@ -112,6 +112,10 @@ $libs = @{
 foreach ($k in $libs.Keys) {
   if ($libs[$k]) { Copy-Item $libs[$k].FullName "$Prefix\lib\$k" -Force }
 }
+# libwebp 在 MSVC 下带 lib 前缀。
+foreach ($n in 'webp', 'sharpyuv') {
+  if (Test-Path "$Prefix\lib\lib$n.lib") { Copy-Item "$Prefix\lib\lib$n.lib" "$Prefix\lib\$n.lib" -Force }
+}
 "✓ jpegli-static"
 Get-ChildItem "$Prefix\lib" -Filter *.lib | ForEach-Object { '{0,-24} {1,8:N0} KB' -f $_.Name, ($_.Length / 1KB) }
 "编码库已装到 $Prefix"
