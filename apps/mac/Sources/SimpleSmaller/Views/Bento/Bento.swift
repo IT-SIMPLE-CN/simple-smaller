@@ -440,3 +440,8 @@ struct FlowLayout: Layout {
         return rows
     }
 }
+
+/// 质量数值对应的说法：高 / 均衡 / 偏小。
+enum QualityWord {
+    static func of(_ q: Int) -> String { q >= 88 ? "高" : q >= 70 ? "均衡" : "偏小" }
+}
