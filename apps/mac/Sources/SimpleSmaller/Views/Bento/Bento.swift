@@ -204,7 +204,7 @@ struct SlidingSegments<Value: Hashable, Item: View>: View {
             ForEach(Array(values.enumerated()), id: \.offset) { i, v in
                 let on = v == selection
                 Button { selection = v } label: { item(v, on).contentShape(Capsule()) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BentoPressStyle())
                     .background(GeometryReader { g in
                         Color.clear.preference(key: SegmentFrames.self, value: [i: g.frame(in: .named("segments"))])
                     })
@@ -361,26 +361,32 @@ struct BentoPressStyle: ButtonStyle {
 struct BentoAppear: ViewModifier {
     let index: Int
     let trigger: AnyHashable
-    @State private var shown = false
+    @State private var grown = false
+    @State private var visible = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(shown || reduceMotion ? 1 : 0.94)
-            .opacity(shown ? 1 : 0)
+            .scaleEffect(grown || reduceMotion ? 1 : 0.94)
+            // 不从全透明开始：旧内容一换走，新卡片马上就有，中间不会闪一下空底。
+            .opacity(visible ? 1 : 0.25)
             .onAppear { play() }
             .onChange(of: trigger) { _, _ in
-                shown = false
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) { grown = false; visible = false }
                 play()
             }
     }
 
     private func play() {
-        let delay = Double(index) * 0.05
+        let delay = Double(index) * 0.04
         if reduceMotion {
-            withAnimation(.easeOut(duration: 0.2).delay(delay)) { shown = true }
+            withAnimation(.easeOut(duration: 0.18).delay(delay)) { visible = true; grown = true }
         } else {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.72).delay(delay)) { shown = true }
+            // 淡入短、缩放带一点回弹：94% → 约 101% → 100%（设计稿 V2 交接第 4 节）。
+            withAnimation(.easeOut(duration: 0.16).delay(delay)) { visible = true }
+            withAnimation(.spring(response: 0.48, dampingFraction: 0.68).delay(delay)) { grown = true }
         }
     }
 }

@@ -4,21 +4,25 @@ import SwiftUI
 /// 工具栏用系统的（左边返回与标题、正中分段），浅灰窗口底上铺白色卡片。
 struct MainView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let ws = model.current
         ZStack {
+            // 首页 ↔ 工作区：整体轻微缩放 + 淡入淡出，里面的卡片各自再弹入。
             if model.showHome {
                 HomeView()
-                    .transition(.opacity)
+                    .transition(.asymmetric(insertion: .scale(scale: 0.98).combined(with: .opacity), removal: .opacity))
             } else {
                 WorkView(ws: ws)
-                    .transition(.opacity)
+                    .id(ws.type)
+                    .transition(.asymmetric(insertion: .scale(scale: 0.98).combined(with: .opacity), removal: .opacity))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Bento.window.ignoresSafeArea())
-        .animation(.smooth(duration: 0.3), value: model.showHome)
+        .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86), value: model.showHome)
+        .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86), value: model.selectedType)
         .modifier(HideToolbarSeparator())
         .navigationTitle(model.showHome ? "简单小一点" : title(ws))
         .navigationSubtitle(model.showHome ? "" : subtitle(ws))
