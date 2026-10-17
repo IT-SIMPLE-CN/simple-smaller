@@ -5,6 +5,8 @@
 - Xcode（含 Swift 6.2 以上）。
 - **rustup 官方工具链**，版本由 `rust-toolchain.toml` 固定（含 arm64 与 x86_64 目标）。安装：`curl https://sh.rustup.rs | sh -s -- -y --no-modify-path`，脚本会自己把 `~/.cargo/bin` 放到 PATH 最前面。
 - Homebrew：`cmake nasm ninja autoconf automake libtool pkg-config`。
+- 系统自带的 `git`、`python3`（发布脚本用来解析 JSON、给 OSS 请求签名）、`bash` 3.2（脚本不用 bash 4 的写法）。
+- 各库的源码会自动拉取；脚本里写死了版本，改了版本号再跑会删掉旧源码重拉。
 
 ## 顺序
 
@@ -28,7 +30,9 @@ scripts/bundle-mac.sh release universal       # swift build --arch arm64 --arch 
 
 `lipo -archs .local/app/SimpleSmaller.app/Contents/MacOS/SimpleSmaller` 应显示 `x86_64 arm64`。
 
-引擎测试：`PATH="$HOME/.cargo/bin:$PATH" CFLAGS=-mmacosx-version-min=14.0 CXXFLAGS=-mmacosx-version-min=14.0 cargo test -p smaller-core --release`。
+引擎测试：`PATH="$HOME/.cargo/bin:$PATH" CFLAGS=-mmacosx-version-min=14.0 CXXFLAGS=-mmacosx-version-min=14.0 cargo test -p smaller-core --release`。找不到 ffmpeg 时视频测试会跳过；加 `SMALLER_REQUIRE_FFMPEG=1` 则必须找到（发版前用这个跑）。
+
+改了应用图标：编辑 `apps/mac/AppIcon.svg`，再跑 `scripts/render-icon.sh` 生成各尺寸。
 
 ## 踩过的坑
 

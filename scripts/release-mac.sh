@@ -16,10 +16,7 @@ APP_ONLY=""
 PROFILE="${NOTARY_KEYCHAIN_PROFILE:-dotnfilm-notary}"
 SPARKLE_BIN="$ROOT/.local/sparkle-tools/2.9.6/bin"
 SPARKLE_SHA="52bf9e88cdd972fc0c81501377a880e90d47031bd8ca5462488f843e2609e192"
-FEED="https://bots.it-simple.cn/downloads/smaller/appcast.xml"
-ASSETS="https://itsimple-bot.oss-cn-shenzhen.aliyuncs.com/smaller"
-NAME="简单小一点"
-MIN_OS="14.0"
+. "$ROOT/scripts/release-env.sh"
 step() { printf '\n▸ %s\n' "$1"; }
 
 VERSION="$(tr -d ' \n' < "$ROOT/apps/mac/version.txt")"

@@ -8,6 +8,16 @@
 - 构建号是 main 的提交数（`CFBundleVersion`），只增不减。Sparkle 按构建号判断新旧。
 - 发版前写好 `apps/mac/release-notes/<版本>.html`，它会出现在更新弹窗里。只写用户能感觉到的变化。
 
+## 发布机一次性准备
+
+- **证书**：钥匙串里有且只有一个「Developer ID Application」证书（IT-SIMPLE 账号）。
+- **公证凭据**：用 `xcrun notarytool store-credentials dotnfilm-notary --apple-id <账号> --team-id 9XR55S32UG` 存进钥匙串，过程中会让你输 App 专用密码。和 dotnfilm-bots 共用同一个 profile。
+- **更新签名私钥**：在登录钥匙串的 `simple-smaller` 账户下，见下文「签名密钥」。
+- **OSS 凭据**：`.local/oss.env`（600），里面要有 `OBJECT_STORE_ACCESS_KEY_ID` 和 `OBJECT_STORE_SECRET_ACCESS_KEY`。
+- **服务器**：`ssh itsimple-sg` 能免密登录，并且能免密 `sudo`（替换 appcast 要用）。换机器时用 `DEPLOY_HOST` 指定。
+- **通用二进制**：编解码库、MuPDF、ffmpeg 的 `x86_64` 版要先编好（见 `docs/build.md` 的「通用包」）。
+- 固定的地址和名字在 `scripts/release-env.sh`，发布和上传两个脚本共用。
+
 ## 发版
 
 ```bash

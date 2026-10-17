@@ -12,13 +12,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DRY=""
 [ "${1:-}" = "--dry-run" ] && DRY=1
-HOST="${DEPLOY_HOST:-itsimple-sg}"
-REMOTE="/var/www/project/static/downloads/smaller"
-FEED="https://bots.it-simple.cn/downloads/smaller/appcast.xml"
-BUCKET="itsimple-bot"
-REGION="oss-cn-shenzhen"
-PREFIX="smaller"
-ASSETS="https://$BUCKET.$REGION.aliyuncs.com/$PREFIX"
+. "$ROOT/scripts/release-env.sh"
 ENV_FILE="$ROOT/.local/oss.env"
 step() { printf '\n▸ %s\n' "$1"; }
 
