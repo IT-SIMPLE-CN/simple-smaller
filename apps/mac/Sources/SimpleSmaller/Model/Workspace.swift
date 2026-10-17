@@ -6,7 +6,6 @@ import SmallerCore
 @Observable
 @MainActor
 final class Workspace {
-    enum ImageSegment: String, CaseIterable { case compress = "压缩", crop = "裁切" }
     enum VideoSegment: String, CaseIterable { case compress = "压缩", edit = "剪辑", frames = "序列帧" }
     enum PdfSegment: String, CaseIterable { case compress = "压缩", merge = "合并", split = "拆分", toImages = "转图片", fromImages = "图片转 PDF" }
 
@@ -14,7 +13,9 @@ final class Workspace {
     var files: [FileItem] = []
     var selection: Set<FileItem.ID> = []
 
-    var imageSegment: ImageSegment = .compress
+    /// 图片不分「压缩 / 裁切」：比例是配方里的一个参数，选「原比例」就是只压缩。
+    /// 选了比例时，左大卡默认是缩略图（每张画出裁切框）；点一张进大图调框，这时为 true。
+    var cropEditing = false
     var videoSegment: VideoSegment = .compress
     var pdfSegment: PdfSegment = .compress
 
@@ -86,14 +87,6 @@ final class Workspace {
         }
     }
 
-    func enterImageSegment(_ s: ImageSegment) {
-        let crop = s == .crop
-        guard (draft.image.crop != nil) != crop else { return }
-        switchRecipe(into: crop ? "crop" : "compress", from: crop ? "compress" : "crop",
-                     fits: { ($0.image.crop != nil) == crop }, fallback: crop ? "img.xhs" : "img.web")
-        resetCrop()
-    }
-
     func enterVideoSegment(_ s: VideoSegment) {
         let frames = s == .frames
         switchRecipe(into: frames ? "frames" : "video", from: frames ? "video" : "frames",
@@ -111,10 +104,14 @@ final class Workspace {
     var selectedItems: [FileItem] { files.filter { selection.contains($0.id) } }
 
     func select(recipe: Recipe) {
+        // 换了比例（或换成不裁的配方）：每张的框回到居中取最大，回到缩略图。
+        if type == .image, recipe.image.crop != draft.image.crop {
+            resetCrop()
+            cropEditing = false
+        }
         recipeID = recipe.id
         base = recipe
         draft = recipe
-        if type == .image { imageSegment = recipe.image.crop == nil ? .compress : .crop }
         if type == .video {
             if recipe.video.outputFrames { videoSegment = .frames }
             else if videoSegment == .frames { videoSegment = .compress }
@@ -138,7 +135,10 @@ final class Workspace {
 
     /// 上一次点「开始」时的配方与分段：都没变、文件也都处理完了，再点开始只会多出一份重复的文件。
     var lastRun: (draft: Recipe, segment: String)?
-    var segmentKey: String { "\(imageSegment.rawValue)|\(videoSegment.rawValue)|\(pdfSegment.rawValue)" }
+    var segmentKey: String { "\(videoSegment.rawValue)|\(pdfSegment.rawValue)" }
+
+    /// 图片这一批要裁（配方里选了比例）。
+    var isCropping: Bool { type == .image && draft.image.crop != nil }
 
     var isUpToDate: Bool {
         guard let last = lastRun, !files.isEmpty, !running else { return false }

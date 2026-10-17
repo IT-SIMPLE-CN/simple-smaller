@@ -80,7 +80,7 @@ struct MainView: View {
         if ws.running { return "处理中 \(ws.finishedCount) / \(ws.files.count)" }
         if ws.showResult { return "\(ws.files.count) 个文件 · 已完成" }
         var parts = ["\(ws.files.count) 个文件"]
-        if ws.type == .image, ws.imageSegment == .crop {
+        if ws.isCropping {
             let items = ws.cropItems
             parts.append(ws.cropTitle)
             if ws.cropAdjustedCount > 0 { parts.append("调过 \(ws.cropAdjustedCount) / \(items.count) 张") }

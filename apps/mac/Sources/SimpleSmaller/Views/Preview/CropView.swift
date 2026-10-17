@@ -63,6 +63,19 @@ struct CropView: View {
     /// 浮在画面上方：左边比例与文件，右边这张裁出多大（设计稿 05）。
     private func header(_ item: FileItem) -> some View {
         HStack(spacing: 8) {
+            // 回到全部缩略图（每张的框都画在缩略图上）。
+            Button {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { ws.cropEditing = false }
+            } label: {
+                Label("全部 \(ws.cropItems.count) 张", systemImage: "chevron.left")
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 12).frame(height: 28)
+                    .background(Capsule().fill(Bento.card.opacity(0.92)))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(BentoPressStyle())
+            .keyboardShortcut(.escape, modifiers: [])
+            .help("回到全部缩略图（Esc）")
             Text(ws.cropAspect == nil ? "自由" : (ws.cropPreset?.ratioLabel ?? ""))
                 .font(.system(size: 13, weight: .bold).monospacedDigit())
                 .foregroundStyle(Bento.onInk)

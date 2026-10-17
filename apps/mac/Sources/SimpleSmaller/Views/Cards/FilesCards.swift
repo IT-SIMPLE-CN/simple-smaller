@@ -111,11 +111,13 @@ struct FilesCard: View {
 
     private var title: String {
         if ws.running { return "\(ws.files.count) 个文件 · 处理中" }
+        if ws.isCropping { return "\(ws.files.count) 个文件 · 按 \(ws.cropPreset?.ratioLabel.isEmpty == false ? ws.cropPreset!.ratioLabel : "自由比例") 裁" }
         return ws.files.count > 1 ? "\(ws.files.count) 个文件 · 统一设置" : "1 个文件"
     }
 
     private var subtitle: String {
         if ws.running { return "完成一个写出一个 · 按 ⌘. 停止" }
+        if ws.isCropping { return "点一张可以调框" }
         return ws.files.count > 1 ? "改动对这一批全部生效 · \(Format.size(ws.totalBytes))" : Format.size(ws.totalBytes)
     }
 }
@@ -132,8 +134,18 @@ struct ThumbGrid: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(ws.files) { item in
-                    ThumbTile(item: item, selected: ws.selection.contains(item.id))
+                    let crop = cropIndex(item)
+                    ThumbTile(item: item, selected: ws.selection.contains(item.id),
+                              cropBox: crop.map { ws.effectiveCropBox($0) }, adjusted: ws.cropBoxes[item.url] != nil)
                         .fileInteractions(item, in: ws)
+                        // 选了比例：点一张进大图调框。
+                        .simultaneousGesture(TapGesture().onEnded {
+                            guard let i = crop, !ws.running else { return }
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                                ws.cropIndex = i
+                                ws.cropEditing = true
+                            }
+                        })
                 }
             }
             .padding(2)
@@ -142,11 +154,20 @@ struct ThumbGrid: View {
         .quickLookSelection(ws)
         .onDeleteCommand { model.remove(ws.selection, from: ws) }
     }
+
+    /// 这张在裁切里是第几张（读不出尺寸的图不参与裁切）。
+    private func cropIndex(_ item: FileItem) -> Int? {
+        guard ws.isCropping else { return nil }
+        return ws.cropItems.firstIndex { $0.id == item.id }
+    }
 }
 
 struct ThumbTile: View {
     let item: FileItem
     let selected: Bool
+    /// 选了比例时这张会裁出来的框（原图像素坐标）。
+    var cropBox: CGRect? = nil
+    var adjusted = false
 
     var body: some View {
         Color.clear
@@ -158,6 +179,20 @@ struct ThumbTile: View {
                     Rectangle().fill(Bento.fill)
                 }
             }
+            .overlay {
+                if let cropBox, item.width > 0, item.height > 0 {
+                    CropOverlay(box: cropBox, imageSize: CGSize(width: item.width, height: item.height))
+                        .transition(.opacity)
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if cropBox != nil, adjusted {
+                    Text("调过").font(.system(size: 10, weight: .semibold)).foregroundStyle(Bento.onInk)
+                        .padding(.horizontal, 7).frame(height: 20).background(Capsule().fill(Bento.ink))
+                        .padding(6)
+                }
+            }
+            .animation(.smooth(duration: 0.3), value: cropBox)
             .overlay(alignment: .bottom) {
                 HStack(spacing: 6) {
                     Text(item.name).lineLimit(1).truncationMode(.middle)
@@ -211,4 +246,27 @@ struct ThumbTile: View {
     }
 }
 
-// MARK: - 格式与质量
+/// 缩略图上的裁切框：框外压暗，框描白线。缩略图按「填满方块」显示，框按同样的缩放和偏移换算过来。
+struct CropOverlay: View {
+    let box: CGRect
+    let imageSize: CGSize
+
+    var body: some View {
+        GeometryReader { geo in
+            let t = geo.size
+            let s = max(t.width / imageSize.width, t.height / imageSize.height)
+            let dx = (t.width - imageSize.width * s) / 2, dy = (t.height - imageSize.height * s) / 2
+            let r = CGRect(x: box.minX * s + dx, y: box.minY * s + dy, width: box.width * s, height: box.height * s)
+            ZStack {
+                Path { p in
+                    p.addRect(CGRect(origin: .zero, size: t))
+                    p.addRect(r)
+                }
+                .fill(Color.black.opacity(0.5), style: FillStyle(eoFill: true))
+                Path { $0.addRect(r) }.stroke(Color.white.opacity(0.95), lineWidth: 1.5)
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}

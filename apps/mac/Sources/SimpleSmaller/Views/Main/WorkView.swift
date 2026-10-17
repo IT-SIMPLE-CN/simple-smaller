@@ -86,11 +86,11 @@ struct WorkGrid: View {
 
     /// 左大卡占几份（右边两列各一份）。图片压缩 1.3，有预览的 1.5。
     private var leftFraction: CGFloat {
-        ws.type == .image && ws.imageSegment == .compress ? 1.3 : 1.5
+        ws.type == .image && !(ws.isCropping && ws.cropEditing) ? 1.3 : 1.5
     }
 
-    private var isImageCompress: Bool { ws.type == .image && ws.imageSegment == .compress }
-    private var isImageCrop: Bool { ws.type == .image && ws.imageSegment == .crop }
+    /// 选了比例、点了一张：左大卡换成大图调框。
+    private var isImageCrop: Bool { ws.isCropping && ws.cropEditing }
 
     // MARK: 左大卡
 
@@ -134,7 +134,7 @@ struct WorkGrid: View {
 
     @ViewBuilder private var upper: some View {
         switch ws.type {
-        case .image: if isImageCrop { CropRatioCard(ws: ws) } else { FormatQualityCard(ws: ws) }
+        case .image: FrameCard(ws: ws)
         case .video: if ws.videoSegment == .frames { FramesCard(ws: ws) } else { VideoPictureCard(ws: ws) }
         case .pdf: PdfMainCard(ws: ws)
         }
@@ -142,7 +142,7 @@ struct WorkGrid: View {
 
     @ViewBuilder private var lowerLeft: some View {
         switch ws.type {
-        case .image: if isImageCrop { CropSizeCard(ws: ws) } else { SizeCard(ws: ws) }
+        case .image: FormatQualityCard(ws: ws)
         case .video: if ws.videoSegment == .frames { FrameEachCard(ws: ws) } else { VideoFormatCard(ws: ws) }
         case .pdf: PdfOptionsCard(ws: ws)
         }
@@ -150,7 +150,7 @@ struct WorkGrid: View {
 
     @ViewBuilder private var lowerRight: some View {
         switch ws.type {
-        case .image: if isImageCrop { CropFormatStartCard(ws: ws) } else { OutputStartCard(ws: ws) }
+        case .image: OutputStartCard(ws: ws)
         case .video: if ws.videoSegment == .frames { FramesOutputStartCard(ws: ws) } else { VideoAudioStartCard(ws: ws) }
         case .pdf: if ws.pdfSegment == .compress { PdfStartCard(ws: ws) } else { OutputStartCard(ws: ws) }
         }

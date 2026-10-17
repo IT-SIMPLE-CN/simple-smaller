@@ -12,7 +12,7 @@ struct RecipeBar: View {
     private var recipes: (builtIn: [Recipe], mine: [Recipe]) {
         let fits: (Recipe) -> Bool = { r in
             switch ws.type {
-            case .image: return (r.image.crop != nil) == (ws.imageSegment == .crop)
+            case .image: return true   // 图片只有一页，全部配方都在这里（带比例的就是裁切）
             case .video: return r.video.outputFrames == (ws.videoSegment == .frames)
             case .pdf: return r.pdf.longImage == (ws.pdfSegment == .toImages)
             }

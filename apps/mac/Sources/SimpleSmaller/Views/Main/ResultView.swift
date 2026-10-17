@@ -63,13 +63,12 @@ struct ResultView: View {
 
     private var title: String {
         if failed.count == ws.files.count { return "没有处理成功" }
-        switch (ws.type, ws.imageSegment, ws.videoSegment) {
-        case (.image, .crop, _): return "裁切完成"
-        case (.image, _, _): return "压缩完成"
-        case (.video, _, .frames): return "序列帧完成"
-        case (.video, _, .edit): return "剪辑完成"
-        case (.video, _, .compress): return "压缩完成"
-        default: return ws.type == .pdf && ws.pdfSegment == .compress ? "压缩完成" : "处理完成"
+        switch (ws.type, ws.videoSegment) {
+        case (.image, _): return ws.isCropping ? "裁切完成" : "压缩完成"
+        case (.video, .frames): return "序列帧完成"
+        case (.video, .edit): return "剪辑完成"
+        case (.video, .compress): return "压缩完成"
+        default: return ws.pdfSegment == .compress ? "压缩完成" : "处理完成"
         }
     }
 

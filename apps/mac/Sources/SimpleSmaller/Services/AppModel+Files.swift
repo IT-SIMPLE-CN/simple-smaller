@@ -58,9 +58,9 @@ extension AppModel {
         let ws = current
         switch ws.type {
         case .image:
-            guard let s = Workspace.ImageSegment(rawValue: name) else { return }
-            ws.imageSegment = s
-            ws.enterImageSegment(s)
+            // 图片不再分段；「裁切」等于换成第一个带比例的配方，验证用。
+            let id = name == "裁切" ? "img.xhs" : "img.web"
+            if let r = store.recipe(id: id) { ws.select(recipe: r) }
         case .video:
             guard let s = Workspace.VideoSegment(rawValue: name) else { return }
             ws.videoSegment = s

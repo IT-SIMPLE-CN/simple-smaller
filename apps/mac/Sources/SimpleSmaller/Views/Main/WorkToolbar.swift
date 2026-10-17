@@ -45,7 +45,8 @@ struct SegmentPicker: View {
         Group {
             switch ws.type {
             case .image:
-                TopTabs(selection: $ws.imageSegment, options: Workspace.ImageSegment.allCases.map { ($0, $0.rawValue) })
+                // 图片只有一页：比例在「画面」卡里选，不用分段。
+                EmptyView()
             case .video:
                 TopTabs(selection: $ws.videoSegment, options: Workspace.VideoSegment.allCases.map { ($0, $0.rawValue) })
             case .pdf:
@@ -54,10 +55,6 @@ struct SegmentPicker: View {
         }
         .accessibilityLabel("视图")
         .disabled(ws.running)
-        .onChange(of: ws.imageSegment) { _, new in
-            ws.enterImageSegment(new)
-            ws.showResult = false
-        }
         .onChange(of: ws.videoSegment) { _, new in
             ws.enterVideoSegment(new)
             ws.showResult = false

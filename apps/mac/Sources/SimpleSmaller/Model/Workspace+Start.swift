@@ -24,7 +24,7 @@ extension Workspace {
         let n = files.count
         switch type {
         case .image:
-            if imageSegment == .crop {
+            if isCropping {
                 let items = cropItems
                 return "\(items.count) 张 · \(cropTitle) · 宽 \(cropOutputWidth)"
             }
