@@ -318,7 +318,7 @@ struct QualityPanel: View {
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text("质量")
-                    Text("\(ws.draft.image.quality) · \(QualityWord.of(ws.draft.image.quality))")
+                    Text(verbatim: "\(ws.draft.image.quality) · \(QualityWord.of(ws.draft.image.quality))")
                         .font(Bento.number(22, weight: .medium))
                     Spacer()
                 }
@@ -586,7 +586,7 @@ struct CropFormatStartCard: View {
                         BrandSlider(value: Binding(get: { Double(ws.draft.image.quality) }, set: { ws.draft.image.quality = Int($0.rounded()) }), range: 30...100)
                             .frame(height: 22)
                             .accessibilityLabel("质量")
-                        Text("\(ws.draft.image.quality)").monospacedDigit().frame(width: 28, alignment: .trailing)
+                        Text(verbatim: "\(ws.draft.image.quality)").monospacedDigit().frame(width: 28, alignment: .trailing)
                     }
                     .font(.system(size: 12))
                 }

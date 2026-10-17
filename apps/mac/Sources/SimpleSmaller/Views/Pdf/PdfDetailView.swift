@@ -15,10 +15,16 @@ struct PdfDetailView: View {
         case .fromImages:
             ImageOrderGrid(ws: ws)
         default:
-            VStack(spacing: 0) {
+            VStack(spacing: 12) {
+                BentoHeader(symbol: "doc.richtext", title: "\(ws.files.count) 个文件",
+                            subtitle: "\(ws.files.reduce(0) { $0 + $1.pages }) 页 · \(Format.size(ws.totalBytes))") {
+                    CircleIconButton(symbol: "plus", label: "添加文件（⌘O）") { FilePicker.pick(into: AppModel.shared) }
+                }
+                .padding(.horizontal, 6)
+                .padding(.top, 4)
                 FileTableView(ws: ws)
+                    .scrollContentBackground(.hidden)
                 if let item = previewItem {
-                    Divider()
                     PageStrip(item: item)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -44,7 +50,7 @@ private struct PageStrip: View {
             HStack {
                 Text(verbatim: "\(item.name) · \(item.pages) 页").font(.system(size: 12, weight: .semibold))
                 Spacer()
-                Text("选中列表里的文件看它的页面").font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text("页面预览 · 排序和删页在「合并」里").font(.system(size: 11)).foregroundStyle(Bento.secondary)
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 10) {
@@ -58,7 +64,7 @@ private struct PageStrip: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .frame(height: 168)
-        .background(.bar)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Bento.fill))
         .task(id: item.previewURL) { thumbs.load(item.previewURL) }
     }
 }
@@ -128,9 +134,8 @@ private struct PageGrid: View {
                 Spacer()
                 Text("拖动可排序 · 选中后按 Delete 删除").font(.system(size: 11)).foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 16)
-            .frame(height: 40)
-            Divider()
+            .padding(.horizontal, 8)
+            .frame(height: 36)
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 104, maximum: 140), spacing: 14)], spacing: 16) {
                     ForEach(Array(ws.pageOrder.enumerated()), id: \.offset) { i, ref in
@@ -225,9 +230,8 @@ private struct ImageOrderGrid: View {
                 Spacer()
                 Text("拖动可排序 · 选中后按 Delete 删除").font(.system(size: 11)).foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 16)
-            .frame(height: 40)
-            Divider()
+            .padding(.horizontal, 8)
+            .frame(height: 36)
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 104, maximum: 140), spacing: 14)], spacing: 16) {
                     ForEach(Array(images.enumerated()), id: \.element.id) { i, item in

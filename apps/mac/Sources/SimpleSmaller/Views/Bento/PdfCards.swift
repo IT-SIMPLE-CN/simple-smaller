@@ -82,12 +82,12 @@ struct PdfMainCard: View {
             Text("每").foregroundStyle(Bento.secondary)
             CircleIconButton(symbol: "minus", label: "减少", size: 40) { ws.draft.pdf.splitEvery = max(1, p.splitEvery - 1) }
                 .buttonRepeatBehavior(.enabled)
-            Text("\(p.splitEvery)").font(.system(size: 44, weight: .light).monospacedDigit()).frame(minWidth: 60)
+            Text(verbatim: "\(p.splitEvery)").font(.system(size: 44, weight: .light).monospacedDigit()).frame(minWidth: 60)
             CircleIconButton(symbol: "plus", label: "增加", size: 40) { ws.draft.pdf.splitEvery = min(500, p.splitEvery + 1) }
                 .buttonRepeatBehavior(.enabled)
             Text("页一个文件").foregroundStyle(Bento.secondary)
             Spacer()
-            Text("共拆出 \(splitCount) 个").font(.system(size: 20).monospacedDigit())
+            Text(verbatim: "共拆出 \(splitCount) 个").font(.system(size: 20).monospacedDigit())
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Bento.fill))
@@ -194,7 +194,7 @@ struct PdfOptionsCard: View {
                         Text("PNG 无损，不用调质量。").font(.system(size: 12)).foregroundStyle(Bento.secondary)
                     } else {
                         HStack(alignment: .firstTextBaseline) {
-                            Text("\(ws.draft.pdf.imageQuality) · \(QualityWord.of(ws.draft.pdf.imageQuality))").font(Bento.number(22, weight: .medium))
+                            Text(verbatim: "\(ws.draft.pdf.imageQuality) · \(QualityWord.of(ws.draft.pdf.imageQuality))").font(Bento.number(22, weight: .medium))
                             Spacer()
                         }
                         BrandSlider(value: Binding(get: { Double(ws.draft.pdf.imageQuality) }, set: { ws.draft.pdf.imageQuality = Int($0.rounded()) }), range: 30...100)
@@ -252,7 +252,7 @@ struct PdfStartCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("这一批").font(.system(size: 11)).foregroundStyle(Bento.secondary)
-                    Text("\(ws.files.count) 个 · \(ws.files.reduce(0) { $0 + $1.pages }) 页").font(.system(size: 24, weight: .light).monospacedDigit())
+                    Text(verbatim: "\(ws.files.count) 个 · \(ws.files.reduce(0) { $0 + $1.pages }) 页").font(.system(size: 24, weight: .light).monospacedDigit())
                 }
                 Text("压完变大的文件会保留原文件")
                     .font(.system(size: 11)).foregroundStyle(Bento.secondary)

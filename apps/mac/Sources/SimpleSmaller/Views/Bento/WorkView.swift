@@ -94,15 +94,15 @@ struct WorkGrid: View {
         } else {
             switch ws.type {
             case .image:
-                if isImageCrop { PreviewCard { CropView(ws: ws) } } else { FilesCard(ws: ws) }
+                if isImageCrop { PreviewCard(inset: 14) { CropView(ws: ws) } } else { FilesCard(ws: ws) }
             case .video:
                 switch ws.videoSegment {
                 case .compress: FilesCard(ws: ws)
-                case .edit: PreviewCard { VideoEditView(ws: ws) }
-                case .frames: PreviewCard { VideoFramesView(ws: ws) }
+                case .edit: PreviewCard(inset: 14) { VideoEditView(ws: ws) }
+                case .frames: PreviewCard(inset: 14) { VideoFramesView(ws: ws) }
                 }
             case .pdf:
-                PreviewCard { PdfDetailView(ws: ws) }
+                PreviewCard(inset: 14) { PdfDetailView(ws: ws) }
             }
         }
     }
@@ -153,10 +153,11 @@ struct WorkGrid: View {
 
 /// 放预览类视图（裁切、剪辑、序列帧、PDF 页面）的大卡：内容自己铺满，只裁圆角。
 struct PreviewCard<Content: View>: View {
+    var inset: CGFloat = 0
     @ViewBuilder var content: Content
 
     var body: some View {
-        BentoCard(padding: EdgeInsets()) { content }
+        BentoCard(padding: EdgeInsets(top: inset, leading: inset, bottom: inset, trailing: inset)) { content }
     }
 }
 
@@ -279,7 +280,7 @@ struct StartBlock: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("处理中").font(.system(size: 24, weight: .bold))
-                    Text("\(ws.finishedCount) / \(ws.files.count)").font(Bento.number(20))
+                    Text(verbatim: "\(ws.finishedCount) / \(ws.files.count)").font(Bento.number(20))
                 }
                 ProgressBar(value: Double(ws.finishedCount) + runningFraction, total: Double(max(1, ws.files.count)))
                     .frame(height: 6)

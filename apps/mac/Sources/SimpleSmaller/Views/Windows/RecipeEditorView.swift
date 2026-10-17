@@ -156,7 +156,7 @@ struct RecipeEditorView: View {
                         BrandSlider(value: Binding(get: { Double(r.image.quality) }, set: { r.image.quality = Int($0.rounded()) }), range: 30...100)
                             .frame(height: 24)
                             .accessibilityLabel("质量")
-                        Text("\(r.image.quality)").font(Bento.number(18)).frame(width: 32, alignment: .trailing)
+                        Text(verbatim: "\(r.image.quality)").font(Bento.number(18)).frame(width: 32, alignment: .trailing)
                     }
                 }
             }
@@ -169,10 +169,10 @@ struct RecipeEditorView: View {
                     ForEach([3840, 2560, 1920, 1280, 640], id: \.self) { w in chip("\(w)", on: sizeBinding(w)) }
                     Menu {
                         Picker("按", selection: $r.image.sizeAxis) {
-                            ForEach(SizeAxis.allCases) { Text("按\($0.title)").tag($0) }
+                            ForEach(SizeAxis.allCases) { Text(verbatim: "按\($0.title)").tag($0) }
                         }
                         .pickerStyle(.inline)
-                    } label: { Text("按\(r.image.sizeAxis.title)") }
+                    } label: { Text(verbatim: "按\(r.image.sizeAxis.title)") }
                         .menuStyle(.borderlessButton)
                         .fixedSize()
                 }
@@ -183,7 +183,7 @@ struct RecipeEditorView: View {
                 })) {
                     Text("原比例").tag("")
                     Divider()
-                    ForEach(CropPreset.imagePresets.filter { $0.aspect != nil }) { Text("\($0.name) \($0.ratioLabel)").tag($0.id) }
+                    ForEach(CropPreset.imagePresets.filter { $0.aspect != nil }) { Text(verbatim: "\($0.name) \($0.ratioLabel)").tag($0.id) }
                 }
                 .labelsHidden().fixedSize()
             }

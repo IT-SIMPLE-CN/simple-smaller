@@ -12,19 +12,18 @@ struct CropView: View {
     var body: some View {
         let items = ws.cropItems
         let index = ws.cropCurrentIndex
-        VStack(spacing: 0) {
+        VStack(spacing: 12) {
             if let item = items.indices.contains(index) ? items[index] : nil {
-                header(item)
-                Divider()
                 ZStack(alignment: .bottom) {
                     CropCanvas(ws: ws, item: item, index: index, image: images[item.url])
                     controls(count: items.count, index: index)
                         .padding(.bottom, 14)
                 }
-                .background(Color(nsColor: .underPageBackgroundColor))
+                .overlay(alignment: .top) { header(item).padding(12) }
+                .background(Bento.fill)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 // 单张图片时没有胶片条。
                 if items.count > 1 {
-                    Divider()
                     FilmStrip(ws: ws, items: items, index: index)
                 }
             } else {
@@ -51,18 +50,28 @@ struct CropView: View {
         return items.indices.contains(ws.cropCurrentIndex) ? items[ws.cropCurrentIndex] : nil
     }
 
+    /// 浮在画面上方：左边比例与文件，右边这张裁出多大（设计稿 05）。
     private func header(_ item: FileItem) -> some View {
-        HStack {
-            Text(ws.cropTitle).fontWeight(.semibold)
-            Spacer()
-            Text("\(item.name) · \(item.dimensions)")
+        HStack(spacing: 8) {
+            Text(ws.cropAspect == nil ? "自由" : (ws.cropPreset?.ratioLabel ?? ""))
+                .font(.system(size: 13, weight: .bold).monospacedDigit())
+                .foregroundStyle(Bento.onInk)
+                .padding(.horizontal, 12).frame(height: 28)
+                .background(Capsule().fill(Bento.ink))
+            Text(verbatim: "\(item.name) · \(item.dimensions)")
                 .font(.system(size: 12))
-                .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .padding(.horizontal, 12).frame(height: 28)
+                .background(Capsule().fill(Bento.card.opacity(0.92)))
+            Spacer(minLength: 8)
+            let box = ws.effectiveCropBox(ws.cropCurrentIndex)
+            Text(verbatim: "裁出 \(Int(box.width)) × \(Int(box.height))")
+                .font(.system(size: 11).monospacedDigit())
+                .foregroundStyle(Bento.secondary)
+                .padding(.horizontal, 10).frame(height: 26)
+                .background(Capsule().fill(Bento.card.opacity(0.92)))
         }
-        .padding(.horizontal, 16)
-        .frame(height: 40)
     }
 
     private func controls(count: Int, index: Int) -> some View {
@@ -361,21 +370,16 @@ struct CropButtonStyle: ButtonStyle {
     @Environment(\.colorScheme) private var scheme
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        let shape = Capsule()
         configuration.label
             .font(.system(size: 13, weight: primary ? .semibold : .regular))
-            .foregroundStyle(primary ? Color(nsColor: .windowBackgroundColor) : Color.primary)
-            .padding(.horizontal, primary ? 16 : 12)
-            .frame(height: 28)
-            .background {
-                if primary {
-                    shape.fill(Color.primary.opacity(configuration.isPressed ? 0.8 : 1))
-                } else {
-                    shape.fill(Color(nsColor: .controlBackgroundColor).opacity(configuration.isPressed ? 0.85 : 1))
-                        .overlay(shape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
-                }
-            }
-            .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+            .foregroundStyle(primary ? Bento.onInk : Color.primary)
+            .padding(.horizontal, primary ? 18 : 16)
+            .frame(height: 40)
+            .background(shape.fill(primary ? Bento.ink : Bento.card))
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .shadow(color: .black.opacity(0.14), radius: 4, y: 2)
             .opacity(isEnabled ? 1 : 0.45)
             .contentShape(shape)
     }
@@ -401,19 +405,18 @@ struct FilmStrip: View {
                             .accessibilityAction { ws.cropIndex = i }
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 2)
             }
-            .frame(height: 76)
+            .frame(height: 64)
             .onChange(of: index) { _, i in withAnimation(.smooth(duration: 0.3)) { proxy.scrollTo(i, anchor: .center) } }
             .onAppear { proxy.scrollTo(index, anchor: .center) }
         }
-        .background(.bar)
     }
 
     private func cell(_ item: FileItem, current: Bool, done: Bool) -> some View {
         Thumb(image: item.thumbnail)
             .frame(width: 72, height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
             .opacity(current || done ? 1 : 0.55)
             .overlay(alignment: .bottomTrailing) {
                 if done {
@@ -430,8 +433,8 @@ struct FilmStrip: View {
             .padding(4)
             .overlay {
                 if current {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.brand, lineWidth: 2)
-                    RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white, lineWidth: 2).padding(2)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.brand, lineWidth: 2)
+                    RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Bento.card, lineWidth: 2).padding(2)
                 }
             }
             .contentShape(Rectangle())

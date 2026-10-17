@@ -5,13 +5,11 @@ struct VideoFramesView: View {
     @Bindable var ws: Workspace
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 10) {
             if let item = ws.currentVideo {
                 FrameRangeBar(ws: ws, item: item)
-                Divider()
                 FramePreviewGrid(ws: ws, item: item)
                 if ws.videoItems.count > 1 {
-                    Divider()
                     VideoStrip(ws: ws)
                 }
             } else {

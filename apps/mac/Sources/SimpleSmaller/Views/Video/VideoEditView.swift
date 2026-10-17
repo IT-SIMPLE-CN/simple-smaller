@@ -8,13 +8,12 @@ struct VideoEditView: View {
     @State private var playback = VideoPlayback()
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 10) {
             if let item = ws.currentVideo {
                 VideoStage(ws: ws, item: item, playback: playback)
-                Divider()
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 TrimBar(ws: ws, item: item, playback: playback)
                 if ws.videoItems.count > 1 {
-                    Divider()
                     VideoStrip(ws: ws)
                 }
             } else {
@@ -146,10 +145,7 @@ struct TrimBar: View {
             timeline(range: range)
                 .frame(height: 44)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 14)
-        .background(.bar)
+        .padding(.horizontal, 4)
         .task(id: item.url) {
             thumbs = []
             thumbs = await TimelineThumbnails.make(url: item.url, duration: item.duration, count: count, height: 44)
@@ -329,9 +325,8 @@ struct VideoStrip: View {
                         .accessibilityAction { ws.videoIndex = i }
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 2)
         }
-        .frame(height: 76)
-        .background(.bar)
+        .frame(height: 64)
     }
 }

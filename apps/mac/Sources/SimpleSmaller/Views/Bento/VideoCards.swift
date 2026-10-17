@@ -160,7 +160,7 @@ struct FramesCard: View {
                 Spacer(minLength: 0)
                 HStack(alignment: .center, spacing: 12) {
                     if v.frameMode == .all {
-                        Text("原帧率 \(sourceFps) fps").font(.system(size: 22, weight: .light))
+                        Text(verbatim: "原帧率 \(sourceFps) fps").font(.system(size: 22, weight: .light))
                     } else {
                         CircleIconButton(symbol: "minus", label: "减少", size: 40) { step(-1) }.buttonRepeatBehavior(.enabled)
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -171,8 +171,8 @@ struct FramesCard: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text("\(total) 张").font(.system(size: 22).monospacedDigit())
-                        Text("\(v.frameFormat.title) · \(v.frameWidth.map { "宽 \($0)" } ?? "原尺寸")")
+                        Text(verbatim: "\(total) 张").font(.system(size: 22).monospacedDigit())
+                        Text(verbatim: "\(v.frameFormat.title) · \(v.frameWidth.map { "宽 \($0)" } ?? "原尺寸")")
                             .font(.system(size: 11)).foregroundStyle(Bento.secondary)
                     }
                 }
@@ -260,7 +260,7 @@ struct FrameEachCard: View {
                 if ws.draft.video.frameFormat != .png {
                     BentoRow(label: "质量", height: 40) {
                         Picker("质量", selection: $ws.draft.video.frameQuality) {
-                            ForEach([60, 70, 80, 90, 100], id: \.self) { Text("\($0)").tag($0) }
+                            ForEach([60, 70, 80, 90, 100], id: \.self) { Text(verbatim: "\($0)").tag($0) }
                         }
                         .labelsHidden().fixedSize()
                     }

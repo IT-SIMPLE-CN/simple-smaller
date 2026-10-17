@@ -119,12 +119,12 @@ struct ResultView: View {
                     .minimumScaleFactor(0.5)
                     .padding(.top, 2)
                 HStack(spacing: 6) {
-                    Text("省下 \(Format.size(before > after ? before - after : 0))")
+                    Text(verbatim: "省下 \(Format.size(before > after ? before - after : 0))")
                         .foregroundStyle(Bento.alertText)
                         .padding(.horizontal, 12).frame(height: 30)
                         .background(Capsule().fill(Bento.alertFill))
                     if after > 0, before > after {
-                        Text("小了 \(String(format: "%.1f", Double(before) / Double(after))) 倍")
+                        Text(verbatim: "小了 \(String(format: "%.1f", Double(before) / Double(after))) 倍")
                             .padding(.horizontal, 12).frame(height: 30)
                             .background(Capsule().fill(Bento.card))
                     }
@@ -143,7 +143,7 @@ struct ResultView: View {
                     Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
                         .frame(width: 28, height: 28).background(Circle().fill(Bento.failed))
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("\(failed.count) 个失败").font(.system(size: 13, weight: .semibold))
+                        Text(verbatim: "\(failed.count) 个失败").font(.system(size: 13, weight: .semibold))
                         Text(failNote).font(.system(size: 11)).lineLimit(2)
                     }
                     .foregroundStyle(Bento.alertText)
@@ -239,7 +239,7 @@ struct Gauge: View {
                 .fill(Color.brand)
                 ForEach([25, 50, 75], id: \.self) { n in
                     let a = Double.pi * (1 + Double(n) / 100)
-                    Text("\(n)").font(.system(size: 12)).foregroundStyle(Bento.secondary)
+                    Text(verbatim: "\(n)").font(.system(size: 12)).foregroundStyle(Bento.secondary)
                         .position(x: c.x + cos(a) * 330 * s, y: c.y + sin(a) * 330 * s)
                 }
                 Text("这一批小了")
@@ -247,7 +247,7 @@ struct Gauge: View {
                     .foregroundStyle(Bento.secondary)
                     .position(x: c.x, y: 254 * s)
                 HStack(alignment: .firstTextBaseline, spacing: 6 * s) {
-                    Text("\(Int((fraction * 100).rounded()))").font(.system(size: 146 * s, weight: .light).monospacedDigit()).tracking(-6 * s)
+                    Text(verbatim: "\(Int((fraction * 100).rounded()))").font(.system(size: 146 * s, weight: .light).monospacedDigit()).tracking(-6 * s)
                     Text("%").font(.system(size: 48 * s))
                 }
                 .position(x: c.x - 10 * s, y: 340 * s)
