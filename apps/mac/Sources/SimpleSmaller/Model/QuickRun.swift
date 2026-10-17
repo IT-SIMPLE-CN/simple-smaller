@@ -69,8 +69,10 @@ final class QuickRun {
         let engine = AppModel.shared.engine
         let recipe = recipe
         Task.detached { [weak self] in
+            // 弱引用先存成常量，后面各个回调捕获的是它，不是可变的 self。
+            let run = self
             for path in inputs {
-                if await MainActor.run(body: { self?.cancelled ?? true }) { break }
+                if await MainActor.run(body: { run?.cancelled ?? true }) { break }
                 let meta = try? engine.videoMeta(path: path)
                 var crop: CGRect?
                 if let m = meta, let a = recipe.video.crop?.aspect {
@@ -82,12 +84,12 @@ final class QuickRun {
                 let long4K = meta.map { min($0.width, $0.height) >= 2000 && $0.duration > 180 } ?? false
                 let settings = recipe.videoSettings(trim: nil, crop: crop, coverAt: recipe.video.exportCover ? min(1, (meta?.duration ?? 2) / 2) : nil, long4K: long4K)
                 let done = DispatchSemaphore(value: 0)
-                let bridge = ListenerBridge(progress: { _, _ in }, item: { r in self?.record(r) }, finished: { done.signal() })
+                let bridge = ListenerBridge(progress: { _, _ in }, item: { r in run?.record(r) }, finished: { done.signal() })
                 let job = engine.runVideos(inputs: [path], place: place, naming: naming, settings: settings, listener: bridge)
-                await MainActor.run { self?.jobs.append(job) }
+                await MainActor.run { run?.jobs.append(job) }
                 await withCheckedContinuation { c in DispatchQueue.global().async { done.wait(); c.resume() } }
             }
-            await MainActor.run { self?.finish() }
+            await MainActor.run { run?.finish() }
         }
     }
 
