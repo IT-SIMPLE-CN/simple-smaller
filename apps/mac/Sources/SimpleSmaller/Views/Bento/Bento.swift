@@ -184,42 +184,78 @@ struct PillButton: View {
     }
 }
 
-/// 小号分段（白底槽里白色滑块）：卡片头右侧用，如「原尺寸 / 自定义」「宽 / 高 / 长边」。
+/// 滑块分段：选中的底块在选项之间滑过去（弹簧），顶栏分段、卡片里的小分段、图标分段共用这一个。
+/// 「减弱动态效果」时只做短淡入。旁白把整组读成一个分组，选中项带「已选」。
+struct SlidingSegments<Value: Hashable, Item: View>: View {
+    @Binding var selection: Value
+    let values: [Value]
+    var inset: CGFloat = 3
+    var track: Color = Bento.fill
+    var thumb: Color = Bento.card
+    var thumbShadow = true
+    var label = ""
+    var titles: (Value) -> String
+    @ViewBuilder var item: (Value, Bool) -> Item
+    @State private var frames: [Int: CGRect] = [:]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(values.enumerated()), id: \.offset) { i, v in
+                let on = v == selection
+                Button { selection = v } label: { item(v, on).contentShape(Capsule()) }
+                    .buttonStyle(.plain)
+                    .background(GeometryReader { g in
+                        Color.clear.preference(key: SegmentFrames.self, value: [i: g.frame(in: .named("segments"))])
+                    })
+                    .accessibilityLabel(titles(v))
+                    .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+        .padding(inset)
+        .coordinateSpace(name: "segments")
+        .onPreferenceChange(SegmentFrames.self) { frames = $0 }
+        .background(alignment: .topLeading) {
+            if let i = values.firstIndex(of: selection), let f = frames[i] {
+                Capsule()
+                    .fill(thumb)
+                    .shadow(color: .black.opacity(thumbShadow ? 0.08 : 0), radius: 1, y: 1)
+                    .frame(width: f.width, height: f.height)
+                    .offset(x: f.minX, y: f.minY)
+                    .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.35, dampingFraction: 0.82), value: selection)
+                    .animation(nil, value: frames)
+            }
+        }
+        .background(Capsule().fill(track))
+        .fixedSize()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(label)
+    }
+}
+
+private struct SegmentFrames: PreferenceKey {
+    static let defaultValue: [Int: CGRect] = [:]
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
+        value.merge(nextValue()) { $1 }
+    }
+}
+
+/// 小号分段（灰槽里白色滑块）：卡片头右侧用，如「原尺寸 / 自定义」「宽 / 高 / 长边」。
 struct MiniSegmented<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String)]
     var label = ""
-    @Namespace private var ns
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(options, id: \.0) { value, title in
-                let on = selection == value
-                Button { selection = value } label: {
-                    Text(title)
-                        .font(.system(size: 12, weight: on ? .semibold : .regular))
-                        .foregroundStyle(on ? Color.primary : Bento.secondary)
-                        .padding(.horizontal, 12)
-                        .frame(height: 28)
-                        .background {
-                            if on {
-                                Capsule().fill(Bento.card)
-                                    .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
-                                    .matchedGeometryEffect(id: "thumb", in: ns)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(on ? .isSelected : [])
-            }
+        SlidingSegments(selection: $selection, values: options.map(\.0), label: label,
+                        titles: { v in options.first { $0.0 == v }?.1 ?? "" }) { v, on in
+            Text(options.first { $0.0 == v }?.1 ?? "")
+                .font(.system(size: 12, weight: on ? .semibold : .regular))
+                .foregroundStyle(on ? Color.primary : Bento.secondary)
+                .padding(.horizontal, 12)
+                .frame(height: 28)
+                .animation(.easeOut(duration: 0.2), value: on)
         }
-        .padding(3)
-        .background(Capsule().fill(Bento.fill))
-        .fixedSize()
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selection)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(label)
     }
 }
 
@@ -228,69 +264,35 @@ struct IconSegmented<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String, String)]
     var label = ""
-    @Namespace private var ns
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(options, id: \.0) { value, symbol, title in
-                let on = selection == value
-                Button { selection = value } label: {
-                    Image(systemName: symbol)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(on ? Color.primary : Bento.secondary)
-                        .frame(width: 32, height: 28)
-                        .background {
-                            if on {
-                                Capsule().fill(Bento.card)
-                                    .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
-                                    .matchedGeometryEffect(id: "thumb", in: ns)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .help(title)
-                .accessibilityLabel(title)
-                .accessibilityAddTraits(on ? .isSelected : [])
-            }
+        SlidingSegments(selection: $selection, values: options.map(\.0), label: label,
+                        titles: { v in options.first { $0.0 == v }?.2 ?? "" }) { v, on in
+            Image(systemName: options.first { $0.0 == v }?.1 ?? "")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(on ? Color.primary : Bento.secondary)
+                .frame(width: 32, height: 28)
+                .help(options.first { $0.0 == v }?.2 ?? "")
         }
-        .padding(3)
-        .background(Capsule().fill(Bento.fill))
-        .fixedSize()
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selection)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(label)
     }
 }
 
-/// 顶栏居中的分段（白底胶囊，选中墨黑）：压缩 / 裁切 等。
+/// 顶栏居中的分段（白底胶囊，选中墨黑）：压缩 / 裁切 等，设置的通用 / 配方 / 自动。
 struct TopTabs<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String)]
-    @Namespace private var ns
+    var label = ""
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(options, id: \.0) { value, title in
-                let on = selection == value
-                Button { selection = value } label: {
-                    Text(title)
-                        .font(.system(size: 13, weight: on ? .semibold : .regular))
-                        .foregroundStyle(on ? Bento.onInk : Color.primary.opacity(0.8))
-                        .padding(.horizontal, 20)
-                        .frame(height: 30)
-                        .background {
-                            if on { Capsule().fill(Bento.ink).matchedGeometryEffect(id: "tab", in: ns) }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
-            }
+        SlidingSegments(selection: $selection, values: options.map(\.0), inset: 4, track: Bento.card, thumb: Bento.ink, thumbShadow: false, label: label,
+                        titles: { v in options.first { $0.0 == v }?.1 ?? "" }) { v, on in
+            Text(options.first { $0.0 == v }?.1 ?? "")
+                .font(.system(size: 13, weight: on ? .semibold : .regular))
+                .foregroundStyle(on ? Bento.onInk : Color.primary.opacity(0.8))
+                .padding(.horizontal, 20)
+                .frame(height: 30)
+                .animation(.easeOut(duration: 0.2), value: on)
         }
-        .padding(4)
-        .background(Capsule().fill(Bento.card))
-        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: selection)
     }
 }
 
