@@ -12,4 +12,4 @@
 <path d="M157.8 48.4 A74 74 0 0 1 167.7 78.9 L147.8 80.8 A54 54 0 0 0 140.5 58.6 Z" fill="#FFFFFF"></path>
 <path d="M100 92L100 120L107 113L113 126L118 124L112 111L122 111Z" fill="#111214" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"></path>
 <rect x="158" y="112" width="46" height="40" rx="8" fill="#C9CCD1"></rect><rect x="158" y="108" width="46" height="38" rx="8" fill="#FFFFFF"></rect>
-<path d="M168 120h8l10 16h8M184 120h10" fill="none" stroke="#111214" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<text x="181" y="133" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" fill="#111214">Alt</text></svg>

@@ -4,12 +4,17 @@ namespace SimpleSmaller;
 
 public partial class App : Application
 {
-    private Window? window;
+    private static MainWindow? main;
 
     public App()
     {
         InitializeComponent();
     }
+
+    /// 主窗口句柄（文件选择器、对话框要用）。
+    public static IntPtr MainHwnd => main is null ? IntPtr.Zero : WinRT.Interop.WindowNative.GetWindowHandle(main);
+
+    public static MainWindow? Main => main;
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
@@ -21,7 +26,10 @@ public partial class App : Application
             Exit();
             return;
         }
-        window = new MainWindow();
-        window.Activate();
+        var queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        AppModel.Initialize(a => queue.TryEnqueue(() => a()), new AppPlatform());
+        main = new MainWindow();
+        main.Activate();
+        LaunchArgs.Apply(argv.Skip(1).ToArray());
     }
 }

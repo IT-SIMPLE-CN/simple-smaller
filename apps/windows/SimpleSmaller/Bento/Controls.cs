@@ -42,7 +42,7 @@ public sealed class Header : Grid
         var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1 };
         texts.Children.Add(title);
         texts.Children.Add(subtitle);
-        AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level2);
+        AutomationProperties.SetHeadingLevel(title, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level2);
         Children.Add(iconBack);
         Children.Add(texts);
         Children.Add(trailing);

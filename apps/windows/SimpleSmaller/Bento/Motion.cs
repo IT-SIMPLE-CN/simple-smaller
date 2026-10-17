@@ -94,6 +94,34 @@ public static class Motion
         visual.StartAnimation("Scale", grow);
     }
 
+    /// 换页：整体从 98% 轻微放大并淡入（首页 ↔ 工作区、工作区 ↔ 完成页）。
+    public static void PageIn(UIElement element)
+    {
+        var visual = VisualOf(element);
+        var c = visual.Compositor;
+        if (element is FrameworkElement fe)
+        {
+            void center() => visual.CenterPoint = new Vector3((float)fe.ActualWidth / 2, (float)fe.ActualHeight / 2, 0);
+            center();
+            fe.SizeChanged += (_, _) => center();
+        }
+        var fade = c.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0, 0f);
+        fade.InsertKeyFrame(1, 1f, Ease(c));
+        fade.Duration = TimeSpan.FromMilliseconds(Enabled ? 280 : 200);
+        visual.StartAnimation("Opacity", fade);
+        if (!Enabled)
+        {
+            return;
+        }
+        visual.Scale = new Vector3(0.98f, 0.98f, 1);
+        var spring = c.CreateSpringVector3Animation();
+        spring.FinalValue = new Vector3(1, 1, 1);
+        spring.DampingRatio = 0.86f;
+        spring.Period = TimeSpan.FromMilliseconds(60);
+        visual.StartAnimation("Scale", spring);
+    }
+
     // ---------- 按下回弹 ----------
 
     public static readonly DependencyProperty PressProperty =
