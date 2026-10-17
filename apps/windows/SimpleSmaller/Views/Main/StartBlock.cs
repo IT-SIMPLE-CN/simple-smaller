@@ -61,6 +61,7 @@ internal sealed class StartBlock : Reactive
         button.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
         Content = button;
         bar.SizeChanged += (_, _) => Refresh();
+        back.SizeChanged += (_, _) => Schedule();
         Watch(ws);
         WatchList(ws.Files);
         Watch(AppModel.Shared.Settings);
@@ -119,8 +120,9 @@ internal sealed class StartBlock : Reactive
         else
         {
             big.Text = phase == Phase.Done ? "已完成" : "开始";
+            // 照 mac 的 ViewThatFits：放得下就带快捷键，放不下先去掉快捷键，再不够才折行。
             var sub = Subtitle(phase);
-            small.Text = phase == Phase.Ready ? sub + " · Ctrl+Enter" : sub;
+            small.Text = phase == Phase.Ready && Fits(sub + " · Ctrl+Enter") ? sub + " · Ctrl+Enter" : sub;
         }
         knob.Background = phase switch
         {
@@ -159,6 +161,19 @@ internal sealed class StartBlock : Reactive
             DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => Motion.SpringScale(back, 1f, 0.7f));
         }
         last = phase;
+    }
+
+    /// 一行放得下这段副标题吗（按文字区的实际宽度量）。
+    private bool Fits(string text)
+    {
+        var width = small.ActualWidth > 0 ? small.ActualWidth : (small.Parent as FrameworkElement)?.ActualWidth ?? 0;
+        if (width <= 0)
+        {
+            return true;
+        }
+        var probe = new TextBlock { Text = text, FontSize = small.FontSize, FontFamily = small.FontFamily };
+        probe.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        return probe.DesiredSize.Width <= width;
     }
 
     private double RunningFraction => ws.Files.Where(f => f.State.IsRunning).Sum(f => f.State.Fraction);

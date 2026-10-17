@@ -19,7 +19,22 @@ internal sealed partial class Updates : ObservableObject
     public static Updates Shared => shared ??= new Updates();
 
     private readonly string filePath = Path.Combine(Storage.Directory, "updates.json");
-    private readonly UpdateManager manager = new(new SplitSource());
+    private UpdateManager? managerCache;
+    private bool managerFailed;
+
+    /// 延迟创建；Velopack 没初始化（开发构建、Main 里没调 VelopackApp）时不检查更新，不让更新拖垮应用。
+    private UpdateManager? Manager
+    {
+        get
+        {
+            if (managerCache is null && !managerFailed)
+            {
+                try { managerCache = new UpdateManager(new SplitSource()); }
+                catch (Exception e) { managerFailed = true; Log.Error($"自动更新不可用：{e.Message}"); }
+            }
+            return managerCache;
+        }
+    }
     private CancellationTokenSource? timer;
     private bool busy;
 
@@ -45,7 +60,7 @@ internal sealed partial class Updates : ObservableObject
     }
 
     /// 当前版本（没安装时，例如开发构建，返回程序集版本）。
-    public string CurrentVersion => manager.CurrentVersion?.ToString()
+    public string CurrentVersion => Manager?.CurrentVersion?.ToString()
         ?? typeof(Updates).Assembly.GetName().Version?.ToString(3) ?? "";
 
     /// 启动时调用：开着自动检查就排定后台检查（第一次在启动 1 分钟后）。
@@ -54,7 +69,7 @@ internal sealed partial class Updates : ObservableObject
     private void Schedule()
     {
         timer?.Cancel();
-        if (!AutomaticallyChecks || !manager.IsInstalled) return;
+        if (!AutomaticallyChecks || Manager is not { IsInstalled: true }) return;
         var cts = timer = new CancellationTokenSource();
         _ = Task.Run(async () =>
         {
@@ -73,7 +88,7 @@ internal sealed partial class Updates : ObservableObject
 
     private async Task<string> CheckAndOfferAsync(bool manual)
     {
-        if (!manager.IsInstalled) return "开发版不检查更新，装好的正式版才会";
+        if (Manager is not { IsInstalled: true } manager) return "开发版不检查更新，装好的正式版才会";
         if (busy) return "正在检查…";
         busy = true;
         try

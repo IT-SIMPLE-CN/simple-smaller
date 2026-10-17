@@ -16,6 +16,10 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        // 没接住的异常写进 %LOCALAPPDATA%\SimpleSmaller\crash.log（XAML 里的异常系统日志只有 0xc000027b，看不到是哪一行）。
+        UnhandledException += (_, e) => CrashLog.Write("界面", e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => CrashLog.Write("进程", e.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException += (_, e) => { CrashLog.Write("后台任务", e.Exception); e.SetObserved(); };
     }
 
     /// 主窗口句柄（文件选择器、对话框要用）。

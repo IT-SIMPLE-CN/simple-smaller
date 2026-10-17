@@ -157,12 +157,15 @@ public sealed partial class MainWindow : Window
         Root.RequestedTheme = mode switch { "dark" => ElementTheme.Dark, "light" => ElementTheme.Light, _ => ElementTheme.Default };
     }
 
+    /// 窗口所在显示器的缩放（构造时还没有 XamlRoot，按系统 DPI 算）。
     private double DisplayScale()
     {
-        var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
-        // 没拿到 XamlRoot 之前按 96 DPI 估；拿到后系统会自己按 DPI 调。
-        return Root.XamlRoot?.RasterizationScale ?? Math.Max(1, area.WorkArea.Height / 1080.0);
+        var dpi = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        return dpi > 0 ? dpi / 96.0 : 1;
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hwnd);
 
     // ---------- 标题栏 ----------
 
