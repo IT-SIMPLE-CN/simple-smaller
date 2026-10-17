@@ -13,8 +13,9 @@
 
 | 位置 | 作用 |
 | --- | --- |
-| `core` | Rust 引擎 `smaller-core`：图片 / 视频 / PDF 管线、配方、队列、命名、试压缓存；UniFFI 导出 Swift / C# 接口 |
+| `core` | Rust 引擎 `smaller-core`：图片 / 视频 / PDF 管线、配方、队列、命名；UniFFI 导出 Swift / C# 接口 |
 | `apps/mac` | macOS 应用：SwiftUI + AppKit，最低 macOS 14；26 起用 Liquid Glass，14 / 15 退回系统材质 |
+| `scripts` | 编解码库、引擎、打包、发布、图标渲染脚本（见 `docs/build.md`、`docs/release.md`） |
 | `apps/windows` | Windows 应用（mac 之后做）：WinUI 3，Mica / Acrylic |
 | `docs` | 引擎说明、配方规范、验证方法 |
 

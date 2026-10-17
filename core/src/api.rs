@@ -5,7 +5,6 @@
 //! - 试压：按当前配方压一次返回体积，按「文件 + 修改时间 + 参数」缓存。
 //! - 平台解码：mac 端注入 ImageIO，用来读 HEIC 等引擎不认识的格式。
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -165,16 +164,6 @@ impl From<ImageFormat> for OutputFormat {
     }
 }
 
-fn format_back(f: OutputFormat) -> ImageFormat {
-    match f {
-        OutputFormat::Jpeg => ImageFormat::Jpeg,
-        OutputFormat::Webp => ImageFormat::Webp,
-        OutputFormat::Avif => ImageFormat::Avif,
-        OutputFormat::Png => ImageFormat::Png,
-        OutputFormat::Original => ImageFormat::Original,
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, uniffi::Enum)]
 pub enum SizeBy {
     Width,
@@ -271,28 +260,6 @@ impl ImageSettings {
         }
     }
 
-    fn cache_key(&self, path: &str, modified: u64) -> String {
-        format!("{path}|{modified}|{:?}|{}|{}|{:?}|{:?}|{:?}|{:?}", self.format, self.quality, self.lossless, self.target_bytes, self.sizes, self.size_by, self.crop.as_ref().map(|c| (c.ratio_width, c.ratio_height, c.width)))
-    }
-}
-
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct ImagePreview {
-    pub bytes: u64,
-    pub width: u32,
-    pub height: u32,
-    pub format: ImageFormat,
-    pub before_bytes: u64,
-}
-
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct ImageMeta {
-    pub width: u32,
-    pub height: u32,
-    pub has_alpha: bool,
-    /// 截图、图文这类颜色少的画面。
-    pub graphic: bool,
-    pub bytes: u64,
 }
 
 // ---------- 视频设置 ----------
@@ -507,21 +474,9 @@ impl Job {
 
 // ---------- 引擎 ----------
 
-const PREVIEW_CACHE_LIMIT: usize = 512;
-
 #[derive(uniffi::Object)]
 pub struct Engine {
     decoder: Option<Arc<dyn PlatformDecoder>>,
-    previews: Mutex<HashMap<String, ImagePreview>>,
-}
-
-fn modified_secs(path: &Path) -> u64 {
-    std::fs::metadata(path)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
 }
 
 fn file_bytes(path: &Path) -> u64 {
@@ -549,11 +504,7 @@ fn ext_for(format: OutputFormat) -> &'static str {
 impl Engine {
     #[uniffi::constructor]
     pub fn new(decoder: Option<Arc<dyn PlatformDecoder>>) -> Arc<Self> {
-        Arc::new(Engine { decoder, previews: Mutex::new(HashMap::new()) })
-    }
-
-    pub fn version(&self) -> String {
-        env!("CARGO_PKG_VERSION").to_string()
+        Arc::new(Engine { decoder })
     }
 
     /// 展开输入（含文件夹）后会处理多少个文件、跳过哪些。
@@ -615,40 +566,6 @@ impl Engine {
         p.items.iter().map(|i| i.source.to_string_lossy().into_owned()).collect()
     }
 
-    pub fn image_meta(&self, path: String) -> Result<ImageMeta, EngineError> {
-        let p = self.decode(Path::new(&path)).map_err(|message| EngineError::Unsupported { message })?;
-        Ok(ImageMeta { width: p.width, height: p.height, has_alpha: p.has_alpha, graphic: p.kind == img::ContentKind::Graphic, bytes: file_bytes(Path::new(&path)) })
-    }
-
-    /// 试压：按配方压一次第一档（或裁切后的尺寸），只返回体积，不写文件。
-    pub fn preview_image(&self, path: String, settings: ImageSettings) -> Result<ImagePreview, EngineError> {
-        let source = Path::new(&path);
-        let key = settings.cache_key(&path, modified_secs(source));
-        if let Some(hit) = self.previews.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
-            return Ok(hit.clone());
-        }
-        let mut picture = self.decode(source).map_err(|message| EngineError::Unsupported { message })?;
-        let job = settings.job(&Naming { template: String::new(), lowercase: false, pinyin: false, hyphenate: false, date: String::new() });
-        let mut size = job.sizes.first().copied();
-        let mut mode = job.size_mode;
-        if let Some(c) = &job.crop {
-            let rect = job.crop_overrides.get(source).copied().unwrap_or_else(|| c.default_rect(picture.width, picture.height));
-            picture = img::crop(&picture, rect);
-            size = Some(c.width);
-            mode = SizeMode::Width;
-        }
-        let mut recipe = job.recipe.clone();
-        recipe.resize = size.map(|s| (mode, s));
-        let encoded = img::render(&picture, &recipe).map_err(|e| EngineError::Failed { message: e.to_string() })?;
-        let preview = ImagePreview { bytes: encoded.bytes.len() as u64, width: encoded.width, height: encoded.height, format: format_back(encoded.format), before_bytes: file_bytes(source) };
-        let mut cache = self.previews.lock().unwrap_or_else(|e| e.into_inner());
-        if cache.len() >= PREVIEW_CACHE_LIMIT {
-            cache.clear();
-        }
-        cache.insert(key, preview.clone());
-        Ok(preview)
-    }
-
     /// 按命名规则算出示例文件名（不含扩展名），配方编辑里的「示例」用，与真实输出同一套规则。
     pub fn preview_name(&self, naming: Naming, source_name: String, width: u32, height: u32) -> String {
         self.name(&naming, Path::new(&source_name), "", 0, width, height)
@@ -663,29 +580,6 @@ impl Engine {
     pub fn pdf_meta(&self, path: String) -> Result<PdfMeta, EngineError> {
         let i = pdf::info(Path::new(&path)).map_err(|e| EngineError::Unsupported { message: e.to_string() })?;
         Ok(PdfMeta { pages: i.pages, needs_password: i.needs_password, bytes: file_bytes(Path::new(&path)) })
-    }
-
-    /// 预估 PDF 压缩后的体积：压到临时文件再删掉。返回 None 表示会保留原文件（已经很小）。
-    pub fn estimate_pdf(&self, path: String, level: PdfLevel, target_bytes: Option<u64>, subset_fonts: bool, grayscale: bool) -> Result<Option<u64>, EngineError> {
-        let level = match level {
-            PdfLevel::Screen => pdf::CompressLevel::SCREEN,
-            PdfLevel::Email => pdf::CompressLevel::EMAIL,
-            PdfLevel::Print => pdf::CompressLevel::PRINT,
-        };
-        let tmp = std::env::temp_dir().join(format!("smaller-estimate-{}-{}.pdf", std::process::id(), modified_secs(Path::new(&path))));
-        let recipe = pdf::PdfRecipe { level, target_bytes, subset_fonts, strip_metadata: true, grayscale };
-        let r = pdf::compress(Path::new(&path), &tmp, &recipe).map_err(|e| EngineError::Failed { message: e.to_string() })?;
-        let _ = std::fs::remove_file(&tmp);
-        Ok(match r {
-            pdf::CompressOutcome::Written { bytes, .. } => Some(bytes),
-            pdf::CompressOutcome::KeptOriginal => None,
-        })
-    }
-
-    /// 渲染 PDF 某一页（缩略图用）。
-    pub fn pdf_page_image(&self, path: String, page: u32, width: u32) -> Result<RawImage, EngineError> {
-        let p = pdf::render_page(Path::new(&path), page, width).map_err(|e| EngineError::Failed { message: e.to_string() })?;
-        Ok(RawImage { width: p.width, height: p.height, rgba: p.rgba, has_alpha: false })
     }
 
     pub fn run_images(self: Arc<Self>, inputs: Vec<String>, place: Place, naming: Naming, settings: ImageSettings, listener: Arc<dyn JobListener>) -> Arc<Job> {
@@ -1055,6 +949,16 @@ impl Engine {
     }
 }
 
+/// 解码错误写成用户能看懂的话。
+fn friendly_decode_error(raw: &str) -> String {
+    let lower = raw.to_lowercase();
+    if lower.contains("不完整") || lower.contains("eof") || lower.contains("unexpected end") || lower.contains("truncat") {
+        "文件不完整".into()
+    } else {
+        "文件损坏".into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1112,7 +1016,7 @@ mod tests {
     }
 
     #[test]
-    fn 图片任务端到端_试压缓存_撤销() {
+    fn 图片任务端到端_撤销() {
         let dir = std::env::temp_dir().join(format!("smaller-api-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
@@ -1121,10 +1025,6 @@ mod tests {
         image::save_buffer(&src, &rgba, 1600, 1000, image::ExtendedColorType::Rgba8).unwrap();
 
         let engine = Engine::new(None);
-        let preview = engine.preview_image(src.to_string_lossy().into(), settings()).unwrap();
-        assert_eq!((preview.width, preview.height, preview.format), (800, 500, ImageFormat::Webp));
-        let again = engine.preview_image(src.to_string_lossy().into(), settings()).unwrap();
-        assert_eq!(again.bytes, preview.bytes);
 
         let (tx, rx) = mpsc::channel();
         let job = engine.clone().run_images(vec![src.to_string_lossy().into()], Place::BesideSource { folder_suffix: "-small".into() }, naming("{name}-{w}"), settings(), Arc::new(Collect(Mutex::new(tx))));
@@ -1133,8 +1033,6 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].state, ItemState::Done);
         assert!(results[0].outputs[0].path.ends_with("xin-pin-hai-bao-800.webp"), "{}", results[0].outputs[0].path);
-        // 试压体积与正式输出一致。
-        assert_eq!(results[0].outputs[0].bytes, preview.bytes);
         job.undo().unwrap();
         assert!(!Path::new(&results[0].outputs[0].path).exists());
     }
@@ -1151,18 +1049,8 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let heic = dir.join("IMG_0001.HEIC");
         std::fs::write(&heic, b"fake").unwrap();
-        let meta = Engine::new(Some(Arc::new(Fake))).image_meta(heic.to_string_lossy().into()).unwrap();
-        assert_eq!((meta.width, meta.height), (4, 2));
-        assert!(Engine::new(None).image_meta(heic.to_string_lossy().into()).is_err());
-    }
-}
-
-/// 解码错误写成用户能看懂的话。
-fn friendly_decode_error(raw: &str) -> String {
-    let lower = raw.to_lowercase();
-    if lower.contains("不完整") || lower.contains("eof") || lower.contains("unexpected end") || lower.contains("truncat") {
-        "文件不完整".into()
-    } else {
-        "文件损坏".into()
+        let picture = Engine::new(Some(Arc::new(Fake))).decode(&heic).unwrap();
+        assert_eq!((picture.width, picture.height), (4, 2));
+        assert!(Engine::new(None).decode(&heic).is_err());
     }
 }
