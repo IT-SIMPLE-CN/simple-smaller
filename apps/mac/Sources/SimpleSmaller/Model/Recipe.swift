@@ -290,7 +290,7 @@ extension Recipe {
         video("vid.xhs", "小红书 3:4") { $0.crop = CropPreset.videoPresets[1]; $0.rate = .high; $0.shortEdge = 1080 }
         video("vid.gif", "转 GIF") { $0.codec = .gif; $0.gifWidth = 480; $0.gifFps = 15 }
         video("vid.mute", "只去声音") { $0.muteOnly = true; $0.keepAudio = false }
-        video("vid.frames.web", "序列帧 · 网页滚动动画") { $0.outputFrames = true; $0.frameMode = .perSecond; $0.frameValue = 15; $0.frameFormat = .webp; $0.frameWidth = 1920 }
+        video("vid.frames.web", "网页序列帧") { $0.outputFrames = true; $0.frameMode = .perSecond; $0.frameValue = 15; $0.frameFormat = .webp; $0.frameWidth = 1920 }
         video("vid.frames.1s", "每秒一张截图") { $0.outputFrames = true; $0.frameMode = .perSecond; $0.frameValue = 1; $0.frameFormat = .jpeg; $0.frameWidth = nil }
 
         func pdf(_ id: String, _ name: String, _ edit: (inout PdfBody) -> Void) {

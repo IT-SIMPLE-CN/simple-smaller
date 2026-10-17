@@ -15,9 +15,12 @@ struct DropZone: View {
                 .symbolEffect(.bounce, value: targeted)
             Text(title)
                 .font(.system(size: 15, weight: .semibold))
-            Text(formats)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            // PDF 只有一种格式，标题已经写了，不再列格式。
+            if !(type == .pdf && segment != .fromImages) {
+                Text(formats)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             HStack(spacing: 8) {
                 Button("选取文件…") { FilePicker.pick(into: model) }
                 if type == .image { Button("粘贴剪贴板") { model.pasteFromClipboard() } }

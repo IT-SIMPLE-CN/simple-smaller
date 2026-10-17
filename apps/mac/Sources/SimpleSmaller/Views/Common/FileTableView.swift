@@ -36,7 +36,7 @@ struct FileTableView: View {
                 }
                 .help(item.url.path)
             }
-            .width(min: 160)
+            .width(min: 110)
             TableColumn(ws.type == .pdf ? "页数" : ws.type == .video ? "时长 · 尺寸" : "尺寸") { item in
                 Text(detail(item))
                     .foregroundStyle(item.metaError == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.warning))
@@ -44,18 +44,18 @@ struct FileTableView: View {
                     .help(Self.explain(item.metaError))
             }
             // 列宽按设计稿固定：尺寸 104、原大小 80、输出 80、变化 64、状态 92；名称列吃掉其余宽度。
-            .width(ws.type == .video ? 150 : 104)
+            .width(min: ws.type == .video ? 128 : 88, ideal: ws.type == .video ? 150 : 104)
             TableColumn("原大小") { item in
                 Text(Format.size(item.bytes)).foregroundStyle(.secondary).monospacedDigit()
             }
-            .width(80)
+            .width(min: 64, ideal: 80)
             // 不做试压：点「开始」写出后才有输出体积。
             TableColumn("输出") { item in output(item) }
-                .width(80)
+                .width(min: 64, ideal: 80)
             TableColumn("变化") { item in change(item) }
-                .width(64)
+                .width(min: 52, ideal: 64)
             TableColumn("状态") { item in StateLabel(item: item, queued: ws.running) }
-                .width(92)
+                .width(min: 76, ideal: 92)
         } rows: {
             ForEach(ws.files) { item in
                 // 处理完的行可以直接拖出：压好的文件拖进微信、浏览器、邮件。
