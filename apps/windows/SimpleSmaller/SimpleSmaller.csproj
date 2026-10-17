@@ -10,6 +10,8 @@
     <RuntimeIdentifiers>win-arm64;win-x64</RuntimeIdentifiers>
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
+    <!-- 非打包应用也要生成 resources.pri 与 .xbf，否则 dotnet publish 的产物里没有，启动就找不到 Themes/Bento.xaml。 -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <ApplicationManifest>app.manifest</ApplicationManifest>

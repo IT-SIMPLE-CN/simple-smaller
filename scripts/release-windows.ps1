@@ -44,9 +44,11 @@ foreach ($a in $Arch) {
     if (-not (Test-Path "$pub\$f")) { throw "发布目录里缺 $f" }
   }
   "▸ $rid：打包"
+  # 只建开始菜单快捷方式（和 mac 一样不往桌面放东西）；不出便携版。
   vpk pack --packId SimpleSmaller --packVersion $Version --packDir $pub --mainExe SimpleSmaller.exe `
     --packTitle '简单小一点' --packAuthors 'IT-SIMPLE' --icon "$App\Assets\AppIcon.ico" `
-    --channel $rid --runtime $rid --releaseNotes $Notes --delta None --outputDir $Out
+    --channel $rid --runtime $rid --releaseNotes $Notes --delta None --outputDir $Out `
+    --shortcuts StartMenuRoot --noPortable
   Assert-Ok "vpk pack $rid"
 }
 
