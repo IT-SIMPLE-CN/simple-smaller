@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 
 /// 视频剪辑与序列帧：当前这段、比例裁切框（原画面像素）、截取范围、输出尺寸。
 extension Workspace {
@@ -52,5 +53,34 @@ extension Workspace {
     /// 换比例后各段的框回到默认。
     func resetVideoCrop() {
         videoCrop = [:]
+    }
+}
+
+extension Workspace {
+    /// 序列帧会生成多少张（每段按截取范围算）。
+    func frameCount(_ item: FileItem) -> Int {
+        let r = trimRange(item)
+        let length = max(0, r.upperBound - r.lowerBound)
+        let v = draft.video
+        switch v.frameMode {
+        case .perSecond: return max(1, Int((length * v.frameValue).rounded(.down)))
+        case .every: return max(1, Int((length / max(0.01, v.frameValue)).rounded(.down)))
+        case .total: return max(1, Int(v.frameValue))
+        case .all: return max(1, Int((length * item.fps).rounded()))
+        }
+    }
+
+    /// 第 k 张取自第几秒（与引擎按时间均匀取帧一致，用于预览）。
+    func frameTime(_ item: FileItem, index k: Int) -> Double {
+        let r = trimRange(item)
+        let length = max(0, r.upperBound - r.lowerBound)
+        let n = frameCount(item)
+        let v = draft.video
+        switch v.frameMode {
+        case .perSecond: return r.lowerBound + Double(k) / max(0.01, v.frameValue)
+        case .every: return r.lowerBound + Double(k) * v.frameValue
+        case .total: return r.lowerBound + length * Double(k) / Double(max(1, n))
+        case .all: return r.lowerBound + Double(k) / max(1, item.fps)
+        }
     }
 }

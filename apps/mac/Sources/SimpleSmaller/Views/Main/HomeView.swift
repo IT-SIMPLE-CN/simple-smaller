@@ -249,14 +249,3 @@ extension HomeToolbar {
         .accessibilityElement(children: .combine)
     }
 }
-
-/// 应用的红色标（首页、关于用）。
-struct BrandLogo: View {
-    var body: some View {
-        if let url = Bundle.main.url(forResource: "logo-mark", withExtension: "svg"), let image = NSImage(contentsOf: url) {
-            Image(nsImage: { image.isTemplate = true; return image }()).resizable().scaledToFit().foregroundStyle(Color.brand)
-        } else {
-            Circle().fill(Color.brand)
-        }
-    }
-}

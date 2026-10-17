@@ -1,26 +1,5 @@
 import SwiftUI
 
-// 视频（设计稿 V2.1 · 06 / 07）：压缩、剪辑共用「画面与画质 · 格式 · 声音与开始」；序列帧是「抽帧 · 每一帧 · 输出与开始」。
-
-/// 一组小标题 + 胶囊。
-struct LabeledPills<Value: Hashable>: View {
-    let title: String
-    @Binding var selection: Value
-    let options: [(Value, String)]
-    var trailing: String? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(title).font(.system(size: 11)).foregroundStyle(Bento.secondary)
-                Spacer()
-                if let trailing { Text(trailing).font(.system(size: 11)).foregroundStyle(Bento.secondary).monospacedDigit() }
-            }
-            PillChoice(selection: $selection, options: options, height: 32, label: title)
-        }
-    }
-}
-
 /// 画面与画质：比例、分辨率、画质（GIF 时换成宽与帧率）。
 struct VideoPictureCard: View {
     @Bindable var ws: Workspace
@@ -299,46 +278,6 @@ struct FramesOutputStartCard: View {
                 .disabled(ws.running)
                 StartBlock(ws: ws).padding(.top, 2)
             }
-        }
-    }
-}
-
-enum VideoCards {
-    static func rateTitle(_ r: VideoBody.Rate) -> String {
-        switch r {
-        case .high: "高"
-        case .medium: "中"
-        case .low: "低"
-        case .size: "按大小"
-        }
-    }
-}
-
-extension Workspace {
-    /// 序列帧会生成多少张（每段按截取范围算）。
-    func frameCount(_ item: FileItem) -> Int {
-        let r = trimRange(item)
-        let length = max(0, r.upperBound - r.lowerBound)
-        let v = draft.video
-        switch v.frameMode {
-        case .perSecond: return max(1, Int((length * v.frameValue).rounded(.down)))
-        case .every: return max(1, Int((length / max(0.01, v.frameValue)).rounded(.down)))
-        case .total: return max(1, Int(v.frameValue))
-        case .all: return max(1, Int((length * item.fps).rounded()))
-        }
-    }
-
-    /// 第 k 张取自第几秒（与引擎按时间均匀取帧一致，用于预览）。
-    func frameTime(_ item: FileItem, index k: Int) -> Double {
-        let r = trimRange(item)
-        let length = max(0, r.upperBound - r.lowerBound)
-        let n = frameCount(item)
-        let v = draft.video
-        switch v.frameMode {
-        case .perSecond: return r.lowerBound + Double(k) / max(0.01, v.frameValue)
-        case .every: return r.lowerBound + Double(k) * v.frameValue
-        case .total: return r.lowerBound + length * Double(k) / Double(max(1, n))
-        case .all: return r.lowerBound + Double(k) / max(1, item.fps)
         }
     }
 }

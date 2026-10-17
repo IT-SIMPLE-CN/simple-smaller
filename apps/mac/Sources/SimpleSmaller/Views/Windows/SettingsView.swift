@@ -302,14 +302,3 @@ private struct AutoSettings: View {
         settings.watchFolders.append(WatchFolder(path: url.path, recipeID: "img.web"))
     }
 }
-
-/// 标题栏也铺窗口底色（macOS 15 起），和便当盒底连成一片。
-struct WindowBackground: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) {
-            content.containerBackground(Bento.window, for: .window)
-        } else {
-            content
-        }
-    }
-}
