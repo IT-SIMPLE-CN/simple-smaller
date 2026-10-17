@@ -51,7 +51,12 @@ impl Tools {
             dirs.push(parent.join("../Resources/bin"));
             dirs.push(parent.to_path_buf());
         }
-        let arch = if cfg!(target_arch = "aarch64") { "arm64" } else { "x86_64" };
+        let arch = match (cfg!(windows), cfg!(target_arch = "aarch64")) {
+            (false, true) => "arm64",
+            (false, false) => "x86_64",
+            (true, true) => "win-arm64",
+            (true, false) => "win-x64",
+        };
         dirs.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.local/ffmpeg").join(arch).join("bin"));
         let exe = std::env::consts::EXE_SUFFIX;
         for dir in dirs {

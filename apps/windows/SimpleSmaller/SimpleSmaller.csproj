@@ -45,5 +45,7 @@
   <!-- 引擎 DLL 由 scripts/build-core-windows.ps1 放到 Native\<架构>。 -->
   <ItemGroup>
     <None Include="Native\$(NativeArch)\smaller_core.dll" Link="smaller_core.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Native\$(NativeArch)\smaller_core.dll')" />
+    <None Include="Native\$(NativeArch)\ffmpeg.exe" Link="ffmpeg.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Native\$(NativeArch)\ffmpeg.exe')" />
+    <None Include="Native\$(NativeArch)\ffprobe.exe" Link="ffprobe.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Native\$(NativeArch)\ffprobe.exe')" />
   </ItemGroup>
 </Project>

@@ -43,4 +43,7 @@ $app = "$Root\apps\windows\SimpleSmaller"
 New-Item -ItemType Directory -Force "$app\Core", "$app\Native\$Arch" | Out-Null
 Copy-Item "$out\smaller_core.cs" "$app\Core\smaller_core.cs" -Force
 Copy-Item $dll "$app\Native\$Arch\smaller_core.dll" -Force
+# ffmpeg / ffprobe 放在应用旁边（引擎按可执行文件旁边找），先跑 fetch-ffmpeg-windows.ps1。
+$ff = "$Root\.local\ffmpeg\win-$Arch\bin"
+if (Test-Path "$ff\ffmpeg.exe") { Copy-Item "$ff\ffmpeg.exe", "$ff\ffprobe.exe" "$app\Native\$Arch\" -Force } else { Write-Warning "没有 ffmpeg：先运行 scripts\fetch-ffmpeg-windows.ps1 -Arch $Arch" }
 "引擎已就绪：$Profile $Arch"
