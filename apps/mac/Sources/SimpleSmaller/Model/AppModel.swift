@@ -108,10 +108,10 @@ final class AppModel {
             ws.enterImageSegment(s)
         case .video:
             guard let s = Workspace.VideoSegment(rawValue: name) else { return }
-            ws.draft.video.outputFrames = (s == .frames)
             ws.videoSegment = s
+            ws.enterVideoSegment(s)
         case .pdf:
-            if let s = Workspace.PdfSegment(rawValue: name) { ws.pdfSegment = s }
+            if let s = Workspace.PdfSegment(rawValue: name) { ws.pdfSegment = s; ws.enterPdfSegment(s) }
         }
     }
 

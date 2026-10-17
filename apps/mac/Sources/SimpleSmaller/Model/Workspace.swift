@@ -128,18 +128,38 @@ final class Workspace {
         return d != base
     }
 
-    /// 「压缩」「裁切」各用各的配方（配方条只放这一段能用的）：切过去时换成那一段上次用的，
-    /// 没用过就用第一个内置配方。
-    private var segmentRecipe: [ImageSegment: String] = [:]
+    /// 分段各用各的配方（配方条只放这一段能用的）：图片「压缩 / 裁切」、视频「压缩 · 剪辑 / 序列帧」、
+    /// PDF「压缩 / 转图片」。切过去时换成那一段上次用的，没用过就用它的第一个内置配方。
+    private var segmentRecipe: [String: String] = [:]
 
-    func enterImageSegment(_ s: ImageSegment) {
-        guard (draft.image.crop != nil) != (s == .crop) else { return }
-        segmentRecipe[s == .crop ? .compress : .crop] = recipeID
-        let id = segmentRecipe[s] ?? (s == .crop ? "img.xhs" : "img.web")
+    private func switchRecipe(into group: String, from other: String, fits: (Recipe) -> Bool, fallback: String) {
+        guard !fits(draft) else { return }
+        segmentRecipe[other] = recipeID
+        let id = segmentRecipe[group] ?? fallback
         if let r = AppModel.shared.store.recipe(id: id) ?? Recipe.builtIns.first(where: { $0.id == id }) {
             select(recipe: r)
         }
+    }
+
+    func enterImageSegment(_ s: ImageSegment) {
+        let crop = s == .crop
+        guard (draft.image.crop != nil) != crop else { return }
+        switchRecipe(into: crop ? "crop" : "compress", from: crop ? "compress" : "crop",
+                     fits: { ($0.image.crop != nil) == crop }, fallback: crop ? "img.xhs" : "img.web")
         resetCrop()
+    }
+
+    func enterVideoSegment(_ s: VideoSegment) {
+        let frames = s == .frames
+        switchRecipe(into: frames ? "frames" : "video", from: frames ? "video" : "frames",
+                     fits: { $0.video.outputFrames == frames }, fallback: frames ? "vid.frames.web" : "vid.chat")
+    }
+
+    func enterPdfSegment(_ s: PdfSegment) {
+        guard [.compress, .toImages].contains(s) else { return }
+        let images = s == .toImages
+        switchRecipe(into: images ? "pdfImages" : "pdf", from: images ? "pdf" : "pdfImages",
+                     fits: { $0.pdf.longImage == images }, fallback: images ? "pdf.long" : "pdf.email")
     }
 
     var totalBytes: UInt64 { files.reduce(0) { $0 + $1.bytes } }
@@ -154,7 +174,10 @@ final class Workspace {
             if recipe.video.outputFrames { videoSegment = .frames }
             else if videoSegment == .frames { videoSegment = .compress }
         }
-        if type == .pdf, recipe.pdf.longImage { pdfSegment = .toImages }
+        if type == .pdf {
+            if recipe.pdf.longImage { pdfSegment = .toImages }
+            else if pdfSegment == .toImages { pdfSegment = .compress }
+        }
     }
 
     /// 交给引擎的输入：拖入的文件夹整个传（引擎照搬结构），其余逐个文件。

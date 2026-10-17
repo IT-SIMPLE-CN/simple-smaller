@@ -70,15 +70,13 @@ struct PdfMainCard: View {
     // MARK: 合并 / 拆分
 
     @ViewBuilder private var merge: some View {
-        BentoHeader(symbol: "doc.on.doc", title: "合并", subtitle: "按左边的页面顺序合成一个文件")
+        BentoHeader(symbol: "doc.on.doc", title: "页面顺序", subtitle: "在左边拖动排序；选中按 Delete 删页")
         Spacer(minLength: 0)
         bigLine(number: "\(ws.pageOrder.count)", unit: "页", note: "合成 1 个文件")
-        Text("在左边拖动页面排序；选中按 Delete 删页。")
-            .font(.system(size: 12)).foregroundStyle(Bento.secondary)
     }
 
     @ViewBuilder private var split: some View {
-        BentoHeader(symbol: "scissors", title: "拆分", subtitle: "按每 N 页拆成多个文件")
+        BentoHeader(symbol: "scissors", title: "拆分方式", subtitle: "每个文件分别拆")
         Spacer(minLength: 0)
         HStack(spacing: 12) {
             Text("每").foregroundStyle(Bento.secondary)

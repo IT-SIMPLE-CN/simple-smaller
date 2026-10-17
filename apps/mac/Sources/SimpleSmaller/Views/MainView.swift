@@ -171,10 +171,13 @@ struct SegmentPicker: View {
             ws.showResult = false
         }
         .onChange(of: ws.videoSegment) { _, new in
-            ws.draft.video.outputFrames = (new == .frames)
+            ws.enterVideoSegment(new)
             ws.showResult = false
         }
-        .onChange(of: ws.pdfSegment) { _, _ in ws.showResult = false }
+        .onChange(of: ws.pdfSegment) { _, new in
+            ws.enterPdfSegment(new)
+            ws.showResult = false
+        }
     }
 }
 
