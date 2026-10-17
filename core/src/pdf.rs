@@ -63,7 +63,21 @@ fn call(f: impl FnOnce(*mut c_char, usize) -> c_int) -> Result<()> {
     if msg.contains("打开密码") {
         return Err(PdfError::Password);
     }
-    Err(PdfError::Mupdf(msg))
+    Err(PdfError::Mupdf(readable(&msg)))
+}
+
+/// MuPDF 的报错是英文原文：文件结构坏了的几类统一说成「文件已损坏」，其余加中文前缀，界面上不出现整句英文。
+fn readable(msg: &str) -> String {
+    if msg.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)) {
+        return msg.to_string();
+    }
+    let lower = msg.to_lowercase();
+    let broken = ["no objects found", "xref", "startxref", "trailer", "zlib", "syntax error", "unexpected eof", "cannot recognize", "not a pdf", "unknown keyword", "object out of range"];
+    if broken.iter().any(|k| lower.contains(k)) {
+        "文件已损坏，打不开".to_string()
+    } else {
+        format!("PDF 处理失败（{}）", msg.trim())
+    }
 }
 
 /// 用密码解出一份不加密的副本。密码不对返回 `PdfError::WrongPassword`。
@@ -490,6 +504,17 @@ mod tests {
 
         let err = assemble(&[a], &[PageRef { doc: 0, page: 9 }], &dir.join("bad.pdf"), true).unwrap_err();
         assert!(err.to_string().contains("页码越界"), "{err}");
+    }
+
+    #[test]
+    fn 坏文件报中文() {
+        let dir = scratch("broken");
+        let bad = dir.join("broken.pdf");
+        std::fs::write(&bad, b"%PDF-1.7\nnot really a pdf").unwrap();
+        let err = info(&bad).unwrap_err().to_string();
+        assert_eq!(err, "文件已损坏，打不开");
+        assert_eq!(readable("something odd"), "PDF 处理失败（something odd）");
+        assert_eq!(readable("页数不一致"), "页数不一致");
     }
 
     #[test]
