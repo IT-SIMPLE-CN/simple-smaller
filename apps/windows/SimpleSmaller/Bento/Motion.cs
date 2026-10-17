@@ -42,21 +42,31 @@ public static class Motion
         visual.StartAnimation("Scale", spring);
     }
 
-    /// 弹簧移动 Offset（滑块底块、布局切换）。
+    /// 弹簧移动位置（滑块底块、布局切换）。动的是 Translation：Offset 归 XAML 布局管，直接改会被下一次布局覆盖。
     public static void SpringOffset(UIElement element, Vector3 to, float damping = 0.82f, double periodMs = 55)
     {
+        ElementCompositionPreview.SetIsTranslationEnabled(element, true);
         var visual = VisualOf(element);
         if (!Enabled)
         {
-            visual.Offset = to;
+            SetTranslation(element, to);
             return;
         }
         var spring = visual.Compositor.CreateSpringVector3Animation();
-        spring.Target = "Offset";
+        spring.Target = "Translation";
         spring.FinalValue = to;
         spring.DampingRatio = damping;
         spring.Period = TimeSpan.FromMilliseconds(periodMs);
-        visual.StartAnimation("Offset", spring);
+        visual.StartAnimation("Translation", spring);
+    }
+
+    /// 立即放到某个位置（不动画）。
+    public static void SetTranslation(UIElement element, Vector3 to)
+    {
+        ElementCompositionPreview.SetIsTranslationEnabled(element, true);
+        var visual = VisualOf(element);
+        visual.StopAnimation("Translation");
+        visual.Properties.InsertVector3("Translation", to);
     }
 
     /// 卡片出现：从 94% 弹到 100% 并淡入（不透明度从 0.25 起，换内容时不闪空底），按序号错开 40 毫秒。
