@@ -64,6 +64,18 @@ pub enum OutputFormat {
     Original,
 }
 
+impl OutputFormat {
+    /// 文件扩展名。「原格式」在真正写出前会被换成具体格式，这里按 PNG 兜底。
+    pub fn extension(self) -> &'static str {
+        match self {
+            OutputFormat::Jpeg => "jpg",
+            OutputFormat::Webp => "webp",
+            OutputFormat::Avif => "avif",
+            OutputFormat::Png | OutputFormat::Original => "png",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SizeMode {
     Width,

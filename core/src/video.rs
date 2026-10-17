@@ -262,8 +262,7 @@ fn input_args(input: &Path, trim: Option<(f64, f64)>) -> Vec<String> {
 }
 
 fn temp_path(output: &Path) -> PathBuf {
-    let name = output.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    output.with_file_name(format!(".{name}.smaller-tmp"))
+    crate::jobs::temp_sibling(output, "")
 }
 
 /// 跑一次 ffmpeg，读 `-progress` 输出换算成 [from, to] 区间的进度；取消时结束进程。
@@ -642,8 +641,13 @@ mod tests {
         path
     }
 
+    /// 找不到 ffmpeg 时跳过视频测试；设了 SMALLER_REQUIRE_FFMPEG 就必须找到（发版前跑全套用）。
     fn tools_or_skip() -> Option<Tools> {
-        Tools::locate().ok()
+        let tools = Tools::locate().ok();
+        if tools.is_none() && std::env::var_os("SMALLER_REQUIRE_FFMPEG").is_some() {
+            panic!("要求跑视频测试，但找不到 ffmpeg / ffprobe（先跑 scripts/build-ffmpeg-mac.sh）");
+        }
+        tools
     }
 
     fn scratch(name: &str) -> PathBuf {

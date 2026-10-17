@@ -94,7 +94,7 @@ impl Engine {
                 .max(1.0);
                 let r = video::extract_frames(tools, &item.source, &info, &frame_options(select, *width), &mut |i, _, picture| {
                     let bytes = img::encode(&picture, format, *quality, false).map_err(|e| video::VideoError::Encode(e.to_string()))?;
-                    let path = dir.join(format!("{stem_name}_{:04}.{}", i + 1, ext_for(format)));
+                    let path = dir.join(format!("{stem_name}_{:04}.{}", i + 1, format.extension()));
                     jobs::write_atomic(&path, &bytes)?;
                     outputs.push(OutputFile { path, bytes: bytes.len() as u64, width: picture.width, height: picture.height });
                     listener.on_progress(index as u32, ((i + 1) as f64 / expected).min(1.0));

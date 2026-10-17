@@ -30,15 +30,6 @@ pub(super) fn stem(path: &Path) -> String {
     path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
-pub(super) fn ext_for(format: OutputFormat) -> &'static str {
-    match format {
-        OutputFormat::Jpeg => "jpg",
-        OutputFormat::Webp => "webp",
-        OutputFormat::Avif => "avif",
-        OutputFormat::Png | OutputFormat::Original => "png",
-    }
-}
-
 #[uniffi::export]
 impl Engine {
     #[uniffi::constructor]

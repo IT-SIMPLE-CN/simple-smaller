@@ -100,7 +100,7 @@ impl Engine {
                                 for (k, picture) in pictures.into_iter().enumerate() {
                                     let bytes = img::encode(&picture, format, *quality, false).map_err(|e| e.to_string())?;
                                     let stem = if total == 1 { name.clone() } else { format!("{name}-{:0digits$}", k + 1) };
-                                    let path = naming::unique_path(&dir, &stem, ext_for(format), &mut reserved);
+                                    let path = naming::unique_path(&dir, &stem, format.extension(), &mut reserved);
                                     jobs::write_atomic(&path, &bytes).map_err(|e| e.to_string())?;
                                     result.outputs.push(OutputFile { path, bytes: bytes.len() as u64, width: picture.width, height: picture.height });
                                     listener.on_progress(i as u32, (k + 1) as f64 / total as f64);

@@ -269,8 +269,7 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let tmp = path.with_file_name(format!(".{name}.smaller-tmp"));
+    let tmp = temp_sibling(path, "");
     let result = std::fs::write(&tmp, bytes).and_then(|_| std::fs::rename(&tmp, path));
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
@@ -282,7 +281,7 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 /// Windows 上打开中文不乱码；不带隐藏文件。
 pub fn write_zip(files: &[PathBuf], base: &Path, zip_path: &Path) -> Result<(), String> {
     use std::io::Write;
-    let tmp = zip_path.with_file_name(format!(".{}.smaller-tmp", zip_path.file_name().unwrap_or_default().to_string_lossy()));
+    let tmp = temp_sibling(zip_path, "");
     let result = (|| -> Result<(), String> {
         let file = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
         let mut zip = zip::ZipWriter::new(file);
@@ -364,14 +363,11 @@ pub fn default_decoder(path: &Path) -> Result<Picture, String> {
     img::load(path).map_err(|e| e.to_string())
 }
 
-fn extension(format: OutputFormat) -> &'static str {
-    match format {
-        OutputFormat::Jpeg => "jpg",
-        OutputFormat::Webp => "webp",
-        OutputFormat::Avif => "avif",
-        OutputFormat::Png => "png",
-        OutputFormat::Original => unreachable!(),
-    }
+/// 输出先写到同目录的隐藏临时文件（`.名字.smaller-tmp`，可加后缀让工具认出类型），成功后再改名：
+/// 写到一半崩了也不会留下半截的「结果」。图片、zip、视频、PDF 都用这一个规则。
+pub fn temp_sibling(path: &Path, suffix: &str) -> PathBuf {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    path.with_file_name(format!(".{name}.smaller-tmp{suffix}"))
 }
 
 fn same_format(format: OutputFormat, source: &Path) -> bool {
@@ -513,7 +509,7 @@ fn process_image(
         }
         let path = {
             let mut reserved = reserved.lock().unwrap_or_else(|e| e.into_inner());
-            naming::unique_path(&item.out_dir, &stem, extension(format), &mut reserved)
+            naming::unique_path(&item.out_dir, &stem, format.extension(), &mut reserved)
         };
         if let Err(e) = write_atomic(&path, &encoded.bytes) {
             result.status = ItemStatus::Failed(format!("写入失败：{e}"));

@@ -81,7 +81,7 @@ pub fn unlock(input: &Path, output: &Path, password: &str) -> Result<()> {
 
 /// 给写好的 PDF 加打开密码：先写同目录临时文件，成功再替换。
 pub fn encrypt_in_place(path: &Path, password: &str) -> Result<()> {
-    let tmp = path.with_file_name(format!(".{}.smaller-tmp", path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()));
+    let tmp = crate::jobs::temp_sibling(path, "");
     let (i, o) = (cpath(path), cpath(&tmp));
     // MuPDF 的密码缓冲区是 128 字节，超长会被悄悄截断，导致用完整密码打不开；直接拒绝。
     if password.len() > 127 {
@@ -156,8 +156,7 @@ pub enum CompressOutcome {
 }
 
 fn temp_path(output: &Path) -> PathBuf {
-    let name = output.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    output.with_file_name(format!(".{name}.smaller-tmp.pdf"))
+    crate::jobs::temp_sibling(output, ".pdf")
 }
 
 fn compress_once(input: &Path, tmp: &Path, level: Option<CompressLevel>, recipe: &PdfRecipe) -> Result<u64> {
