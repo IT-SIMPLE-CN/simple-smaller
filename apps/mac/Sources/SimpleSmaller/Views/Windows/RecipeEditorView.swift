@@ -224,7 +224,7 @@ struct RecipeEditorView: View {
                 }
                 line("大小上限") {
                     HStack(spacing: 6) {
-                        Toggle("", isOn: Binding(get: { r.video.rate == .size }, set: { r.video.rate = $0 ? .size : .medium }))
+                        Toggle("", isOn: Binding(get: { r.video.rate == .size }, set: { r.video.rate = $0 ? .size : (initial.video.rate == .size ? .medium : initial.video.rate) }))
                             .labelsHidden().toggleStyle(.checkbox)
                         TextField("", value: $r.video.targetMB, format: .number.grouping(.never))
                             .frame(width: 52).multilineTextAlignment(.trailing)

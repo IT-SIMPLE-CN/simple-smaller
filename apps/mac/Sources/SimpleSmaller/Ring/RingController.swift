@@ -138,7 +138,8 @@ final class RingController {
         runs.append(run)
         showCard(for: run, at: point)
         AppModel.shared.beginActivity()
-        run.onFinished = { [weak self] in
+        run.onFinished = { [weak self, weak run] in
+            guard let run else { return }
             self?.scheduleCardClose()
             AppModel.shared.noteFinishedInBackground(run.outputs.isEmpty ? 0 : run.urls.count)
             AppModel.shared.endActivityIfIdle()

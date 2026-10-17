@@ -19,7 +19,7 @@ struct VideoFramesView: View {
     }
 }
 
-/// 范围条：缩略图底上画出每一帧的位置（最多 60 条竖线），两端可拖，只导出一段。
+/// 范围条：缩略图底上画出每一帧的位置（最多 30 条竖线），两端可拖，只导出一段。
 private struct FrameRangeBar: View {
     @Bindable var ws: Workspace
     let item: FileItem
@@ -67,7 +67,7 @@ private struct FrameRangeBar: View {
                     .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     Rectangle().fill(Color(nsColor: .windowBackgroundColor).opacity(0.7)).frame(width: max(0, x0))
                     Rectangle().fill(Color(nsColor: .windowBackgroundColor).opacity(0.7)).frame(width: max(0, w - x1)).offset(x: x1)
-                    // 要导出的帧：张数多时按 60 条均匀示意。
+                    // 要导出的帧：张数多时按 30 条均匀示意。
                     Path { p in
                         for k in 0..<ticks {
                             let t = ws.frameTime(item, index: ticks == n ? k : k * n / max(1, ticks))

@@ -219,7 +219,7 @@ struct ThumbTile: View {
             Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
                 .frame(width: 20, height: 20).background(Circle().fill(Color.saving))
         case .kept:
-            Text("保留原图").font(.system(size: 10, weight: .semibold)).foregroundStyle(.white)
+            Text(item.keptText).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white)
                 .padding(.horizontal, 7).frame(height: 20).background(Capsule().fill(Color.warning))
         case .failed(let reason):
             Text(reason).font(.system(size: 10, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
@@ -467,6 +467,8 @@ struct CropRatioCard: View {
                 Spacer(minLength: 0)
             }
         }
+        .disabled(ws.running)
+        .opacity(ws.running ? 0.45 : 1)
     }
 
     private func choose(_ preset: CropPreset) {
@@ -576,6 +578,7 @@ struct CropFormatStartCard: View {
                 MiniSegmented(selection: $ws.draft.image.format,
                               options: ([.webp, .jpeg, .png] + (ws.draft.image.format == .original || ws.draft.image.format == .avif ? [ws.draft.image.format] : [])).map { ($0, $0.title) },
                               label: "格式")
+                Group {
                 if !ws.draft.image.lossless {
                     HStack {
                         Text("质量").foregroundStyle(Bento.secondary)
@@ -586,6 +589,9 @@ struct CropFormatStartCard: View {
                     }
                     .font(.system(size: 12))
                 }
+                }
+                .disabled(ws.running)
+                .opacity(ws.running ? 0.45 : 1)
                 StartBlock(ws: ws).padding(.top, 2)
             }
         }

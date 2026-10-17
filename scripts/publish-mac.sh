@@ -23,11 +23,12 @@ ENV_FILE="$ROOT/.local/oss.env"
 step() { printf '\n▸ %s\n' "$1"; }
 
 VERSION="$(tr -d ' \n' < "$ROOT/apps/mac/version.txt")"
-OUT="$(ls -d "$ROOT/.local/mac-releases/$VERSION"-* 2> /dev/null | sort -t- -k2 -n | tail -1)"
+# 同一版本可能打过几次：按构建号（目录名最后一段）取最新的一次，按数值比，99 < 100。
+OUT="$(ls -d "$ROOT/.local/mac-releases/$VERSION"-* 2> /dev/null | while IFS= read -r d; do echo "${d##*-} $d"; done | sort -n | tail -1 | cut -d' ' -f2-)"
 [ -n "$OUT" ] || { echo "没有 $VERSION 的发布产物，先跑 scripts/release-mac.sh"; exit 1; }
 [ -f "$ENV_FILE" ] || { echo "缺少 ${ENV_FILE}（OSS 凭据）"; exit 1; }
 cd "$OUT"
-FILES="$(ls *.zip *.dmg SHA256SUMS 2> /dev/null)"
+FILES="$(ls *.zip *.dmg SHA256SUMS 2> /dev/null || true)"
 [ -f appcast.xml ] || { echo "产物里没有 appcast.xml"; exit 1; }
 grep -q "enclosure url=\"$ASSETS/" appcast.xml || { echo "appcast 的包地址不在 $ASSETS 下"; exit 1; }
 

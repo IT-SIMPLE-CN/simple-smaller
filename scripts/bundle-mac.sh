@@ -10,6 +10,7 @@ UNIVERSAL="${2:-}"
 ARCH_FLAGS=""
 [ "$UNIVERSAL" = "universal" ] && ARCH_FLAGS="--arch arm64 --arch x86_64"
 ARCH="$(uname -m)"
+mkdir -p "$ROOT/.local"
 cd "$ROOT/apps/mac"
 # 按本机 SDK 版本记链接记录，系统才会给 Liquid Glass（见 Package.swift）。
 export SMALLER_SDK_VERSION="$(xcrun --show-sdk-version)"
@@ -32,11 +33,12 @@ if [ "$UNIVERSAL" = "universal" ]; then
 else
   cp "$ROOT/.local/ffmpeg/$ARCH/bin/ffmpeg" "$ROOT/.local/ffmpeg/$ARCH/bin/ffprobe" "$APP/Contents/Resources/bin/"
 fi
-cp "$ROOT/apps/mac/Resources/"* "$APP/Contents/Resources/" 2>/dev/null || true
+cp "$ROOT/apps/mac/Resources/"* "$APP/Contents/Resources/"
 # 强调色（品牌红）与应用图标编成 Assets.car：系统按 macOS 规则在开关、滑杆、进度、选中处用强调色。
 xcrun actool "$ROOT/apps/mac/Assets.xcassets" --compile "$APP/Contents/Resources" --platform macosx \
   --minimum-deployment-target 14.0 --app-icon AppIcon --accent-color AccentColor \
-  --output-partial-info-plist "$ROOT/.local/assets-partial.plist" > "$ROOT/.local/actool.log" 2>&1
+  --output-partial-info-plist "$ROOT/.local/assets-partial.plist" > "$ROOT/.local/actool.log" 2>&1 \
+  || { echo "actool 失败，见 .local/actool.log"; tail -5 "$ROOT/.local/actool.log"; exit 1; }
 # 应用图标：从图标 PNG 生成 AppIcon.icns（Info.plist 的 CFBundleIconFile）。
 ICONSET="$ROOT/.local/AppIcon.iconset"
 SRC="$ROOT/apps/mac/Assets.xcassets/AppIcon.appiconset"

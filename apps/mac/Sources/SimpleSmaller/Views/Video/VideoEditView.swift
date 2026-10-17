@@ -6,6 +6,7 @@ import SwiftUI
 struct VideoEditView: View {
     @Bindable var ws: Workspace
     @State private var playback = VideoPlayback()
+    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(spacing: 10) {
@@ -20,10 +21,11 @@ struct VideoEditView: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .onAppear { load() }
+        .onAppear { load(); focused = true }
         .onChange(of: ws.currentVideo?.url) { _, _ in load() }
         .onDisappear { playback.pause() }
         .focusable()
+        .focused($focused)
         .focusEffectDisabled()
         .onKeyPress(.space) { playback.toggle(); return .handled }
     }
@@ -153,7 +155,7 @@ struct TrimBar: View {
     }
 
     static func seconds(_ s: Double) -> String {
-        if s < 10 { return String(format: s < 1 ? "%.1f 秒" : "%.1f 秒", s).replacingOccurrences(of: ".0 秒", with: " 秒") }
+        if s < 10 { return String(format: "%.1f 秒", s).replacingOccurrences(of: ".0 秒", with: " 秒") }
         let t = Int(s.rounded())
         return t >= 60 ? "\(t / 60) 分 \(t % 60) 秒" : "\(t) 秒"
     }

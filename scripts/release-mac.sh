@@ -140,5 +140,6 @@ if [ -z "$APP_ONLY" ]; then
 fi
 
 step "校验和"
-( cd "$OUT" && shasum -a 256 *.zip *.dmg 2> /dev/null > SHA256SUMS; cat SHA256SUMS )
+# --app-only 时没有 DMG：只列实际存在的文件，否则 shasum 报错会让脚本在这里退出。
+( cd "$OUT" && ls *.zip *.dmg 2> /dev/null | while IFS= read -r f; do shasum -a 256 "$f"; done > SHA256SUMS; cat SHA256SUMS )
 printf '\n✓ %s %s（%s）已签名、公证并装订票据：%s\n' "$NAME" "$VERSION" "$BUILD" "$OUT"

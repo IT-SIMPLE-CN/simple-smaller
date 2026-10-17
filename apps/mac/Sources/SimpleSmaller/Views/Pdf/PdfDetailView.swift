@@ -183,7 +183,7 @@ private struct PageGrid: View {
     }
 
     private func deleteSelected() {
-        guard !selected.isEmpty else { return }
+        guard !selected.isEmpty, !ws.running else { return }
         withAnimation(.smooth(duration: 0.25)) {
             ws.pageOrder = ws.pageOrder.enumerated().filter { !selected.contains($0.offset) }.map(\.element)
         }
@@ -199,7 +199,7 @@ private struct PageDrop: DropDelegate {
     @Binding var selected: Set<Int>
 
     func dropEntered(info: DropInfo) {
-        guard let from = dragging, from != target else { return }
+        guard let from = dragging, from != target, !ws.running else { return }
         withAnimation(.smooth(duration: 0.2)) {
             let page = ws.pageOrder.remove(at: from)
             ws.pageOrder.insert(page, at: target)
@@ -283,7 +283,7 @@ private struct ImageDrop: DropDelegate {
     @Binding var dragging: FileItem.ID?
 
     func dropEntered(info: DropInfo) {
-        guard let from = dragging, from != target,
+        guard let from = dragging, from != target, !ws.running,
               let a = ws.files.firstIndex(where: { $0.id == from }),
               let b = ws.files.firstIndex(where: { $0.id == target }) else { return }
         withAnimation(.smooth(duration: 0.2)) {

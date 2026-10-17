@@ -483,8 +483,8 @@ impl Job {
 
     /// 把这一批的产出移到废纸篓。
     pub fn undo(&self) -> Result<(), EngineError> {
-        let results = self.results.lock().unwrap().clone();
-        let roots = self.created_roots.lock().unwrap().clone();
+        let results = self.results.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let roots = self.created_roots.lock().unwrap_or_else(|e| e.into_inner()).clone();
         jobs::undo(&results, &roots).map_err(|message| EngineError::Failed { message })
     }
 }
@@ -496,7 +496,7 @@ impl Job {
 
     fn record(&self, listener: &Arc<dyn JobListener>, r: ItemResult) {
         listener.on_item(JobItemResult::from(&r));
-        self.results.lock().unwrap().push(r);
+        self.results.lock().unwrap_or_else(|e| e.into_inner()).push(r);
     }
 
     fn finish(&self, listener: &Arc<dyn JobListener>) {
@@ -624,7 +624,7 @@ impl Engine {
     pub fn preview_image(&self, path: String, settings: ImageSettings) -> Result<ImagePreview, EngineError> {
         let source = Path::new(&path);
         let key = settings.cache_key(&path, modified_secs(source));
-        if let Some(hit) = self.previews.lock().unwrap().get(&key) {
+        if let Some(hit) = self.previews.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
             return Ok(hit.clone());
         }
         let mut picture = self.decode(source).map_err(|message| EngineError::Unsupported { message })?;
@@ -641,7 +641,7 @@ impl Engine {
         recipe.resize = size.map(|s| (mode, s));
         let encoded = img::render(&picture, &recipe).map_err(|e| EngineError::Failed { message: e.to_string() })?;
         let preview = ImagePreview { bytes: encoded.bytes.len() as u64, width: encoded.width, height: encoded.height, format: format_back(encoded.format), before_bytes: file_bytes(source) };
-        let mut cache = self.previews.lock().unwrap();
+        let mut cache = self.previews.lock().unwrap_or_else(|e| e.into_inner());
         if cache.len() >= PREVIEW_CACHE_LIMIT {
             cache.clear();
         }
@@ -694,14 +694,14 @@ impl Engine {
         std::thread::spawn(move || {
             let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
             let plan = jobs::plan(&inputs, MediaKind::Image, &(&place).into());
-            *job.created_roots.lock().unwrap() = plan.created_roots.clone();
+            *job.created_roots.lock().unwrap_or_else(|e| e.into_inner()) = plan.created_roots.clone();
             let image_job = settings.job(&naming);
             let decoder = |p: &Path| self.decode(p);
             // 开始处理某张时报 0 进度，界面据此把这一行标成「处理中」。
             let on_start = |i: usize| listener.on_progress(i as u32, 0.0);
             let on_result = |r: &ItemResult| listener.on_item(JobItemResult::from(r));
             let results = jobs::run_images(&plan, &image_job, &decoder, &on_start, &on_result, &job.cancel);
-            *job.results.lock().unwrap() = results;
+            *job.results.lock().unwrap_or_else(|e| e.into_inner()) = results;
             job.finish(&listener);
         });
         handle
@@ -713,7 +713,7 @@ impl Engine {
         std::thread::spawn(move || {
             let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
             let plan = jobs::plan(&inputs, MediaKind::Video, &(&place).into());
-            *job.created_roots.lock().unwrap() = plan.created_roots.clone();
+            *job.created_roots.lock().unwrap_or_else(|e| e.into_inner()) = plan.created_roots.clone();
             let tools = video::Tools::locate();
             let mut reserved = std::collections::HashSet::new();
             for (i, item) in plan.items.iter().enumerate() {
@@ -739,14 +739,23 @@ impl Engine {
             let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
             let kind = if matches!(settings.operation, PdfOperation::FromImages { .. }) { MediaKind::Image } else { MediaKind::Pdf };
             let plan = jobs::plan(&inputs, kind, &(&place).into());
-            *job.created_roots.lock().unwrap() = plan.created_roots.clone();
+            *job.created_roots.lock().unwrap_or_else(|e| e.into_inner()) = plan.created_roots.clone();
             for mut r in self.pdf_items(&plan, &naming, &settings, &listener, &job.cancel) {
                 if let Some(pw) = settings.password.as_deref().filter(|p| !p.is_empty()) {
+                    let mut failed = None;
                     for o in r.outputs.iter_mut().filter(|o| o.path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))) {
                         match pdf::encrypt_in_place(&o.path, pw) {
                             Ok(()) => o.bytes = file_bytes(&o.path),
-                            Err(e) => r.status = ItemStatus::Failed(format!("加密码失败：{e}")),
+                            Err(e) => failed = Some(format!("加密码失败：{e}")),
                         }
+                    }
+                    // 加密码失败时不留下没加密的文件：用户以为发出去的是带密码的。
+                    if let Some(message) = failed {
+                        for o in &r.outputs {
+                            let _ = std::fs::remove_file(&o.path);
+                        }
+                        r.outputs.clear();
+                        r.status = ItemStatus::Failed(message);
                     }
                 }
                 job.record(&listener, r);
@@ -1055,10 +1064,10 @@ mod tests {
     impl JobListener for Collect {
         fn on_progress(&self, _: u32, _: f64) {}
         fn on_item(&self, r: JobItemResult) {
-            let _ = self.0.lock().unwrap().send(Some(r));
+            let _ = self.0.lock().unwrap_or_else(|e| e.into_inner()).send(Some(r));
         }
         fn on_finished(&self) {
-            let _ = self.0.lock().unwrap().send(None);
+            let _ = self.0.lock().unwrap_or_else(|e| e.into_inner()).send(None);
         }
     }
 

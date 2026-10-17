@@ -413,9 +413,9 @@ struct BigPermit;
 
 impl BigImageGate {
     fn enter(&self) -> BigPermit {
-        let mut n = self.busy.lock().unwrap();
+        let mut n = self.busy.lock().unwrap_or_else(|e| e.into_inner());
         while *n >= big_parallel() {
-            n = self.freed.wait(n).unwrap();
+            n = self.freed.wait(n).unwrap_or_else(|e| e.into_inner());
         }
         *n += 1;
         BigPermit
@@ -424,7 +424,7 @@ impl BigImageGate {
 
 impl Drop for BigPermit {
     fn drop(&mut self) {
-        *BIG_GATE.busy.lock().unwrap() -= 1;
+        *BIG_GATE.busy.lock().unwrap_or_else(|e| e.into_inner()) -= 1;
         BIG_GATE.freed.notify_one();
     }
 }
@@ -512,7 +512,7 @@ fn process_image(
             stem = format!("{stem}-{}", encoded.width);
         }
         let path = {
-            let mut reserved = reserved.lock().unwrap();
+            let mut reserved = reserved.lock().unwrap_or_else(|e| e.into_inner());
             naming::unique_path(&item.out_dir, &stem, extension(format), &mut reserved)
         };
         if let Err(e) = write_atomic(&path, &encoded.bytes) {

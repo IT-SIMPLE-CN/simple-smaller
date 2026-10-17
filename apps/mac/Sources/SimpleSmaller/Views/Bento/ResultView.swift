@@ -85,7 +85,7 @@ struct ResultView: View {
     private var listSummary: String {
         var parts = ["\(ws.files.count) 个", "\(ws.files.filter { $0.state == .done }.count) 个完成"]
         if !failed.isEmpty { parts.append("\(failed.count) 个失败") }
-        if !kept.isEmpty { parts.append("\(kept.count) 个保留原图") }
+        if !kept.isEmpty { parts.append("\(kept.count) 个\(ws.type == .image ? "保留原图" : "保留原文件")") }
         return parts.joined(separator: " · ")
     }
 
@@ -165,7 +165,7 @@ struct ResultView: View {
                 .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Bento.alertFill))
             }
             if !kept.isEmpty {
-                Text(kept.count == 1 ? "\(kept[0].name) 压完会变大，保留了原图。" : "\(kept.count) 个文件压完会变大，保留了原图。")
+                Text(kept.count == 1 ? "\(kept[0].name) 压完会变大，\(kept[0].keptText.replacingOccurrences(of: "保留", with: "保留了"))。" : "\(kept.count) 个文件压完会变大，保留了原文件。")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.warning)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -470,7 +470,7 @@ struct ResultRow: View {
         case .done:
             Label("完成", systemImage: "checkmark").foregroundStyle(Bento.secondary).labelStyle(TightLabel(color: .saving))
         case .kept:
-            Label("保留原图", systemImage: "exclamationmark").foregroundStyle(Color.warning).labelStyle(TightLabel(color: .warning))
+            Label(item.keptText, systemImage: "exclamationmark").foregroundStyle(Color.warning).labelStyle(TightLabel(color: .warning))
         case .failed(let r):
             Label(r, systemImage: "xmark").foregroundStyle(Bento.failed).labelStyle(TightLabel(color: Bento.failed)).lineLimit(1)
         case .cancelled:

@@ -54,6 +54,8 @@ final class FileItem: Identifiable {
     }
 
     var name: String { url.lastPathComponent }
+    /// 「保留原图」/「保留原文件」：压完没变小、原样保留时的说法，各处统一。
+    var keptText: String { type == .image ? "保留原图" : "保留原文件" }
     var afterBytes: UInt64 { outputs.reduce(0) { $0 + $1.bytes } }
     var dimensions: String { width > 0 ? "\(width) × \(height)" : "—" }
 }
@@ -112,6 +114,8 @@ final class Workspace {
 
     // PDF 合并：页面顺序（第几个文件, 第几页）。
     var pageOrder: [PdfPageRef] = []
+    /// pageOrder 里 file 序号对应的文件（排页时用来认出哪页属于哪个文件）。
+    var pageOrderFiles: [URL] = []
 
     init(type: MediaType, recipe: Recipe) {
         self.type = type

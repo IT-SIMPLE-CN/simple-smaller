@@ -111,8 +111,9 @@ struct AppCommands: Commands {
             Button("撤销这一批") { model.undo(model.current) }
                 .disabled(model.current.job == nil || model.current.running)
             Divider()
+            // ⌘⌫：不带修饰键的 Delete 做成菜单快捷键会抢走输入框里的退格。列表里直接按 Delete 由列表自己处理。
             Button("从列表移除所选") { model.remove(model.current.selection, from: model.current) }
-                .keyboardShortcut(.delete, modifiers: [])
+                .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(model.current.selection.isEmpty || model.current.running)
             Button("清空列表") { model.clear(model.current) }
                 .disabled(model.current.files.isEmpty || model.current.running)

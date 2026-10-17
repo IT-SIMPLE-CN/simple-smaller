@@ -17,9 +17,10 @@ final class ListenerBridge: JobListener, @unchecked Sendable {
         self.finished = finished
     }
 
-    func onProgress(index: UInt32, fraction: Double) { Task { @MainActor in self.progress(index, fraction) } }
-    func onItem(result: JobItemResult) { Task { @MainActor in self.item(result) } }
-    func onFinished() { Task { @MainActor in self.finished() } }
+    // 用主队列而不是 Task：主队列先进先出，「完成」不会抢在最后一个结果前面。
+    func onProgress(index: UInt32, fraction: Double) { DispatchQueue.main.async { MainActor.assumeIsolated { self.progress(index, fraction) } } }
+    func onItem(result: JobItemResult) { DispatchQueue.main.async { MainActor.assumeIsolated { self.item(result) } } }
+    func onFinished() { DispatchQueue.main.async { MainActor.assumeIsolated { self.finished() } } }
 }
 
 @Observable
@@ -144,6 +145,8 @@ final class AppModel {
     }
 
     func remove(_ ids: Set<FileItem.ID>, from ws: Workspace) {
+        // 处理中不动列表：引擎按开始时的顺序回报结果。
+        guard !ws.running else { return }
         // 解锁出的临时副本跟着删掉。
         for f in ws.files where ids.contains(f.id) {
             if let u = f.unlockedURL { try? FileManager.default.removeItem(at: u.deletingLastPathComponent()) }
@@ -153,13 +156,24 @@ final class AppModel {
         if ws.type == .pdf { rebuildPageOrder(ws) }
     }
 
+    /// 再来一批：清空这一批的文件和所有跟文件相关的状态（与逐个移除一致）。
     func clear(_ ws: Workspace) {
+        guard !ws.running else { return }
+        for f in ws.files { if let u = f.unlockedURL { try? FileManager.default.removeItem(at: u.deletingLastPathComponent()) } }
         ws.files.removeAll()
         ws.selection.removeAll()
-        ws.cropBoxes.removeAll()
-        ws.cropIndex = 0
+        ws.resetCrop()
+        ws.videoIndex = 0
+        ws.trim.removeAll()
+        ws.videoCrop.removeAll()
+        ws.coverAt.removeAll()
         ws.pageOrder.removeAll()
+        ws.pageOrderFiles.removeAll()
         ws.finishedCount = 0
+        ws.lastRun = nil
+        ws.job = nil
+        ws.batchJobs = []
+        ws.createdRoots = []
         ws.showResult = false
     }
 
@@ -248,9 +262,25 @@ final class AppModel {
         }
     }
 
+    /// 合并的页面顺序跟着文件变：已经手排过的页保持原样，移除的文件去掉它的页，新文件的页接在后面。
     func rebuildPageOrder(_ ws: Workspace) {
         let pdfs = ws.files.filter { $0.type == .pdf }
-        ws.pageOrder = pdfs.enumerated().flatMap { (i, f) in (0..<max(0, f.pages)).map { PdfPageRef(file: UInt32(i), page: UInt32($0)) } }
+        let urls = pdfs.map(\.url)
+        let newIndex = Dictionary(urls.enumerated().map { ($1, UInt32($0)) }, uniquingKeysWith: { a, _ in a })
+        var order: [PdfPageRef] = []
+        var seen = Set<URL>()
+        for ref in ws.pageOrder where Int(ref.file) < ws.pageOrderFiles.count {
+            let url = ws.pageOrderFiles[Int(ref.file)]
+            guard let i = newIndex[url], let f = pdfs.first(where: { $0.url == url }), Int(ref.page) < f.pages else { continue }
+            order.append(PdfPageRef(file: i, page: ref.page))
+            seen.insert(url)
+        }
+        // 还没排进去的文件（新加的，或刚读出页数的）整份接在后面。
+        for (i, f) in pdfs.enumerated() where !seen.contains(f.url) && f.pages > 0 {
+            order += (0..<f.pages).map { PdfPageRef(file: UInt32(i), page: UInt32($0)) }
+        }
+        ws.pageOrder = order
+        ws.pageOrderFiles = urls
     }
 
     // MARK: 开始、取消、撤销
@@ -401,7 +431,12 @@ final class AppModel {
                 let job = type == .image
                     ? engine.runImages(inputs: group.paths, place: group.place, naming: naming, settings: imageSettings, listener: bridge)
                     : engine.runPdfs(inputs: group.paths, place: group.place, naming: naming, settings: pdf, listener: bridge)
-                await MainActor.run { ws.job = job; ws.batchJobs.append(job) }
+                await MainActor.run {
+                    ws.job = job
+                    ws.batchJobs.append(job)
+                    // 起任务的这一会儿用户可能已经点了停止。
+                    if !ws.running || ws.runGeneration != gen { job.cancel() }
+                }
                 await withCheckedContinuation { c in DispatchQueue.global().async { done.wait(); c.resume() } }
                 if await MainActor.run(body: { !ws.running || ws.runGeneration != gen }) { break }
             }
@@ -435,7 +470,12 @@ final class AppModel {
                     finished: { done.signal() }
                 )
                 let job = engine.runVideos(inputs: [j.path], place: j.place, naming: naming, settings: j.settings, listener: bridge)
-                await MainActor.run { ws.job = job; ws.batchJobs.append(job) }
+                await MainActor.run {
+                    ws.job = job
+                    ws.batchJobs.append(job)
+                    // 起任务的这一会儿用户可能已经点了停止。
+                    if !ws.running || ws.runGeneration != gen { job.cancel() }
+                }
                 await withCheckedContinuation { c in DispatchQueue.global().async { done.wait(); c.resume() } }
                 if await MainActor.run(body: { !ws.running || ws.runGeneration != gen }) { break }
             }
@@ -447,6 +487,9 @@ final class AppModel {
         ws.job?.cancel()
         ws.batchJobs.forEach { $0.cancel() }
         ws.running = false
+        // 换一个编号：引擎之后迟到的回调（含「完成」）都作废，停掉的一批不写进最近记录。
+        ws.runGeneration += 1
+        for f in ws.files { if case .running = f.state { f.state = .cancelled } }
         endActivityIfIdle()
     }
 

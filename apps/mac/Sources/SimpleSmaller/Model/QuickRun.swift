@@ -86,7 +86,10 @@ final class QuickRun {
                 let done = DispatchSemaphore(value: 0)
                 let bridge = ListenerBridge(progress: { _, _ in }, item: { r in run?.record(r) }, finished: { done.signal() })
                 let job = engine.runVideos(inputs: [path], place: place, naming: naming, settings: settings, listener: bridge)
-                await MainActor.run { run?.jobs.append(job) }
+                await MainActor.run {
+                    run?.jobs.append(job)
+                    if run?.cancelled ?? true { job.cancel() }
+                }
                 await withCheckedContinuation { c in DispatchQueue.global().async { done.wait(); c.resume() } }
             }
             await MainActor.run { run?.finish() }
