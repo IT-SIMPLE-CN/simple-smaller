@@ -16,7 +16,7 @@
 | `core` | Rust 引擎 `smaller-core`：图片 / 视频 / PDF 管线、配方、队列、命名；UniFFI 导出 Swift / C# 接口 |
 | `apps/mac` | macOS 应用：SwiftUI + AppKit，最低 macOS 14；26 起用 Liquid Glass，14 / 15 退回系统材质 |
 | `scripts` | 编解码库、引擎、打包、发布、图标渲染脚本（见 `docs/build.md`、`docs/release.md`） |
-| `apps/windows` | Windows 应用（mac 之后做）：WinUI 3，Mica / Acrylic |
+| `apps/windows` | Windows 应用：WinUI 3（Windows App SDK，.NET 10，非打包 + Velopack），界面全部 C# 代码搭，字体 MiSans |
 | `docs` | 引擎说明、配方规范、验证方法 |
 
 ### mac 应用的目录（apps/mac/Sources/SimpleSmaller）
@@ -36,7 +36,27 @@
 | `Views/Common/` | 文件表、缩略图、文件交互（拖出、快速查看）、密码、窗口外观、品牌标 |
 | `Views/Windows/` | 设置、新建配方、菜单栏小窗、关于 |
 
-引擎 `core/src/api/` 按类型与设置、任务、引擎入口、视频、PDF 分文件；对外接口改动后要重新生成绑定（`scripts/build-core-mac.sh`）。
+引擎 `core/src/api/` 按类型与设置、任务、引擎入口、视频、PDF 分文件；对外接口改动后要重新生成绑定（mac：`scripts/build-core-mac.sh`；Windows：VM 里 `scripts\build-core-windows.ps1`）。
+
+### Windows 应用的目录（apps/windows/SimpleSmaller）
+
+| 目录 | 放什么 |
+| --- | --- |
+| `Program.cs`、`App.xaml.cs`、`App/` | 入口（第一行 Velopack，单实例）、启动参数、窗口打开、崩溃日志、资源管理器右键菜单、平台补充（缩略图、任务栏） |
+| `Model/`、`Services/` | 与 mac 同名同职责（逐个从 Swift 移植）；`Updates.cs` 是 Velopack 自动更新 |
+| `Bento/` | 色板（`Themes/Bento.xaml` + `Palette`）、卡片与控件、动效、`LineIcon`（照搬设计稿 SVG 的线性图标） |
+| `Views/Main`、`Views/Cards`、`Views/Preview`、`Views/Common`、`Views/Result`、`Views/Windows` | 对应 mac 的同名目录；网格每格由 `Views/Cards/*Slots.cs` 决定 |
+| `Ring/`、`Auto/` | 资源管理器 Alt 点击圆环、托盘与剪贴板 / 监视文件夹 |
+
+### Windows 的坑（都踩过）
+
+- WinUI 不会把过大的圆角收成半圆，会画成椭圆：胶囊用 `Capsule.Apply`，不写 `CornerRadius(100)`。
+- Composition 位移动 `Translation`，不动 `Visual.Offset`（会被布局覆盖）。`Border`、`Viewbox` 是密封类。
+- SVG（SvgImageSource）不支持原点非 0 的 viewBox、不画 `<text>`、上千个元素会丢：装饰图形用代码画。
+- 外部进程（ffmpeg）一律 `CREATE_NO_WINDOW`，否则闪黑框，控制台分配失败时报 0xc0000142。
+- PowerShell 5.1 按 GBK 读脚本、MSVC 按 GBK 读源码：`.ps1` 存 UTF-8 带 BOM，C/C++ 外壳编译加 `/utf-8`。
+- 非打包 WinUI 要 `EnableMsixTooling`，否则 `dotnet publish` 不带 `.pri`，装好就崩。
+- MiSans 按许可协议不进仓库，构建时由 `scripts/fetch-misans.ps1` 下载；Windows 的 ffmpeg 自编最小 GPL 版（不含 x265），见 `scripts/build-ffmpeg-windows.sh`。
 
 ## 产品规则
 
@@ -63,6 +83,8 @@
 ## 构建与验证
 
 - 构建、启动应用、功能验证由 AI 自行完成：改完自己跑 `scripts/build-core-mac.sh` 与 `swift build`，启动应用，按受影响的用户路径实际操作到结果（截图核对界面与动效），再向用户汇报。不把可执行的验证交回用户。
+- Windows 在 Parallels VM「Windows 11 (1)」里构建运行（ARM64），用 `.local/` 下的辅助脚本同步、构建、启动、截图、界面自动化（见 `docs/build.md` 的 Windows 一节）。VM 的桌面就是用户 Mac 的桌面、用户也会看 VM 屏幕：不往桌面写东西，测完关掉自己启动的进程。
+- 界面以设计稿为准逐屏核对（设计稿可用无界面 Chrome 渲染成图对照），浅色深色都看。
 - 启动或重启前先确认进程来源，只动本项目启动的 SimpleSmaller 进程，验证完关掉。
 - 引擎改动跑 `cargo test`（用 rustup 工具链，见 `docs/build.md`）；压缩效果用真实素材实测，汇报前后体积与画质分数，不以编译通过代替验证。
 - 如实汇报实际操作过的路径、看到的结果、失败项和没验证到的边界。
