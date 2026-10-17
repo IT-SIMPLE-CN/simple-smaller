@@ -344,7 +344,9 @@ pub fn transcode(
     let vf = filter_chain(info, recipe.crop, recipe.hdr_to_sdr, size, fps, "yuv420p");
     let audio = recipe.keep_audio && info.has_audio;
     let audio_args: Vec<String> = if audio {
-        vec!["-c:a".into(), "aac_at".into(), "-b:a".into(), format!("{AUDIO_KBPS}k")]
+        // mac 用系统的 AudioToolbox AAC；Windows 版 ffmpeg 没有它，用 ffmpeg 自带的 aac。
+        let aac = if cfg!(target_os = "macos") { "aac_at" } else { "aac" };
+        vec!["-c:a".into(), aac.into(), "-b:a".into(), format!("{AUDIO_KBPS}k")]
     } else {
         vec!["-an".into()]
     };
