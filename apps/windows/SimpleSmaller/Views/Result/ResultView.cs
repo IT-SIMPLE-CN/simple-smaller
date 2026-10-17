@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
@@ -15,16 +16,18 @@ internal sealed class ResultView : Reactive
 {
     private readonly Workspace ws;
     private readonly AppModel model = AppModel.Shared;
-    private readonly Grid layout = new() { ColumnSpacing = 24 };
+    private readonly Grid layout = new() { ColumnSpacing = 36 };
     private readonly Grid left = new();
     private readonly ContentPresenter panelHost = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private readonly Gauge gauge;
-    private readonly Border gaugeFrame = new() { VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
+    private readonly Canvas gaugeLayer = new();
+    private readonly Border gaugeFrame = new() { VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly StackPanel header = new() { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Top, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly TextBlock title = new() { FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock subtitle = new() { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 };
     private readonly Border badge = new() { Width = 40, Height = 40, CornerRadius = new CornerRadius(20) };
-    private readonly FontIcon badgeIcon = new() { FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.Bold };
+    private readonly LineIcon badgeCheck = new(ResultIcons.Check, 20, 2.4, "OnBrand");
+    private readonly LineIcon badgeCross = new(ResultIcons.Cross, 20, 2.4, "OnBrand");
     private readonly ResultList list;
     private bool open;
 
@@ -34,7 +37,10 @@ internal sealed class ResultView : Reactive
         gauge = new Gauge(Saved);
         gaugeFrame.Child = gauge;
 
-        badge.Child = badgeIcon;
+        var badgeIcons = new Grid { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        badgeIcons.Children.Add(badgeCheck);
+        badgeIcons.Children.Add(badgeCross);
+        badge.Child = badgeIcons;
         AutomationProperties.SetAccessibilityView(badge, AccessibilityView.Raw);
         var texts = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
         texts.Children.Add(title);
@@ -45,7 +51,9 @@ internal sealed class ResultView : Reactive
 
         list = new ResultList(ws, Rows, ListSummary, () => SetOpen(!open)) { VerticalAlignment = VerticalAlignment.Bottom };
 
-        left.Children.Add(gaugeFrame);
+        // 刻度盘比左栏宽（伸进左边距和栏间距），放在不裁剪的画布上。
+        gaugeLayer.Children.Add(gaugeFrame);
+        left.Children.Add(gaugeLayer);
         left.Children.Add(header);
         left.Children.Add(list);
         layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -110,10 +118,12 @@ internal sealed class ResultView : Reactive
         {
             var noun = ws.Type == MediaType.Image ? "图片" : ws.Type == MediaType.Video ? "视频" : "文件";
             var parts = new List<string> { $"{ws.Files.Count} 个{noun}" };
+            // 设计稿：12 个图片 · WebP · 网站用 · …（图片写输出格式）。
+            if (ws.Type == MediaType.Image && !ws.IsCropping && ws.Draft.Image.Format != ImageFormatChoice.Original) parts.Add(ws.Draft.Image.Format.Title());
             if (ws.UsesRecipe) parts.Add(ws.Draft.Name);
             var s = model.Settings;
             parts.Add(s.OutputLocation == OutputLocation.Beside ? "存在原文件旁边" : $"存在「{System.IO.Path.GetFileName(s.OutputFolder.TrimEnd('\\', '/'))}」");
-            parts.Add("行可以直接拖出，空格快速查看");
+            parts.Add("行可以直接拖出，按空格用默认应用打开");
             return string.Join(" · ", parts);
         }
     }
@@ -146,8 +156,8 @@ internal sealed class ResultView : Reactive
         title.Text = Title;
         subtitle.Text = Subtitle;
         AutomationProperties.SetName(header, $"{Title}，{Subtitle}");
-        badgeIcon.Glyph = allFailed ? "" : "";
-        badgeIcon.Foreground = new SolidColorBrush(Microsoft.UI.Colors.White);
+        badgeCheck.Visibility = allFailed ? Visibility.Collapsed : Visibility.Visible;
+        badgeCross.Visibility = allFailed ? Visibility.Visible : Visibility.Collapsed;
         badge.Background = allFailed ? Palette.Get(this, "BentoFailed") : Palette.Brand;
         title.Foreground = Palette.Get(this, "BentoPrimary");
         subtitle.Foreground = Palette.Get(this, "BentoSecondary");
@@ -165,7 +175,8 @@ internal sealed class ResultView : Reactive
         Size(animated: true);
     }
 
-    /// 右栏宽 min(336, 36%)，刻度盘按 840:432 放在左栏上方，列表贴底。
+    /// 右栏宽 min(336, 36%)，与左栏隔 36。刻度盘按设计稿 840 × 432：圆心对着列表中线，
+    /// 底边压在收起的列表下面 22（列表盖住弧带的根部），上面不碰到标题。
     private void Size(bool animated)
     {
         var w = layout.ActualWidth;
@@ -173,10 +184,14 @@ internal sealed class ResultView : Reactive
         if (w <= 0 || h <= 0) return;
         var panelW = Math.Min(336, w * 0.36);
         layout.ColumnDefinitions[1].Width = new GridLength(panelW);
-        var leftW = w - panelW - 24;
-        gaugeFrame.Width = leftW;
-        gaugeFrame.Height = Math.Max(0, Math.Min(h * 0.62, leftW * 432 / 840));
-        var target = open ? Math.Max(ListHeight, h - 70) : ListHeight;
+        var leftW = w - panelW - 36;
+        var listTop = h - ListHeight;
+        var s = Math.Max(0.3, Math.Min(Math.Min(leftW / 780, (listTop - 60) / 314), 1.3));
+        gaugeFrame.Width = 840 * s;
+        gaugeFrame.Height = 432 * s;
+        Canvas.SetLeft(gaugeFrame, leftW / 2 - 6 * s - 412 * s);
+        Canvas.SetTop(gaugeFrame, listTop + 22 * s - 432 * s);
+        var target = open ? Math.Max(ListHeight, h - 66) : ListHeight;
         if (!animated || !Motion.Enabled || double.IsNaN(list.Height))
         {
             list.Height = target;
@@ -216,13 +231,16 @@ internal sealed class ResultView : Reactive
         var secondary = Palette.Get(this, "BentoSecondary");
         var primary = Palette.Get(this, "BentoPrimary");
         AddRow(stats, 0, new TextBlock { Text = "原来", FontSize = 12, Foreground = secondary });
-        AddRow(stats, 1, new TextBlock { Text = Format.Size(before), FontSize = 28, FontWeight = Microsoft.UI.Text.FontWeights.Light, Foreground = secondary, Margin = new Thickness(0, 2, 0, 0) });
+        AddRow(stats, 1, new TextBlock { Text = Format.Size(before), FontSize = 28, CharacterSpacing = -20, Foreground = secondary, Opacity = 0.8, Margin = new Thickness(0, 2, 0, 0) });
         AddRow(stats, 2, Arrow());
         AddRow(stats, 3, new TextBlock { Text = "现在", FontSize = 12, Foreground = secondary });
-        var big = new TextBlock { Text = Format.Size(after), FontSize = 56, FontWeight = Microsoft.UI.Text.FontWeights.Light, CharacterSpacing = -27, Foreground = primary };
+        var big = new TextBlock { FontSize = 68, CharacterSpacing = -40, Foreground = primary };
+        var (num, unit) = SplitSize(Format.Size(after));
+        big.Inlines.Add(new Run { Text = num });
+        big.Inlines.Add(new Run { Text = " " + unit, FontSize = 26, CharacterSpacing = 0 });
         AddRow(stats, 4, new Viewbox { Child = big, StretchDirection = StretchDirection.DownOnly, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 2, 0, 0) });
-        var chips = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 14, 0, 0) };
-        chips.Children.Add(Capsule($"省下 {Format.Size(before > after ? before - after : 0)}", Palette.Get(this, "BentoAlertFill"), Palette.Get(this, "BentoAlertText")));
+        var chips = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 16, 0, 0) };
+        chips.Children.Add(Capsule("省下 ", Palette.Get(this, "BentoAlertFill"), Palette.Get(this, "BentoAlertText"), Format.Size(before > after ? before - after : 0)));
         string? times = null;
         if (after > 0 && before > after)
         {
@@ -286,7 +304,7 @@ internal sealed class ResultView : Reactive
         host.Children.Add(dash);
         host.SizeChanged += (_, e) => dash.Y2 = e.NewSize.Height;
         var circle = new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(15), Background = Palette.Get(this, "BentoCard") };
-        circle.Child = new FontIcon { Glyph = "", FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = Palette.Brand };
+        circle.Child = new LineIcon(ResultIcons.ArrowDown, 15, 2.4, "Brand");
         var red = new Rectangle { Width = 2, Fill = Palette.Brand, HorizontalAlignment = HorizontalAlignment.Center };
         Grid.SetRow(circle, 1);
         Grid.SetRow(red, 2);
@@ -297,14 +315,21 @@ internal sealed class ResultView : Reactive
         return g;
     }
 
-    private static Border Capsule(string text, Brush fill, Brush fg) => new()
+    /// 胶囊：文字 + 可选的加粗数值（「省下 **53.8 MB**」）。
+    private static Border Capsule(string text, Brush fill, Brush fg, string? bold = null)
     {
-        Height = 30,
-        Padding = new Thickness(12, 0, 12, 0),
-        CornerRadius = new CornerRadius(15),
-        Background = fill,
-        Child = new TextBlock { Text = text, FontSize = 12, Foreground = fg, VerticalAlignment = VerticalAlignment.Center },
-    };
+        var t = new TextBlock { FontSize = 12, Foreground = fg, VerticalAlignment = VerticalAlignment.Center };
+        t.Inlines.Add(new Run { Text = text });
+        if (bold is not null) t.Inlines.Add(new Run { Text = bold, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        return new Border { Height = 30, Padding = new Thickness(12, 0, 12, 0), CornerRadius = new CornerRadius(15), Background = fill, Child = t };
+    }
+
+    /// 「6.9 MB」拆成数字和单位（单位用小字）。
+    private static (string, string) SplitSize(string text)
+    {
+        var i = text.LastIndexOf(' ');
+        return i > 0 ? (text[..i], text[(i + 1)..]) : (text, "");
+    }
 
     private FrameworkElement FailBlock(List<FileItem> failed)
     {
@@ -313,14 +338,15 @@ internal sealed class ResultView : Reactive
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var x = new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(14), Background = Palette.Get(this, "BentoFailed"), VerticalAlignment = VerticalAlignment.Center };
-        x.Child = new FontIcon { Glyph = "", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White) };
+        x.Child = new LineIcon(ResultIcons.Cross, 14, 2.6, "OnBrand");
         AutomationProperties.SetAccessibilityView(x, AccessibilityView.Raw);
         var alert = Palette.Get(this, "BentoAlertText");
         var texts = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
         texts.Children.Add(new TextBlock { Text = $"{failed.Count} 个失败", FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = alert });
         var note = failed.Count == 1 ? $"{failed[0].Name} {failed[0].State.Message}" : "鼠标停在行上看原因";
         texts.Children.Add(new TextBlock { Text = note, FontSize = 11, Foreground = alert, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis });
-        var retry = new CapsuleButton("重试失败的", 30, "BentoCard", "BentoAlertText") { VerticalAlignment = VerticalAlignment.Center };
+        var retry = new CapsuleButton("重试失败的 Ctrl+Shift+R", 30, "BentoCard", "BentoAlertText") { VerticalAlignment = VerticalAlignment.Center };
+        AutomationProperties.SetName(retry, "重试失败的");
         ToolTipService.SetToolTip(retry, "按当前设置再处理一遍失败的文件（Ctrl+Shift+R）");
         retry.Click += (_, _) => model.RetryFailed(ws);
         Grid.SetColumn(texts, 1);
@@ -357,9 +383,9 @@ internal sealed class ResultList : UserControl
     private readonly Button head = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBlock summary = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
     private readonly TextBlock headTitle = new() { Text = "逐个文件", FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
-    private readonly Border pill = new() { Height = 34, Padding = new Thickness(14, 0, 14, 0), CornerRadius = new CornerRadius(17) };
+    private readonly Border pill = new() { Height = 34, Padding = new Thickness(14, 0, 12, 0), CornerRadius = new CornerRadius(17) };
     private readonly TextBlock pillText = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
-    private readonly FontIcon chevron = new() { Glyph = "", FontSize = 10 };
+    private readonly LineIcon chevron = new(ResultIcons.ChevronUp, 14, 2.2);
     private readonly Grid columns;
     private readonly StackPanel rows = new() { Spacing = 2, Padding = new Thickness(10, 0, 10, 0) };
     private readonly ScrollViewer scroll = new();
@@ -430,7 +456,7 @@ internal sealed class ResultList : UserControl
     private void Paint()
     {
         panel.Background = Palette.Get(this, "BentoFill");
-        headTitle.Foreground = pillText.Foreground = chevron.Foreground = Palette.Get(this, "BentoPrimary");
+        headTitle.Foreground = pillText.Foreground = Palette.Get(this, "BentoPrimary");
         summary.Foreground = moreText.Foreground = Palette.Get(this, "BentoSecondary");
         pill.Background = Palette.Get(this, "BentoCard");
     }
@@ -457,4 +483,14 @@ internal sealed class ResultList : UserControl
         moreText.Text = $"还有 {all.Count - 3} 个 · 展开全部";
         AutomationProperties.SetName(more, moreText.Text);
     }
+}
+
+/// 完成页用到的设计稿图标（V2.1 · 04 的 SVG 路径）。
+internal static class ResultIcons
+{
+    public const string Check = "M5 12l5 5 9-10";
+    public const string Cross = "M7 7l10 10M17 7L7 17";
+    public const string Alert = "M12 7v6M12 17h.01";
+    public const string ArrowDown = "M12 5v14M6 13l6 6 6-6";
+    public const string ChevronUp = "M6 15l6-6 6 6";
 }

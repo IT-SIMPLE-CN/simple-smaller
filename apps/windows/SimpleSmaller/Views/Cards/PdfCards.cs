@@ -22,7 +22,7 @@ internal sealed class PdfMainCard : Reactive
     {
         this.ws = ws;
         segment = ws.PdfSegment;
-        var body = new Grid { RowSpacing = 12 };
+        var body = new Grid { RowSpacing = segment == PdfSegment.Compress ? 14 : 12 };
         card = Card.Create(body);
         Content = card;
         switch (segment)
@@ -44,7 +44,7 @@ internal sealed class PdfMainCard : Reactive
 
     protected override void Refresh()
     {
-        PdfUi.Lock(card, ws.Running);
+        Lock.Apply(card, ws.Running);
         foreach (var u in updates) u();
     }
 
@@ -60,9 +60,9 @@ internal sealed class PdfMainCard : Reactive
         var h = new Header { Glyph = glyph, Title = title, Subtitle = subtitle };
         if (save)
         {
-            var s = new PdfSaveRecipe(ws);
+            var s = new SaveRecipeAccessory(ws);
             h.Trailing = s;
-            updates.Add(() => s.Update(ws));
+            updates.Add(s.Update);
         }
         return h;
     }
@@ -71,7 +71,9 @@ internal sealed class PdfMainCard : Reactive
 
     private void BuildCompress(Grid body)
     {
-        Row(body, Head("\uE73F", "压缩档", "跟着配方走；文字一直保持矢量", save: true));
+        var head = Head("\uE73F", "压缩档", "跟着配方走", save: true);
+        HeaderIcon.Set(head, PdfIcons.Sliders);
+        Row(body, head);
         var grid = new Grid { RowSpacing = 10, ColumnSpacing = 10 };
         grid.RowDefinitions.Add(new RowDefinition());
         grid.RowDefinitions.Add(new RowDefinition());
@@ -93,10 +95,10 @@ internal sealed class PdfMainCard : Reactive
         tile(0, 1, "邮件附件", "图片 150 dpi，目标 10 MB 内", PdfLevelChoice.Email);
         tile(1, 0, "打印保真", "图片 300 dpi，只优化结构", PdfLevelChoice.Print);
 
-        // 指定大小：选中时右下角出现「__ MB」输入框。
+        // 指定大小：右下角一直有「__ MB」白底输入框（设计稿），改了数就选中这一档。
         var mb = new TextBox
         {
-            Width = 44,
+            Width = 28,
             MinWidth = 0,
             Height = 30,
             MinHeight = 0,
@@ -116,14 +118,14 @@ internal sealed class PdfMainCard : Reactive
         {
             if (double.TryParse(mb.Text, out var v))
             {
-                SetPdf(p => p with { TargetMB = Math.Min(2000, Math.Max(0.5, Math.Round(v, 1))) });
+                SetPdf(p => p with { Level = PdfLevelChoice.Size, TargetMB = Math.Min(2000, Math.Max(0.5, Math.Round(v, 1))) });
             }
             mb.Text = Format(P.TargetMB);
         }
         mb.LostFocus += (_, _) => commit();
         mb.KeyDown += (_, e) => { if (e.Key == Windows.System.VirtualKey.Enter) { commit(); e.Handled = true; } };
         var unit = PdfUi.Text("MB", 13);
-        var field = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Padding = new Thickness(6, 0, 10, 0), Height = 30 };
+        var field = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Padding = new Thickness(10, 0, 10, 0), Height = 30 };
         field.Children.Add(mb);
         field.Children.Add(unit);
         var fieldBack = new Border { Child = field, CornerRadius = new CornerRadius(10) };
@@ -135,7 +137,6 @@ internal sealed class PdfMainCard : Reactive
         tile(1, 1, "指定大小", "逐档降图片质量", PdfLevelChoice.Size, fieldBack);
         updates.Add(() =>
         {
-            fieldBack.Visibility = P.Level == PdfLevelChoice.Size ? Visibility.Visible : Visibility.Collapsed;
             if (mb.FocusState == FocusState.Unfocused) mb.Text = Format(P.TargetMB);
             // 输入框始终是白卡底上的深色字（不跟墨黑格子反色）。
             unit.Foreground = mb.Foreground = Palette.Get(fieldBack, "BentoPrimary");
@@ -279,7 +280,7 @@ internal sealed class PdfLevelTile : Button
     private readonly TextBlock title;
     private readonly TextBlock detail;
     private readonly Border check = new() { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), VerticalAlignment = VerticalAlignment.Top };
-    private readonly FontIcon checkIcon = new() { Glyph = "\uE73E", FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.Bold };
+    private readonly LineIcon checkIcon = new(PdfIcons.Check, 13, 2.6, "OnBrand");
     private readonly string name;
     private bool on;
     private bool hovering;
@@ -298,7 +299,6 @@ internal sealed class PdfLevelTile : Button
         this.detail.MaxLines = 2;
         this.detail.VerticalAlignment = VerticalAlignment.Bottom;
         check.Child = checkIcon;
-        checkIcon.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
         check.Background = Palette.Brand;
         AutomationProperties.SetAccessibilityView(check, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         var g = new Grid { ColumnSpacing = 4 };
@@ -367,7 +367,7 @@ internal sealed class PdfOptionsCard : Reactive
 
     protected override void Refresh()
     {
-        PdfUi.Lock(card, ws.Running);
+        Lock.Apply(card, ws.Running);
         foreach (var u in updates) u();
     }
 
@@ -376,6 +376,16 @@ internal sealed class PdfOptionsCard : Reactive
         g.RowDefinitions.Add(new RowDefinition { Height = fill ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
         Grid.SetRow((FrameworkElement)e, g.RowDefinitions.Count - 1);
         g.Children.Add(e);
+    }
+
+    /// 开关行（通用的 BentoRow + BentoToggle，44 高）：加进 stack，返回开关。
+    private static ToggleSwitch ToggleRow(StackPanel stack, string label, Func<bool> get, Action<bool> set)
+    {
+        var t = BentoToggle.Create(label);
+        t.IsOn = get();
+        t.Toggled += (_, _) => { if (t.IsOn != get()) set(t.IsOn); };
+        stack.Children.Add(BentoRow.Create(label, t));
+        return t;
     }
 
     private void BuildQuality(Grid body)
@@ -433,22 +443,20 @@ internal sealed class PdfOptionsCard : Reactive
 
     private void BuildOptions(Grid body)
     {
-        Row(body, new Header { Glyph = "\uE9D5", Title = "选项", Subtitle = null });
+        var head = new Header { Title = "选项", Subtitle = null };
+        HeaderIcon.Set(head, PdfIcons.Pages);
+        Row(body, head);
         Row(body, new Border(), fill: true);
         var stack = new StackPanel { Spacing = 8 };
         if (ws.PdfSegment is PdfSegment.Compress or PdfSegment.Merge)
         {
-            var strip = new PdfToggleRow("去掉作者与修改记录", ws.Draft.StripMetadata, 40);
-            strip.Changed += v => ws.Draft = ws.Draft with { StripMetadata = v };
+            var strip = ToggleRow(stack, "去掉作者与修改记录", () => ws.Draft.StripMetadata, v => ws.Draft = ws.Draft with { StripMetadata = v });
             updates.Add(() => strip.IsOn = ws.Draft.StripMetadata);
-            stack.Children.Add(strip);
         }
         if (ws.PdfSegment == PdfSegment.Compress)
         {
-            var gray = new PdfToggleRow("转灰度", ws.Draft.Pdf.Grayscale, 40);
-            gray.Changed += v => ws.Draft = ws.Draft with { Pdf = ws.Draft.Pdf with { Grayscale = v } };
+            var gray = ToggleRow(stack, "转灰度", () => ws.Draft.Pdf.Grayscale, v => ws.Draft = ws.Draft with { Pdf = ws.Draft.Pdf with { Grayscale = v } });
             updates.Add(() => gray.IsOn = ws.Draft.Pdf.Grayscale);
-            stack.Children.Add(gray);
         }
         AddPasswordRows(stack);
         Row(body, stack);
@@ -457,8 +465,7 @@ internal sealed class PdfOptionsCard : Reactive
     /// 输出加打开密码：发给客户的报价、合同常用。密码不写进配方、不保存。
     private void AddPasswordRows(StackPanel stack)
     {
-        var toggle = new PdfToggleRow("输出加打开密码", ws.OutputPasswordOn, 40);
-        var box = new PasswordBox { PlaceholderText = "设置密码", MaxLength = 127, Height = 40, MinHeight = 0, VerticalContentAlignment = VerticalAlignment.Center };
+        var box = new PasswordBox { PlaceholderText = "设置密码", MaxLength = 127, Height = 44, MinHeight = 0, VerticalContentAlignment = VerticalAlignment.Center };
         AutomationProperties.SetName(box, "设置密码");
         box.Resources["TextControlBorderBrushFocused"] = Palette.Brand;
         box.Resources["TextControlElevationBorderFocusedBrush"] = Palette.Brand;
@@ -466,7 +473,7 @@ internal sealed class PdfOptionsCard : Reactive
         box.CornerRadius = new CornerRadius(15);
         box.Padding = new Thickness(16, 10, 12, 0);
         var hint = PdfUi.Text("", 11);
-        toggle.Changed += v =>
+        var toggle = ToggleRow(stack, "输出加打开密码", () => ws.OutputPasswordOn, v =>
         {
             ws.OutputPasswordOn = v;
             if (v)
@@ -477,7 +484,7 @@ internal sealed class PdfOptionsCard : Reactive
             {
                 ws.OutputPassword = "";
             }
-        };
+        });
         box.PasswordChanged += (_, _) => { if (box.Password != ws.OutputPassword) ws.OutputPassword = box.Password; };
         updates.Add(() =>
         {
@@ -488,7 +495,6 @@ internal sealed class PdfOptionsCard : Reactive
             hint.Text = empty ? "先设好密码才能开始。" : "只在这次用，不保存。记得另外告诉对方。";
             PdfUi.Retint(hint, empty ? "Warning" : "BentoSecondary");
         });
-        stack.Children.Add(toggle);
         stack.Children.Add(box);
         stack.Children.Add(hint);
     }
@@ -498,7 +504,7 @@ internal sealed class PdfOptionsCard : Reactive
 internal sealed class PdfStartCard : Reactive
 {
     private readonly Workspace ws;
-    private readonly TextBlock count = PdfUi.Text("", 24);
+    private readonly TextBlock count = PdfUi.Text("", 26);
 
     public PdfStartCard(Workspace ws)
     {
@@ -507,13 +513,15 @@ internal sealed class PdfStartCard : Reactive
         body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         body.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        var head = new StackPanel { Spacing = 2 };
+        var head = new StackPanel { Spacing = 4, Padding = new Thickness(2, 2, 2, 0) };
         head.Children.Add(PdfUi.Text("这一批", 11, "BentoSecondary"));
-        count.FontWeight = Microsoft.UI.Text.FontWeights.Light;
         head.Children.Add(count);
         body.Children.Add(head);
-        var note = PdfUi.Text("压完变大的文件会保留原文件", 11, "BentoSecondary");
-        var box = new Border { Child = note, CornerRadius = new CornerRadius(14), Padding = new Thickness(12, 9, 12, 9) };
+        // 设计稿 #3E4248：比次要灰深一档。
+        var note = PdfUi.Text("压完变大的文件会保留原文件", 11, "BentoPrimary");
+        note.Opacity = 0.8;
+        note.LineHeight = 16.5;
+        var box = new Border { Child = note, CornerRadius = new CornerRadius(14), Padding = new Thickness(12, 10, 12, 10) };
         box.Loaded += (_, _) => box.Background = Palette.Get(box, "BentoFill");
         box.ActualThemeChanged += (_, _) => box.Background = Palette.Get(box, "BentoFill");
         Grid.SetRow(box, 1);

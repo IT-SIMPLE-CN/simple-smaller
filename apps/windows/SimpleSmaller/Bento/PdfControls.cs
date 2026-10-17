@@ -11,13 +11,10 @@ using Windows.Foundation;
 
 namespace SimpleSmaller.Bento;
 
-/// PDF 页用到的小组件（对应 mac Views/Bento 里的 BentoRow、BentoToggleRow、SaveRecipeAccessory、bentoLocked 等）。
-/// 其他页以后有同名通用组件时再合并。
+/// PDF 页用到的小工具。行、开关行、「存为新配方」、处理中锁卡用 Views/Cards/OutputCards.cs 里的通用组件
+/// （BentoRow、BentoToggle、SaveRecipeAccessory、Lock），这里不再另做一份。
 internal static class PdfUi
 {
-    /// 等宽字体（文件名规则）。
-    public static readonly FontFamily Mono = new("Cascadia Mono, Consolas");
-
     /// 文字：按色板键上色，深浅色切换时自己重新上色。
     public static TextBlock Text(string text = "", double size = 13, string key = "BentoPrimary", bool semibold = false)
     {
@@ -54,17 +51,6 @@ internal static class PdfUi
         _ => Palette.Get(e, key),
     };
 
-    /// 处理中（或不适用时）锁住一张卡：不能点，变淡。
-    public static void Lock(UIElement e, bool locked)
-    {
-        e.IsHitTestVisible = !locked;
-        e.Opacity = locked ? 0.45 : 1;
-        if (e is Control c)
-        {
-            c.IsEnabled = !locked;
-        }
-    }
-
     /// 卡片里的灰底面板。
     public static Border Panel(UIElement child, Thickness padding)
     {
@@ -82,121 +68,6 @@ internal static class PdfUi
         s.Children.Add(pills);
         return s;
     }
-}
-
-/// 灰底圆角行：左名称，右值或控件。
-internal sealed class PdfRow : Grid
-{
-    public PdfRow(string label, UIElement trailing, double height = 44)
-    {
-        Height = height;
-        CornerRadius = new CornerRadius(15);
-        Padding = new Thickness(16, 0, 12, 0);
-        ColumnSpacing = 8;
-        ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var l = PdfUi.Text(label, 13);
-        Children.Add(l);
-        if (trailing is FrameworkElement fe)
-        {
-            fe.VerticalAlignment = VerticalAlignment.Center;
-            if (fe.HorizontalAlignment == HorizontalAlignment.Stretch && fe is not TextBox)
-            {
-                fe.HorizontalAlignment = HorizontalAlignment.Right;
-            }
-        }
-        SetColumn((FrameworkElement)trailing, 1);
-        Children.Add(trailing);
-        Loaded += (_, _) => Background = Palette.Get(this, "BentoFill");
-        ActualThemeChanged += (_, _) => Background = Palette.Get(this, "BentoFill");
-    }
-}
-
-/// 开关行：系统开关，开着是品牌红。整行点哪都能切换。
-internal sealed class PdfToggleRow : Grid
-{
-    private readonly ToggleSwitch toggle = new() { OnContent = null, OffContent = null, MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
-    private bool silent;
-
-    public event Action<bool>? Changed;
-
-    public PdfToggleRow(string label, bool on, double height = 44)
-    {
-        Height = height;
-        CornerRadius = new CornerRadius(15);
-        Padding = new Thickness(16, 0, 4, 0);
-        ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Children.Add(PdfUi.Text(label, 13));
-        foreach (var key in new[] { "ToggleSwitchFillOn", "ToggleSwitchFillOnPointerOver", "ToggleSwitchFillOnPressed" })
-        {
-            toggle.Resources[key] = Palette.Brand;
-        }
-        toggle.Resources["ToggleSwitchPreContentMargin"] = 0.0;
-        toggle.Resources["ToggleSwitchPostContentMargin"] = 0.0;
-        toggle.IsOn = on;
-        AutomationProperties.SetName(toggle, label);
-        toggle.Toggled += (_, _) => { if (!silent) Changed?.Invoke(toggle.IsOn); };
-        SetColumn(toggle, 1);
-        Children.Add(toggle);
-        Tapped += (_, e) =>
-        {
-            if (e.OriginalSource is DependencyObject d && IsInside(d, toggle))
-            {
-                return;
-            }
-            toggle.IsOn = !toggle.IsOn;
-        };
-        Loaded += (_, _) => Background = Palette.Get(this, "BentoFill");
-        ActualThemeChanged += (_, _) => Background = Palette.Get(this, "BentoFill");
-    }
-
-    public bool IsOn
-    {
-        get => toggle.IsOn;
-        set
-        {
-            if (toggle.IsOn == value) return;
-            silent = true;
-            toggle.IsOn = value;
-            silent = false;
-        }
-    }
-
-    private static bool IsInside(DependencyObject d, DependencyObject ancestor)
-    {
-        for (var p = d; p is not null; p = VisualTreeHelper.GetParent(p))
-        {
-            if (p == ancestor) return true;
-        }
-        return false;
-    }
-}
-
-/// 「已修改」+「存为新配方」：配方被改过时出现在卡片头右边。
-internal sealed class PdfSaveRecipe : StackPanel
-{
-    public PdfSaveRecipe(Workspace ws)
-    {
-        Orientation = Orientation.Horizontal;
-        Spacing = 6;
-        var tag = new Border { Height = 26, CornerRadius = new CornerRadius(13), Padding = new Thickness(10, 0, 10, 0) };
-        var text = PdfUi.Text("已修改", 11, "BentoAlertText");
-        tag.Child = text;
-        tag.Loaded += (_, _) => tag.Background = Palette.Get(tag, "BentoAlertFill");
-        tag.ActualThemeChanged += (_, _) => tag.Background = Palette.Get(tag, "BentoAlertFill");
-        var save = new CapsuleButton("存为新配方");
-        save.Click += (_, _) =>
-        {
-            var b = ws.Base;
-            var r = ws.Draft with { Id = "", Name = b.BuiltIn ? $"{b.Name} 改" : b.Name, BuiltIn = false };
-            App.OpenRecipeEditor(r, saved => ws.Select(saved));
-        };
-        Children.Add(tag);
-        Children.Add(save);
-    }
-
-    public void Update(Workspace ws) => Visibility = ws.Modified && ws.UsesRecipe ? Visibility.Visible : Visibility.Collapsed;
 }
 
 /// 按住连续加减的圆形图标按钮（拆分页数；WinUI 的 RepeatButton 是密封类，自己做按住连发）。
