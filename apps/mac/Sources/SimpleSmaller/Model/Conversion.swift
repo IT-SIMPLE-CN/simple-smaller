@@ -115,7 +115,9 @@ enum Format {
         return "+\(Int(pct.rounded()))%"
     }
 
+    /// 「01:23」；不到 1 秒的（动图常见）写「00:00.3」，免得显示成 00:00。
     static func duration(_ s: Double) -> String {
+        if s > 0, s < 1 { return String(format: "00:00.%d", Int((s * 10).rounded(.down))) }
         let t = Int(s.rounded(.down))
         return String(format: "%02d:%02d", t / 60, t % 60)
     }

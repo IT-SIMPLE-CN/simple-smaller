@@ -51,6 +51,7 @@ struct VideoStage: View {
                     if MediaType.isAnimated(item.url) { AnimatedImageView(url: item.url) } else { PlayerLayerView(player: playback.player) }
                 }
                     .frame(width: rect.width, height: rect.height)
+                    .clipped()
                     .offset(x: rect.minX, y: rect.minY)
                     .accessibilityLabel("视频画面")
                 if let box = ws.videoCropBox(item) {
@@ -134,7 +135,7 @@ struct TrimBar: View {
                 .help("播放 / 暂停（空格）")
                 Text(verbatim: Format.timecode(playback.time))
                     .font(.system(size: 12).monospacedDigit())
-                Text(verbatim: "截取 \(Format.duration(range.lowerBound)) – \(Format.duration(range.upperBound.rounded()))（\(Self.seconds(range.upperBound - range.lowerBound))）")
+                Text(verbatim: "截取 \(Format.duration(range.lowerBound)) – \(Format.duration(range.upperBound < 1 ? range.upperBound : range.upperBound.rounded()))（\(Self.seconds(range.upperBound - range.lowerBound))）")
                     .font(.system(size: 12).monospacedDigit())
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -156,6 +157,7 @@ struct TrimBar: View {
     }
 
     static func seconds(_ s: Double) -> String {
+        if s < 10 { return String(format: s < 1 ? "%.1f 秒" : "%.1f 秒", s).replacingOccurrences(of: ".0 秒", with: " 秒") }
         let t = Int(s.rounded())
         return t >= 60 ? "\(t / 60) 分 \(t % 60) 秒" : "\(t) 秒"
     }

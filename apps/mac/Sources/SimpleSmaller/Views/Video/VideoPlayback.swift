@@ -156,6 +156,11 @@ struct AnimatedImageView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSImageView {
         let v = NSImageView()
         v.imageScaling = .scaleAxesIndependently
+        // 不按图片原尺寸撑大自己，跟着外面给的框走。
+        for o in [NSLayoutConstraint.Orientation.horizontal, .vertical] {
+            v.setContentHuggingPriority(.defaultLow, for: o)
+            v.setContentCompressionResistancePriority(.defaultLow, for: o)
+        }
         v.animates = true
         v.image = NSImage(contentsOf: url)
         return v

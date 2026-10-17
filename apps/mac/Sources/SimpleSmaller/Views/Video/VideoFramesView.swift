@@ -35,8 +35,8 @@ private struct FrameRangeBar: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(verbatim: range.lowerBound <= 0.01 && range.upperBound >= item.duration - 0.01
-                     ? "范围：全片 \(Format.duration(0)) – \(Format.duration(item.duration.rounded()))"
-                     : "范围：\(Format.duration(range.lowerBound)) – \(Format.duration(range.upperBound.rounded()))")
+                     ? "范围：全片 \(Format.duration(0)) – \(Format.duration(item.duration < 1 ? item.duration : item.duration.rounded()))"
+                     : "范围：\(Format.duration(range.lowerBound)) – \(Format.duration(range.upperBound < 1 ? range.upperBound : range.upperBound.rounded()))")
                     .font(.system(size: 12, weight: .semibold).monospacedDigit())
                 Spacer()
                 Text("竖线是要导出的帧，拖两端只导出一段")
