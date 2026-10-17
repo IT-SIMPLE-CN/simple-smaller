@@ -13,7 +13,11 @@ SRC="$WORK/src/mupdf"
 OUT="$ROOT/.local/mupdf/$ARCH"
 JOBS="$(sysctl -n hw.ncpu)"
 
-if [ ! -d "$SRC" ]; then
+# 源码目录不在、或不是要的那个版本（改了版本号），就删掉重新拉，不悄悄沿用旧源码。
+stale() { [ ! -d "$1" ] || [ "$(git -C "$1" describe --tags --exact-match 2> /dev/null)" != "$2" ]; }
+
+if stale "$SRC" "$MUPDF_TAG"; then
+  rm -rf "$SRC"
   git clone -q --depth 1 --branch "$MUPDF_TAG" --recurse-submodules --shallow-submodules \
     https://github.com/ArtifexSoftware/mupdf "$SRC"
 fi

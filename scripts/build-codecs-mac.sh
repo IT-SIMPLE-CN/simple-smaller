@@ -27,8 +27,12 @@ COMMON=(
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 )
 
+# 源码目录不在、或不是要的那个版本（改了版本号），就删掉重新拉，不悄悄沿用旧源码。
+stale() { [ ! -d "$1" ] || [ "$(git -C "$1" describe --tags --exact-match 2> /dev/null)" != "$2" ]; }
+
 fetch_tag() { # 名字 仓库 标签
-  if [ ! -d "$SRC/$1" ]; then
+  if stale "$SRC/$1" "$3"; then
+    rm -rf "$SRC/$1"
     git clone -q --depth 1 --branch "$3" "$2" "$SRC/$1"
   fi
 }

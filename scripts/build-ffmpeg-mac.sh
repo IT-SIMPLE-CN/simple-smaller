@@ -22,6 +22,9 @@ export MACOSX_DEPLOYMENT_TARGET=14.0
 export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 CFLAGS_ARCH="-arch $ARCH -mmacosx-version-min=14.0"
 
+# 源码目录不在、或不是要的那个版本（改了版本号），就删掉重新拉，不悄悄沿用旧源码。
+stale() { [ ! -d "$1" ] || [ "$(git -C "$1" describe --tags --exact-match 2> /dev/null)" != "$2" ]; }
+
 # x264
 if [ ! -d "$SRC/x264" ]; then
   git clone -q https://code.videolan.org/videolan/x264.git "$SRC/x264"
@@ -37,7 +40,8 @@ rm -rf "$BUILD/x264" && cp -R "$SRC/x264" "$BUILD/x264"
 echo "✓ x264"
 
 # zimg（zscale 滤镜，HDR 转 SDR 用）
-if [ ! -d "$SRC/zimg" ]; then
+if stale "$SRC/zimg" "$ZIMG_TAG"; then
+  rm -rf "$SRC/zimg"
   git clone -q --depth 1 --branch "$ZIMG_TAG" --recurse-submodules https://github.com/sekrit-twc/zimg "$SRC/zimg"
 fi
 rm -rf "$BUILD/zimg" && cp -R "$SRC/zimg" "$BUILD/zimg"
@@ -52,7 +56,8 @@ rm -rf "$BUILD/zimg" && cp -R "$SRC/zimg" "$BUILD/zimg"
 echo "✓ zimg"
 
 # ffmpeg：关掉自动探测，只开明确需要的组件，不会误链本机 Homebrew 的库。
-if [ ! -d "$SRC/ffmpeg" ]; then
+if stale "$SRC/ffmpeg" "$FFMPEG_TAG"; then
+  rm -rf "$SRC/ffmpeg"
   git clone -q --depth 1 --branch "$FFMPEG_TAG" https://git.ffmpeg.org/ffmpeg.git "$SRC/ffmpeg"
 fi
 mkdir -p "$BUILD/ffmpeg"
