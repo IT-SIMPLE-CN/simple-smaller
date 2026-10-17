@@ -64,7 +64,7 @@ private struct PageStrip: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .frame(height: 168)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Bento.fill))
+        .bentoPanel()
         .task(id: item.previewURL) { thumbs.load(item.previewURL) }
     }
 }

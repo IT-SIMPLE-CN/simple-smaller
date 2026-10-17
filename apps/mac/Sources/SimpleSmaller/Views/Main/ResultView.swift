@@ -138,7 +138,7 @@ struct ResultView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 22)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Bento.fill))
+            .bentoPanel()
             .accessibilityElement(children: .combine)
 
             if !failed.isEmpty {
@@ -327,7 +327,6 @@ struct ResultList: View {
     @Binding var open: Bool
     let rows: [FileItem]
     let summary: String
-    @State private var quickLook: URL?
 
     var body: some View {
         VStack(spacing: 2) {
@@ -357,15 +356,7 @@ struct ResultList: View {
                 LazyVStack(spacing: 2) {
                     ForEach(Array((open ? rows : Array(rows.prefix(3))).enumerated()), id: \.element.id) { i, item in
                         ResultRow(item: item, striped: i % 2 == 0, selected: ws.selection.contains(item.id))
-                            .onTapGesture { ws.selection = [item.id] }
-                            .simultaneousGesture(TapGesture(count: 2).onEnded { reveal(item) })
-                            .onDrag {
-                                let url = item.outputs.first.map { URL(fileURLWithPath: $0.path) } ?? item.url
-                                let p = NSItemProvider(object: url as NSURL)
-                                p.suggestedName = url.lastPathComponent
-                                return p
-                            }
-                            .contextMenu { Button("在访达中显示") { reveal(item) } }
+                            .fileInteractions(item, in: ws, removable: false)
                     }
                 }
                 .padding(.horizontal, 10)
@@ -380,13 +371,8 @@ struct ResultList: View {
             }
         }
         .padding(.bottom, 10)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Bento.fill))
-        .quickLookPreview($quickLook)
-        .onReceive(NotificationCenter.default.publisher(for: .quickLookSelection)) { _ in
-            guard let item = ws.selectedItems.first else { return }
-            quickLook = item.outputs.first.map { URL(fileURLWithPath: $0.path) } ?? item.url
-        }
-        .background(SpaceKeyWatcher())
+        .bentoPanel()
+        .quickLookSelection(ws)
     }
 
     private var header: some View {
@@ -397,10 +383,6 @@ struct ResultList: View {
             .foregroundStyle(Bento.secondary)
             .frame(height: 22)
             .padding(.horizontal, 10)
-    }
-
-    private func reveal(_ item: FileItem) {
-        model.reveal(item.outputs.isEmpty ? [item.url] : item.outputs.map { URL(fileURLWithPath: $0.path) })
     }
 }
 

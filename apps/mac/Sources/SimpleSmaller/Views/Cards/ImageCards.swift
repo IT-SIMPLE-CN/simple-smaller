@@ -20,8 +20,7 @@ struct FormatQualityCard: View {
                 QualityPanel(ws: ws)
             }
         }
-        .disabled(ws.running)
-        .opacity(ws.running ? 0.45 : 1)
+        .bentoLocked(ws.running)
         .sheet(item: $saving) { r in
             RecipeEditorView(initial: r) { saved in ws.select(recipe: saved) }
         }
@@ -78,7 +77,7 @@ struct QualityPanel: View {
         .padding(.horizontal, 18)
         .padding(.top, 16)
         .padding(.bottom, 12)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Bento.fill))
+        .bentoPanel()
     }
 }
 
@@ -140,8 +139,7 @@ struct SizeCard: View {
                 .animation(.spring(response: 0.45, dampingFraction: 0.82), value: ws.draft.image.size == nil)
             }
         }
-        .disabled(ws.running)
-        .opacity(ws.running ? 0.45 : 1)
+        .bentoLocked(ws.running)
     }
 }
 

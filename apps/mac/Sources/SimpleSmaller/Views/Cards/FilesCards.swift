@@ -125,7 +125,6 @@ struct FilesCard: View {
 struct ThumbGrid: View {
     @Environment(AppModel.self) private var model
     @Bindable var ws: Workspace
-    @State private var quickLook: URL?
 
     private let columns = [GridItem(.adaptive(minimum: 130, maximum: 220), spacing: 10)]
 
@@ -134,35 +133,14 @@ struct ThumbGrid: View {
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(ws.files) { item in
                     ThumbTile(item: item, selected: ws.selection.contains(item.id))
-                        .onTapGesture { ws.selection = [item.id] }
-                        .simultaneousGesture(TapGesture(count: 2).onEnded { reveal(item) })
-                        .onDrag {
-                            // 处理完的拖出结果；没处理的拖出原文件。
-                            let url = item.outputs.first.map { URL(fileURLWithPath: $0.path) } ?? item.url
-                            let p = NSItemProvider(object: url as NSURL)
-                            p.suggestedName = url.lastPathComponent
-                            return p
-                        }
-                        .contextMenu {
-                            Button("在访达中显示") { reveal(item) }
-                            Button("从列表移除") { model.remove([item.id], from: ws) }.disabled(ws.running)
-                        }
+                        .fileInteractions(item, in: ws)
                 }
             }
             .padding(2)
         }
         .scrollIndicators(.automatic)
-        .quickLookPreview($quickLook)
-        .onReceive(NotificationCenter.default.publisher(for: .quickLookSelection)) { _ in
-            guard let item = ws.selectedItems.first else { return }
-            quickLook = item.outputs.first.map { URL(fileURLWithPath: $0.path) } ?? item.url
-        }
-        .background(SpaceKeyWatcher())
-        .onDeleteCommand { if !ws.running { model.remove(ws.selection, from: ws) } }
-    }
-
-    private func reveal(_ item: FileItem) {
-        model.reveal(item.outputs.isEmpty ? [item.url] : item.outputs.map { URL(fileURLWithPath: $0.path) })
+        .quickLookSelection(ws)
+        .onDeleteCommand { model.remove(ws.selection, from: ws) }
     }
 }
 

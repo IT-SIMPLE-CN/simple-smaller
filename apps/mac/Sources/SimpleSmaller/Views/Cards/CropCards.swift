@@ -21,8 +21,7 @@ struct CropRatioCard: View {
                 Spacer(minLength: 0)
             }
         }
-        .disabled(ws.running)
-        .opacity(ws.running ? 0.45 : 1)
+        .bentoLocked(ws.running)
     }
 
     private func choose(_ preset: CropPreset) {
@@ -144,8 +143,7 @@ struct CropFormatStartCard: View {
                     .font(.system(size: 12))
                 }
                 }
-                .disabled(ws.running)
-                .opacity(ws.running ? 0.45 : 1)
+                .bentoLocked(ws.running)
                 StartBlock(ws: ws).padding(.top, 2)
             }
         }

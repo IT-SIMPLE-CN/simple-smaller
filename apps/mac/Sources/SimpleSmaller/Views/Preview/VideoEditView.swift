@@ -15,7 +15,13 @@ struct VideoEditView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 TrimBar(ws: ws, item: item, playback: playback)
                 if ws.videoItems.count > 1 {
-                    VideoStrip(ws: ws)
+FilmStrip(items: ws.videoItems, index: ws.videoItems.firstIndex { $0.id == ws.currentVideo?.id } ?? 0, select: { ws.videoIndex = $0 }) { item in
+                        Text(verbatim: Format.duration(ws.trimRange(item).upperBound - ws.trimRange(item).lowerBound))
+                            .font(.system(size: 9).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .background(Color.black.opacity(0.55), in: Capsule())
+                    }
                 }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -286,49 +292,5 @@ private struct TrimFrame: View {
             .fill(Color.brand)
             .frame(width: handle)
             .overlay { Capsule().fill(.white.opacity(0.9)).frame(width: 2, height: 14) }
-    }
-}
-
-/// 多段视频时的切换条：缩略图 + 当前描红圈。
-struct VideoStrip: View {
-    @Bindable var ws: Workspace
-
-    var body: some View {
-        let items = ws.videoItems
-        let current = ws.currentVideo?.id
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                    let on = item.id == current
-                    Thumb(image: item.thumbnail)
-                        .frame(width: 72, height: 48)
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        .overlay(alignment: .bottomTrailing) {
-                            Text(verbatim: Format.duration(ws.trimRange(item).upperBound - ws.trimRange(item).lowerBound))
-                                .font(.system(size: 9).monospacedDigit())
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 3)
-                                .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 2))
-                                .padding(3)
-                        }
-                        .opacity(on ? 1 : 0.7)
-                        .padding(4)
-                        .overlay {
-                            if on {
-                                RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.brand, lineWidth: 2)
-                                RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white, lineWidth: 2).padding(2)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture { withAnimation(.smooth(duration: 0.25)) { ws.videoIndex = i } }
-                        .accessibilityElement()
-                        .accessibilityLabel(item.name)
-                        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
-                        .accessibilityAction { ws.videoIndex = i }
-                }
-            }
-            .padding(.horizontal, 2)
-        }
-        .frame(height: 64)
     }
 }

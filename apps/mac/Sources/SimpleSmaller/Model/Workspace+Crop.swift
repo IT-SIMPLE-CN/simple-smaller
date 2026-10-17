@@ -21,9 +21,8 @@ extension Workspace {
 
     func defaultCropBox(_ item: FileItem) -> CGRect {
         let w = CGFloat(item.width), h = CGFloat(item.height)
-        guard let a = cropAspect.map({ CGFloat($0) }) else { return CGRect(x: 0, y: 0, width: w, height: h) }
-        let (cw, ch) = w / h > a ? (h * a, h) : (w, w / a)
-        return CGRect(x: ((w - cw) / 2).rounded(), y: ((h - ch) / 2).rounded(), width: cw.rounded(), height: ch.rounded())
+        guard let a = cropAspect else { return CGRect(x: 0, y: 0, width: w, height: h) }
+        return .centeredMax(width: Double(w), height: Double(h), aspect: a, round: { $0.rounded() })
     }
 
     /// 第 i 张实际用的框：手调过的，否则居中取最大。
@@ -71,4 +70,16 @@ extension Workspace {
     var cropBoxesForEngine: [URL: CGRect] {
         draft.image.crop == nil ? [:] : cropBoxes
     }
+}
+
+extension CGRect {
+    /// 画面里按比例取最大、居中的框（图片裁切、视频取景的默认框都用它）。
+    /// `round` 决定坐标怎么取整：图片四舍五入，视频取偶数（编码器要求）。
+    static func centeredMax(width w: Double, height h: Double, aspect a: Double, round: (Double) -> Double) -> CGRect {
+        let (cw, ch) = w / h > a ? (h * a, h) : (w, w / a)
+        return CGRect(x: round((w - cw) / 2), y: round((h - ch) / 2), width: round(cw), height: round(ch))
+    }
+
+    /// 视频用：向下取到偶数。
+    static let even: (Double) -> Double = { ($0 / 2).rounded(.down) * 2 }
 }

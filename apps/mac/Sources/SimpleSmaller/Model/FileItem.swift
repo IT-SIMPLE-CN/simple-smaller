@@ -56,3 +56,18 @@ final class FileItem: Identifiable {
     var afterBytes: UInt64 { outputs.reduce(0) { $0 + $1.bytes } }
     var dimensions: String { width > 0 ? "\(width) × \(height)" : "—" }
 }
+
+extension FileItem {
+    /// 处理完用第一个输出，没处理用原文件：快速查看、拖出都用它。
+    var primaryURL: URL { outputs.first.map { URL(fileURLWithPath: $0.path) } ?? url }
+    /// 在访达中显示：全部输出；还没处理就是原文件。
+    var revealURLs: [URL] { outputs.isEmpty ? [url] : outputs.map { URL(fileURLWithPath: $0.path) } }
+
+    /// 拖出：传文件地址（不是文件内容），拖到访达、微信里保留原文件名。
+    func dragProvider() -> NSItemProvider {
+        let url = primaryURL
+        let p = NSItemProvider(object: url as NSURL)
+        p.suggestedName = url.lastPathComponent
+        return p
+    }
+}

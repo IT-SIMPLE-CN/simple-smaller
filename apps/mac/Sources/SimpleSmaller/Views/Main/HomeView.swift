@@ -199,7 +199,7 @@ struct HomeCard: View {
     }
 
     @ViewBuilder private var art: some View {
-        if let url = Bundle.main.url(forResource: kind.art, withExtension: "svg"), let image = NSImage(contentsOf: url) {
+        if let image = BundledImage.svg(kind.art) {
             Image(nsImage: image).resizable().scaledToFill()
         } else {
             Rectangle().fill(Bento.fill)
@@ -242,7 +242,7 @@ struct HomeToolbar: ToolbarContent {
 extension HomeToolbar {
     var brand: some View {
         HStack(spacing: 8) {
-            BrandLogo().frame(width: 22, height: 21)
+            BrandMark(color: .brand).frame(width: 22, height: 21)
             Text("简单小一点").font(.system(size: 15, weight: .bold))
             Text("SIMPLE SMALLER").font(.system(size: 11)).tracking(1.5).foregroundStyle(Bento.secondary)
         }

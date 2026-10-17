@@ -44,6 +44,8 @@ enum Bento {
     static let pad: CGFloat = 16
     static let cardRadius: CGFloat = 22
     static let rowRadius: CGFloat = 15
+    /// 卡片里的灰底面板（质量、抽帧数值、逐个文件、原来 → 现在等）。
+    static let panelRadius: CGFloat = 18
 
     /// 大数字（体积、像素、进度）：系统字体等宽数字。
     static func number(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
@@ -143,3 +145,10 @@ struct BentoToggleRow: View {
 }
 
 // MARK: - 胶囊选择
+
+extension View {
+    /// 卡片里的灰底面板。
+    func bentoPanel() -> some View {
+        background(RoundedRectangle(cornerRadius: Bento.panelRadius, style: .continuous).fill(Bento.fill))
+    }
+}

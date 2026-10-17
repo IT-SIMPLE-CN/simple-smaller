@@ -57,8 +57,7 @@ struct RecipeBar: View {
             }
             .frame(maxHeight: .infinity)
         }
-        .disabled(ws.running)
-        .opacity(ws.running ? 0.45 : 1)
+        .bentoLocked(ws.running)
         .sheet(item: $editing) { recipe in
             RecipeEditorView(initial: recipe) { saved in ws.select(recipe: saved) }
         }

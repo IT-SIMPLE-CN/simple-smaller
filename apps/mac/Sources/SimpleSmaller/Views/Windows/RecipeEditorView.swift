@@ -98,7 +98,7 @@ struct RecipeEditorView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Bento.fill))
+            .bentoPanel()
     }
 
     private func line<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {

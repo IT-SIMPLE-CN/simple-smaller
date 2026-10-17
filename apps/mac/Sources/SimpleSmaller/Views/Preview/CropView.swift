@@ -24,7 +24,17 @@ struct CropView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 // 单张图片时没有胶片条。
                 if items.count > 1 {
-                    FilmStrip(ws: ws, items: items, index: index)
+                    FilmStrip(items: items, index: index, select: { ws.cropIndex = $0 },
+                              label: { $0.name + (ws.cropBoxes[$0.url] != nil ? "，调过" : "，居中取最大") }) { item in
+                        if ws.cropBoxes[item.url] != nil {
+                            Image(systemName: "crop")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 14, height: 14)
+                                .background(Circle().fill(Bento.ink))
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
                 }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -372,60 +382,5 @@ struct CropButtonStyle: ButtonStyle {
             .shadow(color: .black.opacity(0.14), radius: 4, y: 2)
             .opacity(isEnabled ? 1 : 0.45)
             .contentShape(shape)
-    }
-}
-
-/// 底部胶片条：当前这张描红圈，手调过框的右下角带一个小标。
-struct FilmStrip: View {
-    @Bindable var ws: Workspace
-    let items: [FileItem]
-    let index: Int
-
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                        cell(item, current: i == index, done: ws.cropBoxes[item.url] != nil)
-                            .id(i)
-                            .onTapGesture { withAnimation(.smooth(duration: 0.25)) { ws.cropIndex = i } }
-                            .accessibilityElement()
-                            .accessibilityLabel(item.name + (ws.cropBoxes[item.url] != nil ? "，调过" : "，居中取最大"))
-                            .accessibilityAddTraits(i == index ? [.isButton, .isSelected] : .isButton)
-                            .accessibilityAction { ws.cropIndex = i }
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-            .frame(height: 64)
-            .onChange(of: index) { _, i in withAnimation(.smooth(duration: 0.3)) { proxy.scrollTo(i, anchor: .center) } }
-            .onAppear { proxy.scrollTo(index, anchor: .center) }
-        }
-    }
-
-    private func cell(_ item: FileItem, current: Bool, done: Bool) -> some View {
-        Thumb(image: item.thumbnail)
-            .frame(width: 72, height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay(alignment: .bottomTrailing) {
-                if done {
-                    Image(systemName: "crop")
-                        .font(.system(size: 7, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 14, height: 14)
-                        .background(Circle().fill(Bento.ink))
-                        .padding(3)
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
-            // 当前这张：内圈白、外圈品牌红（设计稿 03）。
-            .padding(4)
-            .overlay {
-                if current {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.brand, lineWidth: 2)
-                    RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Bento.card, lineWidth: 2).padding(2)
-                }
-            }
-            .contentShape(Rectangle())
     }
 }

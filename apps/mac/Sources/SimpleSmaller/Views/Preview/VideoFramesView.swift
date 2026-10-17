@@ -10,7 +10,13 @@ struct VideoFramesView: View {
                 FrameRangeBar(ws: ws, item: item)
                 FramePreviewGrid(ws: ws, item: item)
                 if ws.videoItems.count > 1 {
-                    VideoStrip(ws: ws)
+FilmStrip(items: ws.videoItems, index: ws.videoItems.firstIndex { $0.id == ws.currentVideo?.id } ?? 0, select: { ws.videoIndex = $0 }) { item in
+                        Text(verbatim: Format.duration(ws.trimRange(item).upperBound - ws.trimRange(item).lowerBound))
+                            .font(.system(size: 9).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .background(Color.black.opacity(0.55), in: Capsule())
+                    }
                 }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)

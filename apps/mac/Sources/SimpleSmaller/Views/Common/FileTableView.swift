@@ -5,7 +5,6 @@ import SwiftUI
 struct FileTableView: View {
     @Environment(AppModel.self) private var model
     @Bindable var ws: Workspace
-    @State private var quickLook: URL?
     @State private var unlocking: FileItem?
 
     var body: some View {
@@ -60,34 +59,21 @@ struct FileTableView: View {
             ForEach(ws.files) { item in
                 // 处理完的行可以直接拖出：压好的文件拖进微信、浏览器、邮件。
                 TableRow(item)
-                    .itemProvider {
-                        // 传文件地址（不是文件内容），拖到访达、微信里保留原文件名。
-                        guard let out = item.outputs.first else { return nil }
-                        let url = URL(fileURLWithPath: out.path)
-                        let provider = NSItemProvider(object: url as NSURL)
-                        provider.suggestedName = url.lastPathComponent
-                        return provider
-                    }
+                    .itemProvider { item.dragProvider() }
             }
         }
         .contextMenu(forSelectionType: FileItem.ID.self) { ids in
             let items = ws.files.filter { ids.contains($0.id) }
-            Button("在访达中显示") { model.reveal(items.flatMap(outputsOrSource)) }
+            Button("在访达中显示") { model.reveal(items.flatMap(\.revealURLs)) }
             if let locked = items.first(where: { $0.metaError == "有打开密码" }) {
                 Button("输入密码…") { unlocking = locked }
             }
             Button("从列表移除") { model.remove(ids, from: ws) }.disabled(ws.running)
         } primaryAction: { ids in
-            model.reveal(ws.files.filter { ids.contains($0.id) }.flatMap(outputsOrSource))
+            model.reveal(ws.files.filter { ids.contains($0.id) }.flatMap(\.revealURLs))
         }
-        .onDeleteCommand { if !ws.running { model.remove(ws.selection, from: ws) } }
-        // 空格 / ⌘Y 快速查看：处理完看输出，没处理看原文件（和访达一致）。
-        .quickLookPreview($quickLook)
-        .onReceive(NotificationCenter.default.publisher(for: .quickLookSelection)) { _ in
-            guard let item = ws.selectedItems.first else { return }
-            quickLook = item.outputs.first.map { URL(fileURLWithPath: $0.path) } ?? item.url
-        }
-        .background(SpaceKeyWatcher())
+        .onDeleteCommand { model.remove(ws.selection, from: ws) }
+        .quickLookSelection(ws)
         .sheet(item: $unlocking) { item in PasswordSheet(item: item) }
         // 与访达列表、设计稿一致：不画行线，用交替底色区分行。
         .tableStyle(.inset)
@@ -106,10 +92,6 @@ struct FileTableView: View {
         case "有打开密码": "右键 →「输入密码…」，密码只在这次处理里用，不保存"
         case let e?: e
         }
-    }
-
-    private func outputsOrSource(_ item: FileItem) -> [URL] {
-        item.outputs.isEmpty ? [item.url] : item.outputs.map { URL(fileURLWithPath: $0.path) }
     }
 
     private func detail(_ item: FileItem) -> String {

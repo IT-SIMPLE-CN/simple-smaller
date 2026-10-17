@@ -59,8 +59,7 @@ struct VideoPictureCard: View {
             }
             .animation(.smooth(duration: 0.25), value: v.rate)
         }
-        .disabled(ws.running)
-        .opacity(ws.running ? 0.45 : 1)
+        .bentoLocked(ws.running)
         .sheet(item: $saving) { r in
             RecipeEditorView(initial: r) { saved in ws.select(recipe: saved) }
         }
@@ -90,8 +89,7 @@ struct VideoFormatCard: View {
                 }
             }
         }
-        .disabled(ws.running || ws.draft.video.muteOnly)
-        .opacity(ws.running || ws.draft.video.muteOnly ? 0.45 : 1)
+        .bentoLocked(ws.running || ws.draft.video.muteOnly)
     }
 }
 
@@ -157,14 +155,13 @@ struct FramesCard: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Bento.fill))
+                .bentoPanel()
                 if total > 200 {
                     Text("张数较多，网页动画建议 60–120 张").font(.system(size: 11)).foregroundStyle(Color.warning)
                 }
             }
         }
-        .disabled(ws.running)
-        .opacity(ws.running ? 0.45 : 1)
+        .bentoLocked(ws.running)
         .sheet(item: $saving) { r in
             RecipeEditorView(initial: r) { saved in ws.select(recipe: saved) }
         }
@@ -258,8 +255,7 @@ struct FrameEachCard: View {
                 Spacer(minLength: 0)
             }
         }
-        .disabled(ws.running)
-        .opacity(ws.running ? 0.45 : 1)
+        .bentoLocked(ws.running)
     }
 }
 

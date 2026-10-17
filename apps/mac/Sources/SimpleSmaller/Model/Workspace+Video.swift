@@ -18,10 +18,7 @@ extension Workspace {
     /// 按比例居中取最大的框；宽高取偶数（编码要求）。没设比例时为 nil（整幅）。
     func defaultVideoCrop(_ item: FileItem) -> CGRect? {
         guard let a = videoAspect, item.width > 0, item.height > 0 else { return nil }
-        let (w, h) = (Double(item.width), Double(item.height))
-        let (cw, ch) = w / h > a ? (h * a, h) : (w, w / a)
-        let even = { (v: Double) in (v / 2).rounded(.down) * 2 }
-        return CGRect(x: even((w - cw) / 2), y: even((h - ch) / 2), width: even(cw), height: even(ch))
+        return .centeredMax(width: Double(item.width), height: Double(item.height), aspect: a, round: CGRect.even)
     }
 
     /// 这一段实际用的框：拖过的 > 默认。

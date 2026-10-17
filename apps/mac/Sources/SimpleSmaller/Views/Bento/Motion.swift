@@ -106,3 +106,10 @@ struct FlowLayout: Layout {
         return rows
     }
 }
+
+extension View {
+    /// 处理中（或不适用时）锁住一张卡：不能点，变淡。
+    func bentoLocked(_ locked: Bool) -> some View {
+        disabled(locked).opacity(locked ? 0.45 : 1)
+    }
+}

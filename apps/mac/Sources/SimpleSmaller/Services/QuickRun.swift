@@ -76,10 +76,7 @@ final class QuickRun {
                 let meta = try? engine.videoMeta(path: path)
                 var crop: CGRect?
                 if let m = meta, let a = recipe.video.crop?.aspect {
-                    let (w, h) = (Double(m.width), Double(m.height))
-                    let (cw, ch) = w / h > a ? (h * a, h) : (w, w / a)
-                    let even = { (v: Double) in (v / 2).rounded(.down) * 2 }
-                    crop = CGRect(x: even((w - cw) / 2), y: even((h - ch) / 2), width: even(cw), height: even(ch))
+                    crop = .centeredMax(width: Double(m.width), height: Double(m.height), aspect: a, round: CGRect.even)
                 }
                 let long4K = meta.map { min($0.width, $0.height) >= 2000 && $0.duration > 180 } ?? false
                 let settings = recipe.videoSettings(trim: nil, crop: crop, coverAt: recipe.video.exportCover ? min(1, (meta?.duration ?? 2) / 2) : nil, long4K: long4K)
