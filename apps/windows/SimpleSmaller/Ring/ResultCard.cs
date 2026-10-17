@@ -7,30 +7,57 @@ using SimpleSmaller.Bento;
 
 namespace SimpleSmaller.Ring;
 
-/// 圆环执行后的结果卡（设计稿 07，出现在指针旁）：
-/// 「4 张 · 网站用」「71.4 MB → 1.6 MB −98%」，在资源管理器中显示 / 拷贝 / 撤销。指针离开 6 秒后收起。
+/// 圆环执行后的结果卡（设计稿 BentoTray「圆环执行后的结果卡」，出现在指针旁）：
+/// 400 宽白卡、内边距 16、块间距 14。上排 52 见方圆角 14 的缩略图、「4 张 · 网站用」（15 粗）与「71.4 MB → 1.6 MB」（12 灰），
+/// 右边浅红底「−98%」胶囊；中排墨黑「在资源管理器中显示」与灰底「拷贝」「撤销」（40 高，1.4 : 1 : 1）；
+/// 底下一句「指针离开 6 秒后收起……」。处理中、失败、已撤销是同一张卡换文字。
 internal sealed class ResultCard : Grid
 {
-    public const double CardWidth = 300;
+    public const double CardWidth = 400;
     private readonly QuickRun run;
     private readonly Action onClose;
-    private readonly StackPanel body = new() { Spacing = 10, Padding = new Thickness(14), Width = CardWidth };
+    private readonly StackPanel body = new() { Spacing = 14, Padding = new Thickness(16), Width = CardWidth };
+    private Border? thumb;
+    private ImageSource? thumbnail;
     private bool undone;
 
     public ResultCard(QuickRun run, Action onClose)
     {
         this.run = run;
         this.onClose = onClose;
-        Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         VerticalAlignment = VerticalAlignment.Top;
         Children.Add(body);
         run.PropertyChanged += OnRunChanged;
         Unloaded += (_, _) => run.PropertyChanged -= OnRunChanged;
         ActualThemeChanged += (_, _) => Build();
         Build();
+        LoadThumbnail();
     }
 
     private void OnRunChanged(object? sender, PropertyChangedEventArgs e) => DispatcherQueue.TryEnqueue(Build);
+
+    /// 缩略图用系统缩略图（视频、PDF 也有），在后台取。
+    private async void LoadThumbnail()
+    {
+        if (run.Paths.FirstOrDefault() is not { } path) return;
+        try
+        {
+            if (await AppModel.Shared.Platform.LoadThumbnailAsync(path, 104) is ImageSource image)
+            {
+                thumbnail = image;
+                PaintThumb();
+            }
+        }
+        catch { }
+    }
+
+    private void PaintThumb()
+    {
+        if (thumb is null) return;
+        thumb.Background = thumbnail is not null
+        ? new ImageBrush { ImageSource = thumbnail, Stretch = Stretch.UniformToFill }
+        : Palette.Get(this, "BentoFill");
+    }
 
     private string CountText
     {
@@ -49,129 +76,113 @@ internal sealed class ResultCard : Grid
 
     private void Build()
     {
+        Background = Palette.Get(this, "BentoCard");
         body.Children.Clear();
-        var header = new Grid { ColumnSpacing = 8 };
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        header.ColumnDefinitions.Add(new ColumnDefinition());
-        header.Children.Add(Icon());
-        var title = FormTheme.Text($"{CountText} · {run.Recipe.Name}", 13, semibold: true);
-        title.TextTrimming = TextTrimming.CharacterEllipsis;
-        title.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(title, 1);
-        header.Children.Add(title);
-        body.Children.Add(header);
-
+        // 每次重建都换一个新的缩略图方块（同一个元素挪到新父级时 WinUI 会在原生层崩溃）。
+        thumb = new Border { Width = 52, Height = 52, CornerRadius = new CornerRadius(14), VerticalAlignment = VerticalAlignment.Center };
+        AutomationProperties.SetAccessibilityView(thumb, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+        PaintThumb();
         var phase = run.Phase;
+
+        // 上排：缩略图 · 标题与说明 · 右侧（省下比例 / 处理中转圈）。
+        var head = new Grid { ColumnSpacing = 12 };
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        head.ColumnDefinitions.Add(new ColumnDefinition());
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        head.Children.Add(thumb);
+        var texts = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        var title = FormTheme.Text($"{CountText} · {run.Recipe.Name}", 15, semibold: true);
+        texts.Children.Add(title);
+        string sub = phase.Kind switch
+        {
+            QuickRunPhaseKind.Running => phase.Total > 1 ? $"处理中 {phase.Done} / {phase.Total}…" : "处理中…",
+            QuickRunPhaseKind.Failed => phase.Message ?? "没有处理成功",
+            _ => undone ? "已撤销，新文件移到了回收站。" : $"{Format.Size(run.Before)} → {Format.Size(run.After)}",
+        };
+        var subText = FormTheme.Text(sub, 12, phase.Kind == QuickRunPhaseKind.Failed ? "BentoAlertText" : "BentoSecondary");
+        subText.TextWrapping = phase.Kind == QuickRunPhaseKind.Failed ? TextWrapping.Wrap : TextWrapping.NoWrap;
+        texts.Children.Add(subText);
+        Grid.SetColumn(texts, 1);
+        head.Children.Add(texts);
+        if (phase.Kind == QuickRunPhaseKind.Running)
+        {
+            var ring = new ProgressRing { Width = 20, Height = 20, IsActive = true, Foreground = Palette.Brand, VerticalAlignment = VerticalAlignment.Center };
+            AutomationProperties.SetName(ring, "处理中");
+            Grid.SetColumn(ring, 2);
+            head.Children.Add(ring);
+        }
+        else if (phase.Kind == QuickRunPhaseKind.Finished && !undone && run.After > 0 && run.After < run.Before)
+        {
+            var pct = new TextBlock { Text = Format.Change(run.Before, run.After), FontSize = 16, VerticalAlignment = VerticalAlignment.Center };
+            var badge = new Border { Height = 32, Padding = new Thickness(12, 0, 12, 0), CornerRadius = new CornerRadius(16), Child = pct, VerticalAlignment = VerticalAlignment.Center };
+            badge.Background = Palette.Get(this, "BentoAlertFill");
+            pct.Foreground = Palette.Get(this, "BentoAlertText");
+            Grid.SetColumn(badge, 2);
+            head.Children.Add(badge);
+        }
+        body.Children.Add(head);
+
         switch (phase.Kind)
         {
             case QuickRunPhaseKind.Running:
-                body.Children.Add(FormTheme.Text(phase.Total > 1 ? $"处理中 {phase.Done} / {phase.Total}…" : "处理中…", 12, "BentoSecondary"));
                 if (run.Type == MediaType.Video)
-                {
-                    var note = FormTheme.Text("可以先收起，处理完会发通知。", 11, "BentoSecondary");
-                    note.Opacity = 0.7;
-                    body.Children.Add(note);
-                }
+                    body.Children.Add(Note("可以先收起，处理完会发通知。"));
                 break;
             case QuickRunPhaseKind.Failed:
             {
-                var message = FormTheme.Text(phase.Message ?? "", 12, "BentoSecondary");
-                message.TextWrapping = TextWrapping.Wrap;
-                body.Children.Add(message);
-                var ok = new CapsuleButton("好", 26, "BentoFill");
-                ok.HorizontalAlignment = HorizontalAlignment.Right;
+                var ok = new TextCapsule("好", 40, 13, 20) { HorizontalAlignment = HorizontalAlignment.Right };
                 ok.Click += (_, _) => onClose();
                 body.Children.Add(ok);
                 break;
             }
             default:
-                if (undone)
-                {
-                    body.Children.Add(FormTheme.Text("已撤销，新文件移到了回收站。", 12, "BentoSecondary"));
-                    break;
-                }
-                var sizes = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                sizes.Children.Add(FormTheme.Text($"{Format.Size(run.Before)} → {Format.Size(run.After)}", 12, "BentoSecondary"));
-                if (run.After > 0 && run.After < run.Before)
-                {
-                    sizes.Children.Add(Colored(Format.Change(run.Before, run.After), 12, Palette.Saving, true));
-                }
-                body.Children.Add(sizes);
+                if (undone) break;
                 if (run.Kept > 0)
                 {
-                    body.Children.Add(Colored($"{run.Kept} 个压完没变小，保留原文件", 11, Palette.Warning, false));
+                    var kept = new TextBlock { Text = $"{run.Kept} 个压完没变小，保留原文件", FontSize = 11, Foreground = Palette.Warning, Margin = new Thickness(0, -6, 0, 0) };
+                    body.Children.Add(kept);
                 }
                 var actions = new Grid { ColumnSpacing = 6 };
-                actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                actions.ColumnDefinitions.Add(new ColumnDefinition());
-                actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.4, GridUnitType.Star) });
+                actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 var enabled = run.Outputs.Count > 0;
-                var reveal = Button("在资源管理器中显示", enabled, () => { run.Reveal(); onClose(); });
-                var copy = Button("拷贝", enabled, async () => { await run.CopyAsync(); onClose(); });
-                var undo = Button("撤销", enabled, () =>
+                var reveal = Action("在资源管理器中显示", "BentoInk", "BentoOnInk", true, enabled, () => { run.Reveal(); onClose(); });
+                var copy = Action("拷贝", "BentoFill", "BentoPrimary", false, enabled, async () => { await run.CopyAsync(); onClose(); });
+                var undo = Action("撤销", "BentoFill", "BentoPrimary", false, enabled, () =>
                 {
                     try { run.Undo(); } catch (Exception e) { Log.Error($"撤销：{e.Message}"); }
                     undone = true;
                     Build();
                 });
                 Grid.SetColumn(copy, 1);
-                Grid.SetColumn(undo, 3);
+                Grid.SetColumn(undo, 2);
                 actions.Children.Add(reveal);
                 actions.Children.Add(copy);
                 actions.Children.Add(undo);
                 body.Children.Add(actions);
+                body.Children.Add(Note("指针离开 6 秒后收起。撤销会把新文件移到回收站，原图从不改动。"));
                 break;
         }
     }
 
-    /// 固定颜色的字（省下 / 警告色不随深浅色变；FormTheme.Text 加载时会改回主题色）。
-    private static TextBlock Colored(string text, double size, Brush brush, bool semibold) => new()
+    private static TextBlock Note(string text)
     {
-        Text = text,
-        FontSize = size,
-        Foreground = brush,
-        FontWeight = semibold ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
-    };
-
-    private static CapsuleButton Button(string title, bool enabled, Action action)
-    {
-        var b = new CapsuleButton(title, 26, "BentoFill") { IsEnabled = enabled };
-        if (b.Content is Border back)
-        {
-            back.Padding = new Thickness(11, 0, 11, 0);
-            if (back.Child is TextBlock t) t.FontSize = 12;
-        }
-        b.Click += (_, _) => action();
-        return b;
+        var t = FormTheme.Text(text, 11, "BentoSecondary");
+        t.TextWrapping = TextWrapping.Wrap;
+        t.TextTrimming = TextTrimming.None;
+        t.LineHeight = 17;
+        return t;
     }
 
-    private FrameworkElement Icon()
+    private static TextCapsule Action(string title, string fill, string text, bool semibold, bool enabled, Action action)
     {
-        var phase = run.Phase.Kind;
-        if (phase == QuickRunPhaseKind.Running)
+        var b = new TextCapsule(title, 40, 13, 10, fill, text, semibold: semibold)
         {
-            var ring = new ProgressRing { Width = 16, Height = 16, IsActive = true, Foreground = Palette.Brand };
-            AutomationProperties.SetName(ring, "处理中");
-            return ring;
-        }
-        var icon = new FontIcon { FontSize = 16, VerticalAlignment = VerticalAlignment.Center };
-        if (phase == QuickRunPhaseKind.Failed)
-        {
-            icon.Glyph = "";
-            icon.Foreground = Palette.Warning;
-        }
-        else if (undone)
-        {
-            icon.Glyph = "";
-            icon.Foreground = Palette.Get(this, "BentoSecondary");
-        }
-        else
-        {
-            icon.Glyph = "";
-            icon.Foreground = Palette.Saving;
-        }
-        AutomationProperties.SetAccessibilityView(icon, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
-        return icon;
+            IsEnabled = enabled,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        b.Click += (_, _) => action();
+        return b;
     }
 }

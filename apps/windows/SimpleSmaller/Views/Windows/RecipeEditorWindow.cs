@@ -9,32 +9,36 @@ using Windows.System;
 
 namespace SimpleSmaller.Views.Sub;
 
-/// 新建 / 编辑配方（设计稿 V2 · 09）：灰底分组；配方会出现在顶部配方条、资源管理器圆环和右键菜单里。
+/// 新建 / 编辑配方（设计稿 BentoRecipe）：760 宽白底，红色圆形图标 + 大标题，三个圆角 20 的灰底分组
+/// （左列 96 宽的小标签），底部从文件导入 / 取消 / 存储。配方会出现在顶部配方条、资源管理器圆环和右键菜单里。
 internal sealed class RecipeEditorWindow : SubWindow
 {
     private readonly Recipe initial;
     private readonly Action<Recipe> onSave;
     private Recipe r;
     private readonly StackPanel groups = new() { Spacing = 12, Padding = new Thickness(28, 8, 28, 8) };
-    private readonly TextBox nameBox = new() { PlaceholderText = "比如：官网三档 srcset", FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Height = 38 };
-    private readonly TextBox templateBox = new() { FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas"), Height = 34 };
-    private readonly TextBlock example = new() { FontFamily = new FontFamily("Cascadia Mono, Consolas"), FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+    private readonly PlainField nameBox = new("名称") { FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+    private readonly PlainField templateBox = new("文件名规则") { FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas"), VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock namePlaceholder = new() { Text = "比如：官网三档 srcset", FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false };
+    private FrameworkElement? nameField, templateField;
+    private readonly TextBlock example = new() { FontFamily = new FontFamily("Cascadia Mono, Consolas"), FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock note = new() { FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
     private readonly BrandButton save = new("存储", 44);
     private bool importFailed;
 
     private bool IsNew => initial.Id.Length == 0 || initial.BuiltIn;
 
-    public RecipeEditorWindow(Recipe initial, Action<Recipe> onSave) : base(initial.Id.Length == 0 || initial.BuiltIn ? "新建配方" : "编辑配方", 720, 680, "BentoCard", showTitle: false)
+    public RecipeEditorWindow(Recipe initial, Action<Recipe> onSave) : base(initial.Id.Length == 0 || initial.BuiltIn ? "新建配方" : "编辑配方", 760, 720, "BentoCard", showTitle: false)
     {
         this.initial = initial;
         this.onSave = onSave;
         r = initial;
+        OverlayTitle();
         nameBox.Text = r.Name;
-        AutomationProperties.SetName(nameBox, "名称");
-        nameBox.TextChanged += (_, _) => { r = r with { Name = nameBox.Text }; UpdateSave(); };
+        nameBox.TextChanged += (_, _) => { r = r with { Name = nameBox.Text }; UpdateSave(); namePlaceholder.Visibility = nameBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed; };
+        namePlaceholder.Visibility = r.Name.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        FormTheme.On(namePlaceholder, () => namePlaceholder.Foreground = Palette.Get(namePlaceholder, "BentoSecondary"));
         templateBox.Text = r.Naming.Template;
-        AutomationProperties.SetName(templateBox, "文件名规则");
         templateBox.TextChanged += (_, _) => { r = r with { Naming = r.Naming with { Template = templateBox.Text } }; UpdateExample(); };
 
         var page = new Grid();
@@ -60,9 +64,9 @@ internal sealed class RecipeEditorWindow : SubWindow
 
     private UIElement Head()
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14, Padding = new Thickness(28, 0, 28, 12) };
-        var circle = new Border { Width = 44, Height = 44, CornerRadius = new CornerRadius(22), Background = Palette.Brand };
-        circle.Child = new FontIcon { Glyph = "", FontSize = 18, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White) };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14, Padding = new Thickness(28, 24, 28, 10) };
+        var circle = new Border { Width = 44, Height = 44, CornerRadius = new CornerRadius(22), Background = Palette.Brand, VerticalAlignment = VerticalAlignment.Top };
+        circle.Child = new LineIcon(SubIcons.Sliders, 20, 2, "OnBrand");
         AutomationProperties.SetAccessibilityView(circle, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         var texts = new StackPanel { Spacing = 4 };
         var t = FormTheme.Text(IsNew ? "新建配方" : "编辑配方", 22);
@@ -82,11 +86,11 @@ internal sealed class RecipeEditorWindow : SubWindow
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var import = new CapsuleButton("从文件导入…", 40);
+        var import = new TextCapsule("从文件导入…", 40, 13, 16);
         import.Click += async (_, _) => await ImportAsync();
         note.Text = "可导出为 .smaller 发给同事";
         FormTheme.On(note, PaintNote);
-        var cancel = new CapsuleButton("取消", 44);
+        var cancel = new TextCapsule("取消", 44, 13, 20);
         cancel.Click += (_, _) => Close();
         save.Click += (_, _) => Save();
         g.Children.Add(import);
@@ -118,13 +122,14 @@ internal sealed class RecipeEditorWindow : SubWindow
                 if (Find(groups, focusedName) is Control c) c.Focus(FocusState.Keyboard);
             });
         }
-        Detach(nameBox);
-        Detach(templateBox);
+        if (nameField is not null) Detach(nameField);
+        if (templateField is not null) Detach(templateField);
         Detach(example);
         groups.Children.Clear();
         var type = new Segments<MediaType>(Segments<MediaType>.Kind.Mini, MediaTypes.All.Select(t => (t, t.Title(), (string?)null)), r.Type, "用于") { IsHitTestVisible = IsNew, Opacity = IsNew ? 1 : 0.5 };
         type.Changed += t => { r = r with { Type = t }; Rebuild(); };
-        groups.Children.Add(Group(Line("名称", Field(nameBox)), Line("用于", type)));
+        nameField ??= Field(nameBox, 38, namePlaceholder);
+        groups.Children.Add(Group(Line("名称", nameField), Line("用于", type)));
         groups.Children.Add(r.Type switch
         {
             MediaType.Image => ImageSection(),
@@ -155,20 +160,20 @@ internal sealed class RecipeEditorWindow : SubWindow
         }
     }
 
-    /// 灰底分组（设计稿：圆角 20 的浅灰块，左列 84 宽的小标签）。
+    /// 灰底分组（设计稿：圆角 20 的浅灰块，内边距 10 / 16，左列 96 宽的小标签）。
     private static Border Group(params UIElement[] lines)
     {
         var s = new StackPanel { Spacing = 2 };
         foreach (var l in lines) s.Children.Add(l);
-        var b = new Border { CornerRadius = new CornerRadius(18), Padding = new Thickness(16, 10, 16, 10), Child = s };
+        var b = new Border { CornerRadius = new CornerRadius(20), Padding = new Thickness(16, 10, 16, 10), Child = s };
         FormTheme.On(b, () => b.Background = Palette.Get(b, "BentoFill"));
         return b;
     }
 
     private static Grid Line(string label, UIElement content)
     {
-        var g = new Grid { ColumnSpacing = 12, MinHeight = 42 };
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(84) });
+        var g = new Grid { ColumnSpacing = 12, MinHeight = 40 };
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var t = FormTheme.Text(label, 12, "BentoSecondary");
         t.VerticalAlignment = VerticalAlignment.Center;
@@ -176,18 +181,24 @@ internal sealed class RecipeEditorWindow : SubWindow
         if (content is FrameworkElement fe)
         {
             fe.VerticalAlignment = VerticalAlignment.Center;
-            fe.Margin = new Thickness(0, 4, 0, 4);
+            fe.Margin = new Thickness(0, 2, 0, 2);
             Grid.SetColumn(fe, 1);
             g.Children.Add(fe);
         }
         return g;
     }
 
-    private static FrameworkElement Field(TextBox box)
+    /// 白底圆角 12 的输入框（设计稿：无边框，左右 12）。
+    private static FrameworkElement Field(TextBox box, double height, UIElement? placeholder = null)
     {
         box.HorizontalAlignment = HorizontalAlignment.Stretch;
-        box.VerticalContentAlignment = VerticalAlignment.Center;
-        return box;
+        var inner = new Grid();
+        if (placeholder is not null) inner.Children.Add(placeholder);
+        inner.Children.Add(box);
+        var b = new Border { Height = height, CornerRadius = new CornerRadius(12), Padding = new Thickness(12, 0, 12, 0), Child = inner };
+        FormTheme.On(b, () => b.Background = Palette.Get(b, "BentoCard"));
+        b.Tapped += (_, _) => box.Focus(FocusState.Pointer);
+        return b;
     }
 
     private static WrapPanel Flow(params UIElement[] items)
@@ -209,21 +220,18 @@ internal sealed class RecipeEditorWindow : SubWindow
         var w = new WrapPanel { Spacing = 6 };
         foreach (var (v, title) in options)
         {
-            var c = new Chip(title, EqualityComparer<T>.Default.Equals(v, selected), 34, showCheck: false, fontSize: 13);
+            var c = new Chip(title, EqualityComparer<T>.Default.Equals(v, selected), 36, showCheck: false, fontSize: 13, bordered: false);
             c.Click += (_, _) => { set(v); Rebuild(); };
             w.Children.Add(c);
         }
         return w;
     }
 
-    private ComboBox Pick<T>(string label, T selected, IEnumerable<(T Value, string Title)> options, Action<T> set)
+    /// 白底细边胶囊「原比例 ›」，点开是单选菜单（设计稿的比例、存到）。
+    private MenuCapsule Pick<T>(string label, T selected, IEnumerable<(T Value, string Title)> options, Action<T> set)
     {
-        var box = new ComboBox { MinWidth = 160 };
-        AutomationProperties.SetName(box, label);
-        var list = options.ToList();
-        foreach (var (_, title) in list) box.Items.Add(title);
-        box.SelectedIndex = Math.Max(0, list.FindIndex(o => EqualityComparer<T>.Default.Equals(o.Value, selected)));
-        box.SelectionChanged += (_, _) => { if (box.SelectedIndex >= 0) { set(list[box.SelectedIndex].Value); Rebuild(); } };
+        var box = new MenuCapsule(label, "", 32, "BentoCard", bordered: true, arrowSuffix: true) { HorizontalAlignment = HorizontalAlignment.Left };
+        box.Options(options, selected, v => { set(v); Rebuild(); });
         return box;
     }
 
@@ -249,10 +257,8 @@ internal sealed class RecipeEditorWindow : SubWindow
         {
             var row = new Grid { ColumnSpacing = 12, HorizontalAlignment = HorizontalAlignment.Stretch };
             row.ColumnDefinitions.Add(new ColumnDefinition());
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
-            var slider = new Slider { Minimum = 30, Maximum = 100, Value = img.Quality, StepFrequency = 1, VerticalAlignment = VerticalAlignment.Center };
-            foreach (var key in new[] { "SliderTrackValueFill", "SliderTrackValueFillPointerOver", "SliderTrackValueFillPressed", "SliderThumbBackground", "SliderThumbBackgroundPointerOver", "SliderThumbBackgroundPressed" })
-                slider.Resources[key] = Palette.Brand;
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
+            var slider = new BrandSlider(30, 100) { Value = img.Quality, VerticalAlignment = VerticalAlignment.Center };
             AutomationProperties.SetName(slider, "质量");
             var value = new TextBlock { Text = $"{img.Quality}", FontSize = 18, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
             FormTheme.On(value, () => value.Foreground = Palette.Get(value, "BentoPrimary"));
@@ -284,23 +290,46 @@ internal sealed class RecipeEditorWindow : SubWindow
                 r = r with { Image = r.Image with { Size = list.Count > 0 ? list[0] : null, ExtraSizes = list.Skip(1).ToList() } };
             }));
         }
-        var axis = new DropDownButton { Content = $"按{img.SizeAxis.Title()}", Height = 32, FontSize = 12 };
-        var axisMenu = new MenuFlyout();
-        foreach (var a in Enum.GetValues<SizeAxis>())
-        {
-            var item = new RadioMenuFlyoutItem { Text = $"按{a.Title()}", IsChecked = a == img.SizeAxis, GroupName = "axis" };
-            item.Click += (_, _) => { r = r with { Image = r.Image with { SizeAxis = a } }; Rebuild(); };
-            axisMenu.Items.Add(item);
-        }
-        axis.Flyout = axisMenu;
-        AutomationProperties.SetName(axis, "尺寸按");
-        chips.Add(axis);
+        chips.Add(CustomSize(img, chosen));
         lines.Add(Line($"尺寸 · 按{img.SizeAxis.Title()}", Flow(chips.ToArray())));
         var presets = CropPreset.ImagePresets.Where(p => p.Aspect != null).ToList();
         lines.Add(Line("比例", Pick("比例", img.Crop?.Id ?? "",
             new[] { ("", "原比例") }.Concat(presets.Select(p => (p.Id, $"{p.Name} {p.RatioLabel}"))),
             id => r = r with { Image = r.Image with { Crop = CropPreset.ImagePresets.FirstOrDefault(p => p.Id == id) } })));
         return Group(lines.ToArray());
+    }
+
+    /// 「自定…」（设计稿尺寸行的最后一个胶囊）：填一个不在常用档里的尺寸，并选按宽 / 高 / 长边。
+    private Chip CustomSize(ImageBody img, List<int> chosen)
+    {
+        int[] common = [3840, 2560, 1920, 1280, 640];
+        var custom = chosen.FirstOrDefault(w => !common.Contains(w));
+        var chip = new Chip(custom > 0 ? $"{custom}" : "自定…", custom > 0);
+        var panel = new StackPanel { Spacing = 10, Width = 220 };
+        var axis = new Segments<SizeAxis>(Segments<SizeAxis>.Kind.Mini, Enum.GetValues<SizeAxis>().Select(a => (a, $"按{a.Title()}", (string?)null)), img.SizeAxis, "尺寸按");
+        axis.Changed += a => { r = r with { Image = r.Image with { SizeAxis = a } }; Rebuild(); };
+        var field = new NumberField("自定尺寸（像素）") { Value = custom > 0 ? custom : 1080, FontSize = 13 };
+        var fieldBack = new Border { Height = 32, CornerRadius = new CornerRadius(10), Padding = new Thickness(10, 0, 10, 0), BorderThickness = new Thickness(1), Child = field };
+        FormTheme.On(fieldBack, () => { fieldBack.Background = Palette.Get(fieldBack, "BentoCard"); fieldBack.BorderBrush = Palette.Get(fieldBack, "BentoLine"); });
+        var add = new BrandButton("加上这一档", 32, 12, 14) { HorizontalAlignment = HorizontalAlignment.Right };
+        panel.Children.Add(axis);
+        panel.Children.Add(fieldBack);
+        panel.Children.Add(add);
+        var flyout = new Flyout { Content = panel, Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Bottom };
+        field.Commit = v => Math.Clamp(v, 16, 16384);
+        add.Click += (_, _) =>
+        {
+            var w = Math.Clamp(int.TryParse(field.Text.Trim(), out var v) ? v : field.Value, 16, 16384);
+            var set = chosen.Where(x => common.Contains(x)).ToHashSet();
+            set.Add(w);
+            var list = set.OrderDescending().ToList();
+            r = r with { Image = r.Image with { Size = list[0], ExtraSizes = list.Skip(1).ToList() } };
+            flyout.Hide();
+            Rebuild();
+        };
+        chip.Click += (_, _) => flyout.ShowAt(chip);
+        AutomationProperties.SetName(chip, custom > 0 ? $"自定尺寸 {custom}" : "自定尺寸");
+        return chip;
     }
 
     private UIElement VideoSection()
@@ -359,7 +388,6 @@ internal sealed class RecipeEditorWindow : SubWindow
         {
             lines.Add(Line("大小上限", FormTheme.Text("10 MB", 13, "BentoSecondary")));
         }
-        lines.Add(Line("", Toggle("去掉作者与修改记录", r.StripMetadata, on => r = r with { StripMetadata = on })));
         return Group(lines.ToArray());
     }
 
@@ -367,10 +395,15 @@ internal sealed class RecipeEditorWindow : SubWindow
 
     private UIElement NamingSection()
     {
-        var tokens = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+        // 规则输入框 + 一排变量胶囊，同一排末尾是示例（设计稿）。
+        var tokens = new WrapPanel { Spacing = 4 };
         foreach (var token in new[] { "{name}", "{w}", "{h}", "{ratio}", "{date}", "{n}" })
         {
-            var b = new Button { Content = token, FontSize = 11, FontFamily = new FontFamily("Cascadia Mono, Consolas"), Padding = new Thickness(8, 3, 8, 4), MinHeight = 0 };
+            var t = new TextBlock { Text = token, FontSize = 11, FontFamily = new FontFamily("Cascadia Mono, Consolas"), VerticalAlignment = VerticalAlignment.Center };
+            var back = new Border { Height = 24, Padding = new Thickness(8, 0, 8, 0), CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Child = t };
+            var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = back };
+            Motion.SetPress(b, true);
+            FormTheme.On(b, () => { back.Background = Palette.Get(b, "BentoCard"); back.BorderBrush = Palette.Get(b, "BentoLine"); t.Foreground = Palette.Get(b, "BentoPrimary"); });
             ToolTipService.SetToolTip(b, TokenHelp(token));
             AutomationProperties.SetName(b, $"插入 {token}，{TokenHelp(token)}");
             b.Click += (_, _) =>
@@ -380,19 +413,36 @@ internal sealed class RecipeEditorWindow : SubWindow
             };
             tokens.Children.Add(b);
         }
+        var exampleRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Height = 24 };
+        var exampleLabel = FormTheme.Text("示例：", 11, "BentoSecondary");
+        exampleLabel.VerticalAlignment = VerticalAlignment.Center;
+        exampleRow.Children.Add(exampleLabel);
+        exampleRow.Children.Add(example);
+        tokens.Children.Add(exampleRow);
         FormTheme.On(example, () => example.Foreground = Palette.Get(example, "BentoSecondary"));
+        templateField ??= Field(templateBox, 34);
+        var naming = new StackPanel { Spacing = 6, Padding = new Thickness(0, 4, 0, 4) };
+        naming.Children.Add(templateField);
+        naming.Children.Add(tokens);
         var lines = new List<UIElement>
         {
-            Line("文件名", Field(templateBox)),
-            Line("", tokens),
-            Line("示例", example),
+            Line("文件名", naming),
             Line("", Flow(
                 Toggle("小写", r.Naming.Lowercase, on => r = r with { Naming = r.Naming with { Lowercase = on } }),
                 Toggle("中文转拼音", r.Naming.Pinyin, on => r = r with { Naming = r.Naming with { Pinyin = on } }),
                 Toggle("空格换连字符", r.Naming.Hyphenate, on => r = r with { Naming = r.Naming with { Hyphenate = on } }))),
         };
-        if (r.Type != MediaType.Pdf)
-            lines.Add(Line("", Toggle("去掉位置与设备信息", r.StripMetadata, on => r = r with { StripMetadata = on })));
+        // 设计稿最后一行是「存到 ……  去掉位置与设备信息 ◯」。Windows 版配方不带存放位置（存到在设置里统一设），只留右边的开关。
+        var stripLabel = r.Type == MediaType.Pdf ? "去掉作者与修改记录" : "去掉位置与设备信息";
+        var strip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right };
+        var stripText = FormTheme.Text(stripLabel, 12);
+        stripText.VerticalAlignment = VerticalAlignment.Center;
+        AutomationProperties.SetAccessibilityView(stripText, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+        var sw = new BentoSwitch(stripLabel, r.StripMetadata, 40, 24, 18);
+        sw.Changed += on => r = r with { StripMetadata = on };
+        strip.Children.Add(stripText);
+        strip.Children.Add(sw);
+        lines.Add(Line("", strip));
         return Group(lines.ToArray());
     }
 

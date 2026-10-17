@@ -32,7 +32,10 @@ internal sealed class RingView : Grid
     private readonly Canvas outerLayer = new() { Width = Size, Height = Size };
     private readonly List<(Path shape, TextBlock text, Canvas group)> inner = [];
     private readonly List<(Path shape, StackPanel text, Canvas group)> outer = [];
-    private Ellipse? holeRing, holeShadow;
+    private Ellipse? holeRing;
+    /// 投影的轮廓：内圈与当前外圈的合集，画在最底下（被真正的扇区盖住），只用来给投影取形状。
+    private readonly Path silhouette = new() { Width = Size, Height = Size, IsHitTestVisible = false };
+    private readonly Canvas shadowHost = new() { Width = Size, Height = Size, IsHitTestVisible = false };
     private Canvas? holeGroup;
     private FrameworkElement? badgeView;
     private int selected;
@@ -76,15 +79,18 @@ internal sealed class RingView : Grid
 
     private void Build()
     {
-        // 镂空圈：中心是空的，露出被点的文件。
+        // 投影（设计稿 drop-shadow(0 10px 24px rgba(0,0,0,.28))）：画在最底下。
+        ShapeShadow.Attach(silhouette, shadowHost, Color.FromArgb(0x47, 0, 0, 0), 24, 10);
+        canvas.Children.Add(shadowHost);
+        canvas.Children.Add(silhouette);
+        AutomationProperties.SetAccessibilityView(silhouette, AccessibilityView.Raw);
+        AutomationProperties.SetAccessibilityView(shadowHost, AccessibilityView.Raw);
+
+        // 镂空圈：中心是空的，露出被点的文件；设计稿是半径 63、2px 的品牌红圈。
         holeGroup = Group();
-        holeShadow = new Ellipse { Width = Hole * 2 + 2, Height = Hole * 2 + 2, StrokeThickness = 3, Stroke = new SolidColorBrush(Color.FromArgb(0x30, 0, 0, 0)) };
-        Canvas.SetLeft(holeShadow, C - Hole - 1);
-        Canvas.SetTop(holeShadow, C - Hole - 1);
-        holeRing = new Ellipse { Width = Hole * 2, Height = Hole * 2, StrokeThickness = 1.5 };
-        Canvas.SetLeft(holeRing, C - Hole);
-        Canvas.SetTop(holeRing, C - Hole);
-        holeGroup.Children.Add(holeShadow);
+        holeRing = new Ellipse { Width = 63 * 2 + 2, Height = 63 * 2 + 2, StrokeThickness = 2, Stroke = Palette.Brand };
+        Canvas.SetLeft(holeRing, C - 63 - 1);
+        Canvas.SetTop(holeRing, C - 63 - 1);
         holeGroup.Children.Add(holeRing);
         AutomationProperties.SetAccessibilityView(holeGroup, AccessibilityView.Raw);
         canvas.Children.Add(holeGroup);
@@ -93,7 +99,7 @@ internal sealed class RingView : Grid
         {
             var mid = i * InnerSpan;
             var group = Group();
-            var shape = new Path { Data = Annulus(Hole, InnerOuter, mid - InnerSpan / 2, mid + InnerSpan / 2), StrokeThickness = 0.5 };
+            var shape = new Path { Data = Annulus(Hole, InnerOuter, mid - InnerSpan / 2, mid + InnerSpan / 2), StrokeThickness = 1 };
             var label = new TextBlock { Text = slots[i].Label, FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextAlignment = TextAlignment.Center };
             AutomationProperties.SetAccessibilityView(label, AccessibilityView.Raw);
             group.Children.Add(shape);
@@ -108,7 +114,7 @@ internal sealed class RingView : Grid
         if (badge.Length > 0)
         {
             var text = new TextBlock { Text = badge, FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            var pill = new Border { Background = Palette.Brand, Padding = new Thickness(8, 0, 8, 0), MinWidth = 44, Height = 18, Child = text, HorizontalAlignment = HorizontalAlignment.Center };
+            var pill = new Border { Background = Palette.Brand, Padding = new Thickness(8, 0, 8, 0), MinWidth = 60, Height = 18, Child = text, HorizontalAlignment = HorizontalAlignment.Center };
             Capsule.Apply(pill);
             var host = new Grid { Width = 140, Height = 18 };
             host.Children.Add(pill);
@@ -126,18 +132,18 @@ internal sealed class RingView : Grid
         outerLayer.Children.Clear();
         outer.Clear();
         var choices = CurrentChoices;
-        if (choices.Count == 0) return;
+        if (choices.Count == 0) { UpdateSilhouette(); return; }
         var n = choices.Count;
         var start = selected * InnerSpan - n * OuterSpan / 2;
         for (var j = 0; j < n; j++)
         {
             var a1 = start + j * OuterSpan;
             var group = Group();
-            var shape = new Path { Data = Annulus(OuterInner, OuterOuter, a1 + 0.6, a1 + OuterSpan - 0.6), StrokeThickness = 0.5 };
+            var shape = new Path { Data = Annulus(OuterInner, OuterOuter, a1 + 0.6, a1 + OuterSpan - 0.6), StrokeThickness = 1 };
             var isDefault = j == slots[selected].DefaultIndex;
             var stack = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
             stack.Children.Add(new TextBlock { Text = (isDefault ? "● " : "") + choices[j].Label, FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 });
-            stack.Children.Add(new TextBlock { Text = choices[j].Sub, FontSize = 10, Opacity = 0.7, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 });
+            stack.Children.Add(new TextBlock { Text = choices[j].Sub, FontSize = 10, Opacity = 0.8, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 });
             foreach (var t in stack.Children) AutomationProperties.SetAccessibilityView(t, AccessibilityView.Raw);
             group.Children.Add(shape);
             group.Children.Add(Place(stack, Point((OuterInner + OuterOuter) / 2, a1 + OuterSpan / 2), 90, 34));
@@ -145,7 +151,19 @@ internal sealed class RingView : Grid
             outerLayer.Children.Add(group);
             outer.Add((shape, stack, group));
         }
+        UpdateSilhouette();
         Paint();
+    }
+
+    /// 投影轮廓 = 内圈整圈 + 当前外圈各格。
+    private void UpdateSilhouette()
+    {
+        var group = new GeometryGroup { FillRule = FillRule.Nonzero };
+        group.Children.Add(Annulus(Hole, InnerOuter, 0, 359.99));
+        var n = CurrentChoices.Count;
+        var start = selected * InnerSpan - n * OuterSpan / 2;
+        for (var j = 0; j < n; j++) group.Children.Add(Annulus(OuterInner, OuterOuter, start + j * OuterSpan + 0.6, start + (j + 1) * OuterSpan - 0.6));
+        silhouette.Data = group;
     }
 
     /// 每个扇区一组，整组按圆心缩放。
@@ -168,11 +186,11 @@ internal sealed class RingView : Grid
     {
         var dark = ActualTheme == ElementTheme.Dark;
         var primary = Palette.Get(this, "BentoPrimary");
-        // 系统材质的替代：不透明的卡片色，扇区之间一条细线。
-        // 透明窗口经 DWM 合成时半透明会被再淡一层（95% 看着像 60%），压在文件图标上读不清，所以用不透明。
-        var material = Palette.Get(this, "BentoCard");
-        var line = new SolidColorBrush(dark ? Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x16, 0, 0, 0));
-        if (holeRing is not null) holeRing.Stroke = new SolidColorBrush(Color.FromArgb(dark ? (byte)0x59 : (byte)0xE6, 0xFF, 0xFF, 0xFF));
+        // 设计稿扇区底 rgba(250,250,252,.96)、描边 rgba(0,0,0,.08) 1px。
+        // 透明窗口经 DWM 合成时半透明会被再淡一层（95% 看着像 60%），压在文件图标上读不清，所以用不透明的同色。
+        var material = dark ? Palette.Get(this, "BentoCard") : new SolidColorBrush(Color.FromArgb(255, 0xFA, 0xFA, 0xFC));
+        var line = new SolidColorBrush(dark ? Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x14, 0, 0, 0));
+        silhouette.Fill = material;
         for (var i = 0; i < inner.Count; i++)
         {
             var on = i == selected;
@@ -202,6 +220,8 @@ internal sealed class RingView : Grid
             return;
         }
         if (holeGroup is not null) Animate(holeGroup, 0.6f, 0, 220);
+        Fade(shadowHost, 180, 240);
+        Fade(silhouette, 180, 240);
         for (var i = 0; i < inner.Count; i++) Animate(inner[i].group, 0.86f, 40 + i * 18, 260);
         if (badgeView is not null) Fade(badgeView, 60, 200);
         AnimateOuter(180);

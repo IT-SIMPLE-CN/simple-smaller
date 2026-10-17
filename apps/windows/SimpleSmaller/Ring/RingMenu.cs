@@ -103,6 +103,6 @@ internal static class RingMenu
     private static RingSlot Custom(RecipeStore store, MediaType type)
     {
         var mine = store.MineFor(type).Take(4).Select(r => new RingChoice(r.Name, "我的配方", r));
-        return new RingSlot("自定义", [.. mine, new RingChoice("打开窗口…", "细调后开始", null)], 0);
+        return new RingSlot("自定义", [.. mine, new RingChoice("打开面板…", "", null)], 0);
     }
 }

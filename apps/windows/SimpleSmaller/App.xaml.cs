@@ -125,6 +125,11 @@ public partial class App : Application
                 case "许可证": OpenLicenses(); break;
                 case "新建配方": OpenRecipeEditor(AppModel.Shared.Current.Draft with { Id = "", Name = "", BuiltIn = false }, s => AppModel.Shared.Current.Select(s)); break;
                 case "托盘": TrayView.Pinned = true; TrayView.Show(); break;
+#if DEBUG
+                // 只看样子：弹「发现新版本」询问，不真的更新。
+                case "结果卡": Ring.RingController.Preview(name[(name.IndexOf(':') + 1)..]); break;
+                case "更新": _ = UpdateDialog.AskAsync("0.9.6", "## 0.9.6\n- 设置、关于、配方编辑按设计稿对齐\n- 托盘小窗换成新样式\n- 修正资源管理器圆环的投影"); break;
+#endif
             }
         }));
     }

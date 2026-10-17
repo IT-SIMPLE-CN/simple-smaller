@@ -85,7 +85,8 @@ internal static class RingController
         // 窗口区域：只留圆环本身。镂空处（略小于画出来的镂空圈，留出「4 张」小标）与外圈以外都穿透。
         var cx = size / 2;
         var holeR = (int)Math.Round((RingView.Hole - 12) * scale);
-        var outerR = (int)Math.Ceiling((RingView.OuterOuter + 2) * scale);
+        // 外沿放到窗口边：外圈的投影（向下 10、模糊 24）也要画得出来。
+        var outerR = size / 2;
         var outerRgn = CreateEllipticRgn(cx - outerR, cx - outerR, cx + outerR + 1, cx + outerR + 1);
         var holeRgn = CreateEllipticRgn(cx - holeR, cx - holeR, cx + holeR + 1, cx + holeR + 1);
         CombineRgn(outerRgn, outerRgn, holeRgn, 4); // RGN_DIFF
@@ -146,6 +147,17 @@ internal static class RingController
     }
 
     private static bool ringOpen;
+
+#if DEBUG
+    /// 只看样子（--window 结果卡:<文件>）：不经过资源管理器，按第一个配方直接处理，在屏幕中间出结果卡。
+    internal static void Preview(string path)
+    {
+        if (MediaTypes.Of(path) is not { } type || AppModel.Shared.Store.All.FirstOrDefault(r => r.Type == type) is not { } r) return;
+        var area = DisplayArea.Primary.WorkArea;
+        try { Choose(new RingChoice(r.Name, r.Summary, r), [path], type, area.X + area.Width / 3, area.Y + area.Height / 3); }
+        catch (Exception e) { CrashLog.Write("结果卡预览", e); }
+    }
+#endif
 
     private static void Choose(RingChoice choice, IReadOnlyList<string> urls, MediaType type, int x, int y)
     {

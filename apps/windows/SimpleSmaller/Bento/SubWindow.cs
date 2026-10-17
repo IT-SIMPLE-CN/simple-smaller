@@ -4,6 +4,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 
@@ -19,6 +20,8 @@ public class SubWindow : Window
     private readonly Grid titleBar = new() { Height = 40 };
     private readonly TextBlock titleText = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) };
     private readonly string backgroundKey;
+    private FrameworkElement? titleCenter;
+    private bool titleIsPrimary;
 
     public SubWindow(string title, double width, double height, string backgroundKey = "BentoWindow", bool showTitle = true)
     {
@@ -64,6 +67,48 @@ public class SubWindow : Window
 
     public IntPtr Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
 
+    /// 设计稿的窗口标题行（设置：60 高，左边 15 号粗体标题，正中放分段）。中间的控件能点，不拖动窗口。
+    protected void UseHeader(double height, double titleSize, UIElement? center)
+    {
+        titleBar.Height = height;
+        titleText.FontSize = titleSize;
+        titleText.FontWeight = Microsoft.UI.Text.FontWeights.Bold;
+        titleText.Margin = new Thickness(18, 0, 0, 0);
+        titleIsPrimary = true;
+        if (center is FrameworkElement fe)
+        {
+            fe.HorizontalAlignment = HorizontalAlignment.Center;
+            fe.VerticalAlignment = VerticalAlignment.Center;
+            titleBar.Children.Add(fe);
+            titleCenter = fe;
+            fe.SizeChanged += (_, _) => UpdatePassthrough();
+            fe.LayoutUpdated += (_, _) => UpdatePassthrough();
+        }
+    }
+
+    /// 内容铺到标题栏下面（关于、配方编辑、更新询问：设计稿里没有标题行，内容从窗口顶上排）。
+    /// 标题栏仍在最上层负责拖动窗口，系统关闭按钮在右上。
+    protected void OverlayTitle()
+    {
+        Grid.SetRow(Body, 0);
+        Grid.SetRowSpan(Body, 2);
+        Root.Children.Remove(titleBar);
+        Root.Children.Add(titleBar);
+    }
+
+    private Windows.Graphics.RectInt32 lastPass;
+
+    private void UpdatePassthrough()
+    {
+        if (titleCenter is null || Root.XamlRoot is null || titleCenter.ActualWidth <= 0) return;
+        var scale = Root.XamlRoot.RasterizationScale;
+        var t = titleCenter.TransformToVisual(null).TransformPoint(new Windows.Foundation.Point(0, 0));
+        var rect = new RectInt32((int)(t.X * scale), (int)(t.Y * scale), (int)Math.Ceiling(titleCenter.ActualWidth * scale), (int)Math.Ceiling(titleCenter.ActualHeight * scale));
+        if (rect.Equals(lastPass)) return;
+        lastPass = rect;
+        InputNonClientPointerSource.GetForWindowId(AppWindow.Id).SetRegionRects(NonClientRegionKind.Passthrough, [rect]);
+    }
+
     /// 再次打开：恢复、提到最前。
     public void Bring()
     {
@@ -98,7 +143,7 @@ public class SubWindow : Window
     protected virtual void Paint()
     {
         Root.Background = Palette.Get(Root, backgroundKey);
-        titleText.Foreground = Palette.Get(Root, "BentoSecondary");
+        titleText.Foreground = Palette.Get(Root, titleIsPrimary ? "BentoPrimary" : "BentoSecondary");
         var dark = Root.ActualTheme == ElementTheme.Dark;
         AppWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
         AppWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
