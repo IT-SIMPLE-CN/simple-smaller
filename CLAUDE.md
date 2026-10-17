@@ -19,6 +19,25 @@
 | `apps/windows` | Windows 应用（mac 之后做）：WinUI 3，Mica / Acrylic |
 | `docs` | 引擎说明、配方规范、验证方法 |
 
+### mac 应用的目录（apps/mac/Sources/SimpleSmaller）
+
+| 目录 | 放什么 |
+| --- | --- |
+| `App/` | 入口、菜单命令、AppDelegate、自动更新 |
+| `Model/` | 配方、文件、工作区（按分段拆成 `Workspace+裁切 / 视频 / 开始`）、用词 |
+| `Services/` | `AppModel`（按职责拆成 `+Files`、`+Batch`、`+Activity`）、圆环与服务用的 `QuickRun`、通知、引擎回调桥 |
+| `Auto/` | 剪贴板自动压缩、监视文件夹、HUD |
+| `Ring/` | 访达圆环、结果卡、右键服务 |
+| `Native/` | 图片头、ImageIO 解码、PDF 缩略图、视频播放 |
+| `Views/Bento/` | 色板与卡片、控件（胶囊、滑块分段、按钮、滑杆）、动效；新界面一律用这里的组件和色板，不用系统灰 |
+| `Views/Main/` | 主窗口、首页、工作区网格、完成页、开始块、配方条、工具栏 |
+| `Views/Cards/` | 网格里的各张卡（文件、图片、裁切、视频、PDF、输出） |
+| `Views/Preview/` | 左大卡里的预览（裁切、剪辑、序列帧、PDF 页面、胶片条、前后对比） |
+| `Views/Common/` | 文件表、缩略图、文件交互（拖出、快速查看）、密码、窗口外观、品牌标 |
+| `Views/Windows/` | 设置、新建配方、菜单栏小窗、关于 |
+
+引擎 `core/src/api/` 按类型与设置、任务、引擎入口、视频、PDF 分文件；对外接口改动后要重新生成绑定（`scripts/build-core-mac.sh`）。
+
 ## 产品规则
 
 - 一个配方 = 一次输出。格式、尺寸、质量、裁切、命名、存放位置同属一个配方；批量文件共用同一套设置，只有裁切框按张记。
