@@ -64,8 +64,11 @@ fn main() {
         println!("cargo:rustc-link-lib=static={lib}");
     }
     println!("cargo:rustc-link-search=native={}", mupdf.join("lib").display());
-    for lib in ["mupdf", "mupdf-third"] {
-        println!("cargo:rustc-link-lib=static={lib}");
+    // Windows 的 VS 解决方案把字体资源、签名拆成单独的库，有就一起链。
+    for lib in ["mupdf", "mupdf-third", "mupdf-resources", "mupdf-pkcs7"] {
+        if mupdf.join("lib").join(lib_file(lib)).exists() {
+            println!("cargo:rustc-link-lib=static={lib}");
+        }
     }
     println!("cargo:rerun-if-env-changed=SMALLER_MUPDF_DIR");
     if windows {

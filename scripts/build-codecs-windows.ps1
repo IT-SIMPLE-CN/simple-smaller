@@ -1,4 +1,4 @@
-# 按固定版本从源码编译图片编码库（静态库），装到 .local\codecs\<arch>。Windows 版，对应 build-codecs-mac.sh。
+﻿# 按固定版本从源码编译图片编码库（静态库），装到 .local\codecs\<arch>。Windows 版，对应 build-codecs-mac.sh。
 # 用法：scripts\build-codecs-windows.ps1 [-Arch arm64|x64]，默认本机架构。
 # 版本与 build-codecs-mac.sh 保持一致；更新时两边一起改，并在 docs/codecs.md 记录原因。
 param([string]$Arch = $(if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'x64' }))
@@ -31,12 +31,15 @@ $Common = @(
 function Invoke-Native {
   param([string]$Log, [Parameter(ValueFromRemainingArguments)][string[]]$Cmd)
   $exe = $Cmd[0]; $rest = @($Cmd | Select-Object -Skip 1)
+  # PowerShell 5.1 会把原生命令写到 stderr 的警告当成错误，这里只看退出码。
+  $ErrorActionPreference = 'Continue'
   & $exe @rest *> $Log
   if ($LASTEXITCODE -ne 0) { Get-Content $Log -Tail 30; throw "$cmd 失败，日志：$Log" }
 }
 
 # 源码目录不在、或不是要的那个版本（改了版本号），就删掉重新拉，不悄悄沿用旧源码。
 function Get-Tag([string]$Name, [string]$Repo, [string]$Tag) {
+  $ErrorActionPreference = 'Continue'
   $dir = "$Src\$Name"
   if (Test-Path $dir) {
     $cur = git -C $dir describe --tags --exact-match 2>$null
@@ -64,8 +67,20 @@ Build-Lib libwebp @(
 # aom（AV1 编解码，供 libavif 用）。x64 的汇编优化要 nasm。
 Get-Tag aom https://aomedia.googlesource.com/aom $AOM_TAG
 $aomCpu = if ($Arch -eq 'x64') { 'x86_64' } else { 'arm64' }
-Build-Lib aom @("-DAOM_TARGET_CPU=$aomCpu",
-  '-DENABLE_DOCS=0', '-DENABLE_EXAMPLES=0', '-DENABLE_TESTDATA=0', '-DENABLE_TESTS=0', '-DENABLE_TOOLS=0')
+# aom 配置时要 Perl，Git for Windows 自带一个。
+$perl = (Get-Command perl -ErrorAction SilentlyContinue).Source
+if (-not $perl) { $perl = "$env:ProgramFiles\Git\usr\bin\perl.exe" }
+if (-not (Test-Path $perl)) { throw '找不到 Perl：装 Git for Windows 即可' }
+$aomExtra = @()
+if ($Arch -eq 'x64') {
+  $nasm = (Get-Command nasm -ErrorAction SilentlyContinue).Source
+  if (-not $nasm) { $nasm = "$env:ProgramFiles\NASM\nasm.exe" }
+  if (-not (Test-Path $nasm)) { throw '编 x64 的 aom 要 NASM：winget install NASM.NASM' }
+  $aomExtra += "-DCMAKE_ASM_NASM_COMPILER=$nasm"
+}
+$aomArgs = @("-DAOM_TARGET_CPU=$aomCpu", "-DPERL_EXECUTABLE=$perl",
+  '-DENABLE_DOCS=0', '-DENABLE_EXAMPLES=0', '-DENABLE_TESTDATA=0', '-DENABLE_TESTS=0', '-DENABLE_TOOLS=0') + $aomExtra
+Build-Lib aom $aomArgs
 
 # libavif
 Get-Tag libavif https://github.com/AOMediaCodec/libavif $LIBAVIF_TAG

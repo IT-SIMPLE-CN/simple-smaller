@@ -14,3 +14,9 @@ apps/mac/Sources/smaller_coreFFI/module.modulemap
 *.log
 apps/mac/.swiftpm/
 *.profraw
+
+# Windows：UniFFI 生成物与引擎 DLL，由 scripts/build-core-windows.ps1 重新生成
+apps/windows/SimpleSmaller/Core/smaller_core.cs
+apps/windows/SimpleSmaller/Native/
+apps/windows/**/bin/
+apps/windows/**/obj/
