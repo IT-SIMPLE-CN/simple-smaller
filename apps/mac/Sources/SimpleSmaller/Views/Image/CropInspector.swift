@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 检查器里的裁切设置（设计稿 03）：比例、输出尺寸、没调过的图框放在哪。
+/// 检查器里的裁切设置（设计稿 03）：比例、输出尺寸。没调过的图一律居中、按比例取最大。
 struct CropInspectorSections: View {
     @Bindable var ws: Workspace
 
@@ -43,15 +43,6 @@ struct CropInspectorSections: View {
             }
         }
         .animation(.smooth(duration: 0.25), value: shortfall)
-
-        InspectorSection(title: "没调过的图，框放在") {
-            VStack(spacing: 0) {
-                StartRow(title: "居中，取最大", subtitle: "默认", selected: !ws.cropFollowLast) { ws.cropFollowLast = false }
-                StartRow(title: "沿用上一张的位置", subtitle: "同机位的一批图最快", selected: ws.cropFollowLast) { ws.cropFollowLast = true }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("没调过的图，框放在")
-        }
     }
 
     private var currentBox: CGRect { ws.effectiveCropBox(ws.cropCurrentIndex) }
@@ -114,40 +105,6 @@ private struct RatioRow: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: hovering)
         .accessibilityLabel(preset.ratioLabel.isEmpty ? preset.name : "\(preset.name) \(preset.ratioLabel)")
-        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-    }
-}
-
-/// 单选一行：圆点 + 标题 + 小字说明。
-private struct StartRow: View {
-    let title: String
-    let subtitle: String
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle().strokeBorder(selected ? Color.brand : Color(nsColor: .separatorColor), lineWidth: selected ? 0 : 1)
-                    if selected {
-                        Circle().fill(Color.brand)
-                        Circle().fill(.white).frame(width: 6, height: 6)
-                    }
-                }
-                .frame(width: 16, height: 16)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                    Text(subtitle).font(.system(size: 11)).foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-            .frame(minHeight: 40)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .animation(.smooth(duration: 0.2), value: selected)
-        .accessibilityLabel("\(title)，\(subtitle)")
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }

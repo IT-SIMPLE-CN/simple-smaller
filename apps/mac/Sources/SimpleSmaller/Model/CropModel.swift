@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// 图片裁切：框一律用原图像素坐标（已按 EXIF 转正），与引擎一致。
-/// 没手调过的图：「居中，取最大」或「沿用上一张的位置」；自由比例默认整张。
+/// 没手调过的图居中、按比例取最大；自由比例默认整张。
 extension Workspace {
     var cropPreset: CropPreset? { draft.image.crop }
     var cropAspect: Double? { draft.image.crop?.aspect }
@@ -26,33 +26,11 @@ extension Workspace {
         return CGRect(x: ((w - cw) / 2).rounded(), y: ((h - ch) / 2).rounded(), width: cw.rounded(), height: ch.rounded())
     }
 
-    /// 第 i 张实际用的框：手调过的 > 沿用上一张 > 默认。
+    /// 第 i 张实际用的框：手调过的，否则居中取最大。
     func effectiveCropBox(_ index: Int) -> CGRect {
         let items = cropItems
         guard items.indices.contains(index) else { return .zero }
-        if let box = cropBoxes[items[index].url] { return box }
-        guard cropFollowLast else { return defaultCropBox(items[index]) }
-        // 往前找最近一张手调过的，再一张张往后搬。
-        var start = index
-        while start > 0, cropBoxes[items[start].url] == nil { start -= 1 }
-        var box = cropBoxes[items[start].url] ?? defaultCropBox(items[start])
-        if start < index {
-            for k in (start + 1)...index { box = Self.carry(box, from: items[k - 1], to: items[k], aspect: cropAspect) }
-        }
-        return box
-    }
-
-    /// 把上一张的框按相对位置搬到这一张：宽按比例换算，比例保持，收进画面。
-    static func carry(_ box: CGRect, from: FileItem, to: FileItem, aspect: Double?) -> CGRect {
-        let sx = CGFloat(to.width) / CGFloat(max(1, from.width))
-        let sy = CGFloat(to.height) / CGFloat(max(1, from.height))
-        var r = CGRect(x: box.minX * sx, y: box.minY * sy, width: box.width * sx, height: box.height * sy)
-        if let a = aspect.map({ CGFloat($0) }) {
-            let cx = r.midX, cy = r.midY
-            r.size.height = r.width / a
-            r.origin = CGPoint(x: cx - r.width / 2, y: cy - r.height / 2)
-        }
-        return clamp(r, width: CGFloat(to.width), height: CGFloat(to.height), aspect: aspect)
+        return cropBoxes[items[index].url] ?? defaultCropBox(items[index])
     }
 
     /// 收进画面：先缩到放得下（保持比例），再把位置推回画面里，坐标取整。
@@ -88,12 +66,8 @@ extension Workspace {
         cropIndex = 0
     }
 
-    /// 交给引擎的框：手调过的照传；「沿用上一张」时每张都传算好的框。
+    /// 交给引擎的框：只传手调过的，其余由引擎按居中取最大处理。
     var cropBoxesForEngine: [URL: CGRect] {
-        guard draft.image.crop != nil else { return [:] }
-        if !cropFollowLast { return cropBoxes }
-        var out: [URL: CGRect] = [:]
-        for (i, item) in cropItems.enumerated() { out[item.url] = effectiveCropBox(i) }
-        return out
+        draft.image.crop == nil ? [:] : cropBoxes
     }
 }
