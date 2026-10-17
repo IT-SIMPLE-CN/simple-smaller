@@ -29,6 +29,14 @@
             <SolidColorBrush x:Key="BentoAlertFill" Color="#FDE8E4" />
             <SolidColorBrush x:Key="BentoAlertText" Color="#A8240F" />
             <SolidColorBrush x:Key="BentoFailed" Color="#C81E1E" />
+            <!-- 系统开关：打开时品牌红底、白色圆钮（WinUI 深色默认是黑钮）。 -->
+            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#EF3922" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#F04A35" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#D93019" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#EF3922" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <Color x:Key="BentoWindowColor">#17181A</Color>
@@ -53,6 +61,14 @@
             <SolidColorBrush x:Key="BentoAlertFill" Color="#3D201C" />
             <SolidColorBrush x:Key="BentoAlertText" Color="#FF9B8A" />
             <SolidColorBrush x:Key="BentoFailed" Color="#FF6B6B" />
+            <!-- 系统开关：打开时品牌红底、白色圆钮（WinUI 深色默认是黑钮）。 -->
+            <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#EF3922" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#F04A35" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#D93019" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#EF3922" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
         </ResourceDictionary>
         <!-- 高对比度：全部交给系统色。 -->
         <ResourceDictionary x:Key="HighContrast">
