@@ -72,3 +72,31 @@ Sparkle 不降级。新版有问题时：
 - 启动后每 6 小时在后台检查一次（`SUScheduledCheckInterval`）。
 - 发现新版本先问用户，同意了才下载安装（`SUAutomaticallyUpdate` 为 false）。
 - 「设置 › 通用 › 隐私与更新」可以关掉自动检查。应用菜单里有「检查更新…」。
+
+# Windows 发布与自动更新
+
+安装与更新用 Velopack：每个架构一个安装程序（`SimpleSmaller-win-x64-Setup.exe`、`SimpleSmaller-win-arm64-Setup.exe`），装到用户目录（`%LOCALAPPDATA%\SimpleSmaller`），不要管理员权限。安装包与更新包放 OSS 的 `smaller/win/`，更新源放 `bots.it-simple.cn/downloads/smaller/win/`，和 mac 一样分开放。代码签名暂时没做，首次运行 SmartScreen 会提示，对外大范围发布前再买证书或接 Azure Trusted Signing（vpk 的 `--signParams` / `--azureTrustedSignFile`）。
+
+## 版本号
+
+- 对外版本号写在 `apps/windows/version.txt`，csproj 与 vpk 都读它。更新说明写在 `apps/windows/release-notes/<版本>.md`，出现在应用的「发现新版本」询问里。
+- 频道按架构分：`win-x64`、`win-arm64`，打包时写进安装包，装好的应用只看自己的频道。
+
+## 发版
+
+1. VM 里（构建环境见 `docs/build.md` 的 Windows 一节）：`scripts\release-windows.ps1`。两种架构各 `dotnet publish`（自带 .NET 与 Windows App SDK），再 `vpk pack`。产物在 `.local\win-releases\<版本>\`。
+2. Mac 上：`scripts/publish-windows.sh --dry-run` 核对，再 `scripts/publish-windows.sh`：从 VM 取回产物、核对校验和、先传 OSS、再原子替换服务器上的 `releases.<频道>.json`。
+3. 首次安装链接：`https://itsimple-bot.oss-cn-shenzhen.aliyuncs.com/smaller/win/SimpleSmaller-win-x64-Setup.exe`（ARM64 把 x64 换成 arm64）。
+
+- 只建开始菜单快捷方式，不建桌面快捷方式；不出便携版。
+- 卸载（「设置 › 应用」或 `Update.exe --uninstall`）会顺带注销资源管理器右键菜单（`Program.Main` 里 Velopack 的卸载钩子）。
+
+## 应用里
+
+- 启动 1 分钟后检查一次，之后每 6 小时一次；发现新版先问，同意后下载、等这一批处理完再重启安装。设置里可以关自动检查，菜单里有「检查更新…」。
+- 开发构建（没装过）不检查更新。验证更新流程：在 VM 里打两个版本（`release-windows.ps1 -Arch arm64` 与 `-Version 0.9.x`），静默装旧版（`Setup.exe --silent`），设环境变量 `SMALLER_UPDATE_URL=<新版产物目录>` 后启动，约 1 分钟弹出询问。2026-10-18 实测 0.9.5 → 0.9.6：下载、安装、重启成功。
+- 崩溃日志：`%LOCALAPPDATA%\SimpleSmaller\crash.log`（只在本机，不上传）。
+
+## 回滚
+
+Velopack 不降级。新版有问题时发一个版本号更高的修复版。

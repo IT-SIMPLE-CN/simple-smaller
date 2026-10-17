@@ -1,17 +1,18 @@
 ﻿# Windows 发版：两种架构各 publish 一次（自带 .NET 与 Windows App SDK），用 Velopack 打成安装程序与更新包。
 # 产物在 .local\win-releases\<版本>\，再在 Mac 上跑 scripts/publish-windows.sh 发布。见 docs/release.md 的 Windows 一节。
 # 先在 VM 里准备好：build-codecs-windows.ps1、build-mupdf-windows.ps1、fetch-misans.ps1（两种架构），Mac 上 build-ffmpeg-windows.sh all。
-# 用法：scripts\release-windows.ps1 [-Arch x64,arm64]
-param([string[]]$Arch = @('x64', 'arm64'))
+# 用法：scripts\release-windows.ps1 [-Arch x64,arm64] [-Version 0.9.6]（-Version 只给验证更新流程用，正式发版读 version.txt）
+param([string[]]$Arch = @('x64', 'arm64'), [string]$Version = '')
 $ErrorActionPreference = 'Stop'
 
 $VPK_VERSION = '1.2.161' # 与应用里的 Velopack 包同一版本
 $Root = Split-Path -Parent $PSScriptRoot
 $App = "$Root\apps\windows\SimpleSmaller"
-$Version = (Get-Content "$Root\apps\windows\version.txt" -Raw).Trim()
+if (-not $Version) { $Version = (Get-Content "$Root\apps\windows\version.txt" -Raw).Trim() }
 $Notes = "$Root\apps\windows\release-notes\$Version.md"
+if (-not (Test-Path $Notes)) { $Notes = (Get-ChildItem "$Root\apps\windows\release-notes\*.md" | Sort-Object Name | Select-Object -Last 1).FullName }
 $Out = "$Root\.local\win-releases\$Version"
-if (-not (Test-Path $Notes)) { throw "先写更新说明：apps\windows\release-notes\$Version.md" }
+if (-not $Notes) { throw "先写更新说明：apps\windows\release-notes\$Version.md" }
 $env:Path = "$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\.dotnet\tools;$env:Path"
 
 # 原生命令写到 stderr 的进度在 PowerShell 5.1 里会被当成错误，这里只看退出码。
@@ -38,7 +39,7 @@ foreach ($a in $Arch) {
   "▸ $rid：发布"
   $pub = "$Root\.local\win-publish\$rid"
   if (Test-Path $pub) { Remove-Item -Recurse -Force $pub }
-  dotnet publish "$App\SimpleSmaller.csproj" -c Release -r $rid -p:Platform=$platform --self-contained -o $pub -nologo -v q | Select-Object -Last 5
+  dotnet publish "$App\SimpleSmaller.csproj" -c Release -r $rid -p:Platform=$platform --self-contained -p:Version=$Version -o $pub -nologo -v q | Select-Object -Last 5
   Assert-Ok "dotnet publish $rid"
   foreach ($f in 'SimpleSmaller.exe', 'smaller_core.dll', 'ffmpeg.exe', 'ffprobe.exe', 'Assets\Fonts\MiSansVF.ttf', 'Assets\Fonts\MiSans-License.pdf') {
     if (-not (Test-Path "$pub\$f")) { throw "发布目录里缺 $f" }
