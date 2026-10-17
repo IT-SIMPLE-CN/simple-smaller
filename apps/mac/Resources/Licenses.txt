@@ -3,11 +3,14 @@
 
 图片
   jpegli（提交 031a0077）            BSD-3-Clause        JPEG 编码
+    · Highway                        Apache-2.0 / BSD-3-Clause   jpegli 的 SIMD
+    · Little CMS 2                   MIT                 jpegli 的色彩管理
   libwebp 1.6.0                      BSD-3-Clause        WebP 编码
   aom 3.15.2                         BSD-2-Clause + AOM 专利许可   AV1 编解码
   libavif 1.4.2                      BSD-2-Clause        AVIF 容器
   libimagequant 4                    GPL-3.0-or-later    PNG 减色
   oxipng 10                          MIT                 PNG 无损优化
+    · zopfli                         Apache-2.0          oxipng 的高压缩率 Deflate
   fast_image_resize 6                MIT / Apache-2.0    缩放
   moxcms 0.9                         BSD-3-Clause / Apache-2.0   色彩转换
   image 0.25                         MIT / Apache-2.0    解码
@@ -17,10 +20,24 @@
   x264 stable                        GPL-2.0-or-later
   zimg 3.0.6                         WTFPL
   gifski 1.34                        AGPL-3.0
+    · gifsicle                       GPL-2.0             gifski 的 GIF 优化
   HEVC 只用系统的硬件编码，不随包附带 HEVC 编码器。
 
 PDF
   MuPDF 1.28.5                       AGPL-3.0
+    随 MuPDF 编进的第三方库：
+    · FreeType                       FreeType License    字体
+    · HarfBuzz                       MIT                 字形排版
+    · jbig2dec                       AGPL-3.0            JBIG2 图片
+    · Little CMS 2（lcms2mt）        MIT                 色彩管理
+    · libjpeg（IJG）                 IJG License         JPEG
+    · OpenJPEG                       BSD-2-Clause        JPEG 2000
+    · MuJS                           ISC                 PDF 里的 JavaScript
+    · zlib                           Zlib                压缩
+    · Brotli                         MIT                 压缩
+    · Gumbo                          Apache-2.0          HTML 解析
+    · cmark-gfm                      BSD-2-Clause        Markdown 解析
+    · Extract                        AGPL-3.0            文档结构提取
 
 其他
   pinyin 0.11                        MIT                 中文转拼音
@@ -28,6 +45,7 @@ PDF
   zip 9                              MIT                 打包 zip
   rayon 1                            MIT / Apache-2.0    并行处理
   UniFFI                             MPL-2.0             Swift 与引擎之间的接口
+  其余 Rust 依赖见源码里的 Cargo.lock，许可证均为 MIT、Apache-2.0、BSD 或 Zlib 一类。
   Sparkle 2.9.6                      MIT                 自动更新
 
 © 2021–2026 IT-SIMPLE
