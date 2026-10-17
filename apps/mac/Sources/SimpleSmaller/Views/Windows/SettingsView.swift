@@ -84,13 +84,13 @@ private struct FinderSettings: View {
                     }
                 }
             } footer: {
-                Text("在访达里按住 ⌥ 点一下图片、视频、PDF 或文件夹，圆环外圈是配方，点一下直接处理。如果出现两个圆环，是别的工具也用了 ⌥ 点击，在那个工具里关掉即可。")
+                Text("在访达里按住 ⌥ 点一下图片、视频、PDF 或文件夹，圆环外圈是配方，点一下直接处理。")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section {
                 LabeledContent("右键菜单") { Text("服务 → 用简单小一点处理").foregroundStyle(.secondary) }
             } footer: {
-                Text("在访达里选中文件后右键，按各类型当前选中的配方直接处理。不想显示可以在「系统设置 → 键盘 → 键盘快捷键 → 服务」里关掉。")
+                Text("在访达里选中文件后右键，按各类型当前选中的配方直接处理。")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -120,7 +120,7 @@ private struct AutoSettings: View {
                     }
                 }
             } footer: {
-                Text("截图或从网页复制的图片会自动换成压缩版，粘贴到公众号、飞书、微信就是小图。截图类压成 PNG，照片压成 JPG；复制的文件不受影响。")
+                Text("截图或从网页复制的图片会自动换成压缩版，粘贴到公众号、飞书、微信就是小图。")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section {
@@ -153,7 +153,7 @@ private struct AutoSettings: View {
             } header: {
                 Text("监视文件夹")
             } footer: {
-                Text("放进这些文件夹的新图片、视频、PDF，按右边的配方自动处理，结果放在同一个文件夹里，完成后发通知。适合截图、下载文件夹。只处理之后放进来的文件。")
+                Text("放进这些文件夹的新图片、视频、PDF，按右边的配方自动处理，结果放在同一个文件夹里，完成后发通知。只处理之后放进来的文件。")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

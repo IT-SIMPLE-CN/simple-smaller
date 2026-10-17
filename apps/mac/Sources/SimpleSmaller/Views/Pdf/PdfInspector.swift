@@ -119,7 +119,7 @@ struct PdfInspector: View {
                 QualitySlider(value: $ws.draft.pdf.imageQuality)
             }
             if p.longImage {
-                Text("长图适合发朋友圈、小红书；页数很多时会按高度上限分成几张。")
+                Text("页数很多时会按高度上限分成几张。")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }

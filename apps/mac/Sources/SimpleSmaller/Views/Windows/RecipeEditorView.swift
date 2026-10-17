@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 新建 / 编辑配方（设计稿 08）。配方会出现在边栏、访达圆环外圈和右键菜单里。
+/// 新建 / 编辑配方（设计稿 08）。配方会出现在边栏和访达圆环的「自定义」里。
 struct RecipeEditorView: View {
     let initial: Recipe
     let onSave: (Recipe) -> Void
@@ -22,7 +22,7 @@ struct RecipeEditorView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(isNew ? "新建配方" : "编辑配方").font(.system(size: 15, weight: .semibold))
-                Text("配方会出现在边栏、访达圆环外圈和右键菜单里。").font(.system(size: 12)).foregroundStyle(.secondary)
+                Text("配方会出现在边栏和访达圆环的「自定义」里。").font(.system(size: 12)).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 20)
             .padding(.top, 18)

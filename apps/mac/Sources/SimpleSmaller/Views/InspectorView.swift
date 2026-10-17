@@ -108,7 +108,7 @@ struct InspectorHeader: View {
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         if showsRecipe {
-                            Text("\(ws.files.count) 个文件 · 统一设置").font(.system(size: 13, weight: .semibold))
+                            Text(ws.files.count > 1 ? "\(ws.files.count) 个文件 · 统一设置" : "1 个文件").font(.system(size: 13, weight: .semibold))
                             recipeLine
                         } else {
                             Text("\(ws.files.count) 个文件").font(.system(size: 13, weight: .semibold))
