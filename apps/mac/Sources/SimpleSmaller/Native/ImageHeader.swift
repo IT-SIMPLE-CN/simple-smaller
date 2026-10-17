@@ -38,11 +38,11 @@ struct ImageHeader {
             let size = (try? handle.seekToEnd()) ?? 0
             let n = min(size, 4096)
             try? handle.seek(toOffset: size - n)
-            return handle.readData(ofLength: Int(n)).range(of: Data("IEND".utf8)) == nil ? "文件不完整，可能没下载完" : nil
+            return handle.readData(ofLength: Int(n)).range(of: Data("IEND".utf8)) == nil ? "文件不完整" : nil
         }
         // JPEG：在第一个扫描段之后找结束标记；不能只看文件尾，动态照片在后面接了视频。
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
-        return jpegHasEnd(data) ? nil : "文件不完整，可能没下载完"
+        return jpegHasEnd(data) ? nil : "文件不完整"
     }
 
     /// 与引擎 `jpeg_has_end` 同一套规则。

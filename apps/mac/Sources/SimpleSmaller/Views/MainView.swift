@@ -133,11 +133,12 @@ struct StartButton: View {
 
     var body: some View {
         Button { model.start(ws) } label: {
-            Text("开始").frame(maxWidth: .infinity)
+            Text(ws.isUpToDate ? "已完成" : "开始").frame(maxWidth: .infinity)
         }
         .keyboardShortcut(.return, modifiers: .command)
-        .disabled(ws.files.isEmpty || !canStart)
-        .help("按当前配方处理全部文件（⌘↩）")
+        // 这一批按当前配方做完了：再点只会多出一份重复的文件；改了配方或加了文件才重新可点。
+        .disabled(ws.files.isEmpty || !canStart || ws.isUpToDate)
+        .help(ws.isUpToDate ? "这一批已按当前配方处理完；改配方或加文件后可以再开始" : "按当前配方处理全部文件（⌘↩）")
         .buttonStyle(BrandBlockStyle())
     }
 

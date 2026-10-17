@@ -1152,8 +1152,8 @@ mod tests {
 fn friendly_decode_error(raw: &str) -> String {
     let lower = raw.to_lowercase();
     if lower.contains("不完整") || lower.contains("eof") || lower.contains("unexpected end") || lower.contains("truncat") {
-        "文件不完整，可能没下载完".into()
+        "文件不完整".into()
     } else {
-        "文件损坏，读不出来".into()
+        "文件损坏".into()
     }
 }

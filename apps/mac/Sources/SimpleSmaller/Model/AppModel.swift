@@ -257,6 +257,7 @@ final class AppModel {
             flash("先设好打开密码，或者关掉「输出加打开密码」")
             return
         }
+        ws.lastRun = (ws.draft, ws.segmentKey)
         Self.log.info("开始 \(ws.type.title, privacy: .public)：\(ws.files.count) 个文件，配方「\(ws.draft.name, privacy: .public)」")
         let items = retrying ?? ws.files
         for f in items { f.state = .waiting; f.outputs = [] }

@@ -98,7 +98,7 @@ struct AppCommands: Commands {
         CommandMenu("处理") {
             Button("开始") { model.start(model.current) }
                 .keyboardShortcut(.return, modifiers: .command)
-                .disabled(model.current.files.isEmpty || model.current.running)
+                .disabled(model.current.files.isEmpty || model.current.running || model.current.isUpToDate)
             Button("停止") { model.cancel(model.current) }
                 .keyboardShortcut(".", modifiers: .command)
                 .disabled(!model.current.running)
@@ -179,10 +179,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var menuObserver: NSObjectProtocol?
 
+    /// 系统自动填充建的浮窗：标识或类名里带 AutoComplete / AutoFill。
+    private static func isAutoFillWindow(_ w: NSWindow) -> Bool {
+        let names = [w.identifier?.rawValue ?? "", String(describing: type(of: w)), w.accessibilityIdentifier()]
+        return names.contains { $0.contains("AutoComplete") || $0.contains("AutoFill") || $0.contains("Autofill") }
+    }
+
     private func hideAutoFillWindows() {
         autoFillObserver = NotificationCenter.default.addObserver(forName: NSApplication.didUpdateNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
-                for w in NSApp.windows where w.isVisible && (w.identifier?.rawValue.contains("AutoComplete") ?? false) {
+                for w in NSApp.windows where w.isVisible && Self.isAutoFillWindow(w) {
                     w.orderOut(nil)
                 }
             }

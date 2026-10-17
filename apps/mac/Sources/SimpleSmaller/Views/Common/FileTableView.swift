@@ -41,7 +41,7 @@ struct FileTableView: View {
                 Text(detail(item))
                     .foregroundStyle(item.metaError == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.warning))
                     .monospacedDigit()
-                    .help(item.metaError ?? "")
+                    .help(Self.explain(item.metaError))
             }
             // 列宽按设计稿固定：尺寸 104、原大小 80、输出 80、变化 64、状态 92；名称列吃掉其余宽度。
             .width(ws.type == .video ? 150 : 104)
@@ -95,6 +95,17 @@ struct FileTableView: View {
         .modifier(NoTopScrollEdge())
         // 表格的滚动视图会延伸到工具栏下面、把表头底色画上去，和检查器上方一明一暗；裁在自己的区域内。
         .clipped()
+    }
+
+    /// 列里写短的原因，鼠标停上去给一句怎么办。
+    static func explain(_ error: String?) -> String {
+        switch error {
+        case nil: ""
+        case "文件不完整": "文件不完整，可能没下载完。重新下载后点「重试失败的」"
+        case "文件损坏": "文件损坏，读不出来，换一份原文件再试"
+        case "有打开密码": "右键 →「输入密码…」，密码只在这次处理里用，不保存"
+        case let e?: e
+        }
     }
 
     private func outputsOrSource(_ item: FileItem) -> [URL] {
@@ -155,7 +166,7 @@ struct StateLabel: View {
             Text(item.type == .image ? "保留原图" : "保留原文件").foregroundStyle(Color.warning)
                 .help("不用处理：压完没有变小，或已经符合配方（比如本来就没有声音），原文件保持不动")
         case .failed(let message):
-            Text("失败").foregroundStyle(Color.warning).help(message)
+            Text("失败").foregroundStyle(Color.warning).help(FileTableView.explain(message))
         case .cancelled:
             Text("已取消").foregroundStyle(.secondary)
         }

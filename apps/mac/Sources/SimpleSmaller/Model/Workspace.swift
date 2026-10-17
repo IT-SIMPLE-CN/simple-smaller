@@ -170,6 +170,16 @@ final class Workspace {
     }
 
     /// PDF 合并、拆分、图片转 PDF 用不上压缩配方：边栏不显示选中、批量头不写配方名。
+    /// 上一次点「开始」时的配方与分段：都没变、文件也都处理完了，再点开始只会多出一份重复的文件。
+    var lastRun: (draft: Recipe, segment: String)?
+    var segmentKey: String { "\(imageSegment.rawValue)|\(videoSegment.rawValue)|\(pdfSegment.rawValue)" }
+
+    var isUpToDate: Bool {
+        guard let last = lastRun, !files.isEmpty, !running else { return false }
+        let finished = files.allSatisfy { [.done, .kept].contains($0.state) }
+        return finished && last.draft == draft && last.segment == segmentKey
+    }
+
     var usesRecipe: Bool { !(type == .pdf && [.merge, .split, .fromImages].contains(pdfSegment)) }
 
     func item(for path: String) -> FileItem? { files.first { $0.url.path == path || $0.unlockedURL?.path == path } }
