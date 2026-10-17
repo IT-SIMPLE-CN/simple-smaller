@@ -34,7 +34,8 @@ extension Recipe {
         )
     }
 
-    func videoSettings(trim: ClosedRange<Double>? = nil, crop: CGRect? = nil, coverAt: Double? = nil) -> VideoSettings {
+    /// `long4K`：这段是 4K、3 分钟以上的长片，自动改用系统硬件编码（软件编码要几十分钟）。
+    func videoSettings(trim: ClosedRange<Double>? = nil, crop: CGRect? = nil, coverAt: Double? = nil, long4K: Bool = false) -> VideoSettings {
         let rate: VideoRate = switch video.rate {
         case .high: .high
         case .medium: .medium
@@ -62,7 +63,7 @@ extension Recipe {
         return VideoSettings(
             codec: video.codec == .hevc ? .hevc : .h264,
             // HEVC 只走硬件编码（不内置 x265）。
-            encoder: (video.fast || video.codec == .hevc) ? .fast : .quality,
+            encoder: (video.fast || video.codec == .hevc || long4K) ? .fast : .quality,
             rate: rate,
             maxShortEdge: video.shortEdge.map(UInt32.init),
             keepAudio: video.keepAudio,

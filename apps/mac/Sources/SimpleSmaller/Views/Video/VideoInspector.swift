@@ -86,8 +86,11 @@ struct VideoInspector: View {
                     .fixedSize()
                 }
             }
-            InspectorToggle(label: "HDR 转 SDR", isOn: $ws.draft.video.hdrToSdr)
-                .help("HDR 视频在多数手机网页与聊天软件里会发灰，转成普通画面更稳")
+            // 只有这批里有 HDR 视频时才出现。
+            if ws.videoItems.contains(where: \.hdr) {
+                InspectorToggle(label: "HDR 转 SDR", isOn: $ws.draft.video.hdrToSdr)
+                    .help("HDR 视频在多数手机网页与聊天软件里会发灰，转成普通画面更稳")
+            }
         }
     }
 
@@ -124,17 +127,10 @@ struct VideoInspector: View {
                         Text("MB").foregroundStyle(.secondary)
                     }
                 }
-                if ws.draft.video.codec == .h264 {
-                    InspectorToggle(label: "速度优先", isOn: $ws.draft.video.fast)
-                        .help("用系统硬件编码，快很多；同样体积下画质略低于默认的 x264")
-                }
-                HStack {
-                    Text(outputLine).monospacedDigit()
-                    Spacer()
-                    Text(encoderLine)
-                }
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                Text(outputLine)
+                    .monospacedDigit()
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -144,13 +140,6 @@ struct VideoInspector: View {
         guard let item = ws.currentVideo else { return "" }
         let size = ws.videoOutputSize(item)
         return "\(Int(size.width)) × \(Int(size.height)) · \(Int(item.fps.rounded())) fps"
-    }
-
-    /// 实际用的编码方式：HEVC 一律走系统硬件；H.264 默认 x264（按大小时两遍）。
-    private var encoderLine: String {
-        let v = ws.draft.video
-        if v.codec == .hevc || v.fast { return "硬件编码" }
-        return v.rate == .size ? "x264 两遍编码" : "x264 画质优先"
     }
 
     // MARK: 声音与附带

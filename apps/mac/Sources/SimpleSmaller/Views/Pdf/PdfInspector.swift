@@ -63,12 +63,8 @@ struct PdfInspector: View {
             }
         }
         InspectorSection(title: "选项") {
-            InspectorRow(label: "文字保持矢量") { Text("始终").foregroundStyle(.secondary) }
-                .help("只重压页面里的图片，文字和线条不变成图片，放大依然清晰")
             InspectorToggle(label: "去掉作者与修改记录", isOn: $ws.draft.stripMetadata)
             InspectorToggle(label: "转灰度", isOn: $ws.draft.pdf.grayscale)
-            InspectorToggle(label: "精简字体", isOn: $ws.draft.pdf.subsetFonts)
-                .help("只保留文件里用到的字，中文字体能省下很多")
         }
         PasswordOption(ws: ws)
     }

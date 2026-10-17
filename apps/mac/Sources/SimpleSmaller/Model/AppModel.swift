@@ -354,7 +354,7 @@ final class AppModel {
     func pdfSettings(_ ws: Workspace, recipe: Recipe) -> PdfSettings {
         let operation: PdfOperation
         switch ws.pdfSegment {
-        case .compress: operation = .compress(level: recipe.pdfLevel, targetBytes: recipe.pdfTargetBytes, subsetFonts: recipe.pdf.subsetFonts, grayscale: recipe.pdf.grayscale)
+        case .compress: operation = .compress(level: recipe.pdfLevel, targetBytes: recipe.pdfTargetBytes, subsetFonts: true, grayscale: recipe.pdf.grayscale)
         case .merge: operation = .assemble(pages: ws.pageOrder)
         case .split: operation = .split(every: UInt32(max(1, recipe.pdf.splitEvery)))
         case .toImages: operation = .toImages(width: UInt32(recipe.pdf.imageWidth), format: recipe.pdf.imageFormat.ffi, quality: UInt8(clamping: recipe.pdf.imageQuality), longImage: recipe.pdf.longImage)
@@ -412,7 +412,8 @@ final class AppModel {
              index: ws.files.firstIndex { $0.id == item.id } ?? 0,
              place: item.outDir.map { Place.folder(path: $0.path) } ?? place,
              settings: recipe.videoSettings(trim: ws.trim[item.url], crop: ws.videoCropBox(item),
-                                            coverAt: ws.coverAt[item.url] ?? (ws.trimRange(item).lowerBound + min(1, item.duration / 2))))
+                                            coverAt: ws.coverAt[item.url] ?? (ws.trimRange(item).lowerBound + min(1, item.duration / 2)),
+                                            long4K: min(item.width, item.height) >= 2000 && (ws.trimRange(item).upperBound - ws.trimRange(item).lowerBound) > 180))
         }
         Task.detached {
             for j in jobs {

@@ -359,11 +359,6 @@ struct OutputSection: View {
                         .multilineTextAlignment(.trailing)
                 }
             }
-            // 图片、视频重新编码时一律不带原文件的位置与设备信息；PDF 的同类选项在「选项」里。
-            if ws.type != .pdf {
-                InspectorRow(label: "去掉位置与设备信息") { Text("始终").foregroundStyle(.secondary) }
-                    .help("重新编码时一律不带原文件的位置与设备信息")
-            }
         }
     }
 }

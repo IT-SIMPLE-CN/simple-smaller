@@ -55,13 +55,9 @@ struct FramesInspectorSections: View {
                 .labelsHidden()
                 .fixedSize()
             }
-            InspectorRow(label: "文件名") {
-                Text("{name}_{0001}").font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
-            }
         }
 
         InspectorSection(title: "输出") {
-            InspectorRow(label: "存到") { Text("旁边新文件夹").foregroundStyle(.secondary) }
             InspectorToggle(label: "打包成 zip", isOn: $ws.draft.video.frameZip)
             InspectorToggle(label: "另存一张拼图总览", isOn: $ws.draft.video.frameContactSheet)
         }

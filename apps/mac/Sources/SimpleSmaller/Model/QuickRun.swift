@@ -57,7 +57,7 @@ final class QuickRun {
         case .pdf:
             let operation: PdfOperation = recipe.pdf.longImage
                 ? .toImages(width: UInt32(recipe.pdf.imageWidth), format: recipe.pdf.imageFormat.ffi, quality: UInt8(clamping: recipe.pdf.imageQuality), longImage: true)
-                : .compress(level: recipe.pdfLevel, targetBytes: recipe.pdfTargetBytes, subsetFonts: recipe.pdf.subsetFonts, grayscale: recipe.pdf.grayscale)
+                : .compress(level: recipe.pdfLevel, targetBytes: recipe.pdfTargetBytes, subsetFonts: true, grayscale: recipe.pdf.grayscale)
             jobs = [engine.runPdfs(inputs: inputs, place: place, naming: ffiNaming, settings: PdfSettings(operation: operation, stripMetadata: recipe.stripMetadata, password: nil), listener: bridge)]
         case .video:
             runVideos(inputs, place: place, naming: ffiNaming)
@@ -79,7 +79,8 @@ final class QuickRun {
                     let even = { (v: Double) in (v / 2).rounded(.down) * 2 }
                     crop = CGRect(x: even((w - cw) / 2), y: even((h - ch) / 2), width: even(cw), height: even(ch))
                 }
-                let settings = recipe.videoSettings(trim: nil, crop: crop, coverAt: recipe.video.exportCover ? min(1, (meta?.duration ?? 2) / 2) : nil)
+                let long4K = meta.map { min($0.width, $0.height) >= 2000 && $0.duration > 180 } ?? false
+                let settings = recipe.videoSettings(trim: nil, crop: crop, coverAt: recipe.video.exportCover ? min(1, (meta?.duration ?? 2) / 2) : nil, long4K: long4K)
                 let done = DispatchSemaphore(value: 0)
                 let bridge = ListenerBridge(progress: { _, _ in }, item: { r in self?.record(r) }, finished: { done.signal() })
                 let job = engine.runVideos(inputs: [path], place: place, naming: naming, settings: settings, listener: bridge)

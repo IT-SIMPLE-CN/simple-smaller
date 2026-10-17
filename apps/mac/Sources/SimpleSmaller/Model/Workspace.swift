@@ -119,7 +119,12 @@ final class Workspace {
         draft = recipe
     }
 
-    var modified: Bool { draft != base }
+    /// 改过配方参数才算「已修改」；切到「序列帧」分段带出的 outputFrames 不算。
+    var modified: Bool {
+        var d = draft
+        d.video.outputFrames = base.video.outputFrames
+        return d != base
+    }
     var totalBytes: UInt64 { files.reduce(0) { $0 + $1.bytes } }
     var selectedItems: [FileItem] { files.filter { selection.contains($0.id) } }
 

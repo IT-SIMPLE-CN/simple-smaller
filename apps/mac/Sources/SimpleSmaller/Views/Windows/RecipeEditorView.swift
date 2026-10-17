@@ -43,12 +43,6 @@ struct RecipeEditorView: View {
                 case .pdf: pdfSection
                 }
                 namingSection
-                Section {
-                    LabeledContent("存到", value: model.settings.outputLocation == .beside ? "原文件旁边" : (model.settings.outputFolder as NSString).lastPathComponent)
-                    LabeledContent("位置与设备信息") {
-                        if r.type == .pdf { Toggle("去掉", isOn: $r.stripMetadata) } else { Text("去掉").foregroundStyle(.secondary) }
-                    }
-                }
             }
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
@@ -182,6 +176,7 @@ struct RecipeEditorView: View {
             } else if r.pdf.level == .email {
                 LabeledContent("大小上限", value: "10 MB")
             }
+            Toggle("去掉作者与修改记录", isOn: $r.stripMetadata)
         }
     }
 

@@ -31,9 +31,6 @@ struct CropInspectorSections: View {
             InspectorRow(label: "高") {
                 Text(verbatim: "\(outputHeight) px · 按比例").foregroundStyle(.secondary).monospacedDigit()
             }
-            InspectorRow(label: "原图不够大时") {
-                Text("提醒，不放大").foregroundStyle(.secondary)
-            }
             if let short = shortfall {
                 Label(short, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
