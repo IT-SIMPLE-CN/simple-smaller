@@ -95,7 +95,8 @@ struct InspectorHeader: View {
         Group {
             if ws.files.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(ws.base.name).font(.system(size: 13, weight: .semibold))
+                    // 合并、拆分、图片转 PDF 用不上配方：标题写分段名。
+                    Text(ws.usesRecipe ? ws.base.name : ws.pdfSegment.rawValue).font(.system(size: 13, weight: .semibold))
                     Text(description).font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
