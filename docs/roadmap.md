@@ -40,7 +40,7 @@
 - [x] 访达圆环、服务菜单在授权后实测（开发包）
 - [x] 签名与公证：Developer ID 签名、App 与 DMG 公证并装订票据（0.9.0，构建 53）
 - [x] 自动更新：Sparkle，更新源与安装包按 dotnfilm-bots 的做法放，见 docs/release.md
-- [ ] 首次发布到 OSS 与更新源（`scripts/publish-mac.sh`）
+- [x] 首次发布：0.9.0（构建 57）已上 OSS，更新源可用
 - [ ] 正式包装好后重新给圆环授权，实测圆环与服务菜单
 
 ## 五、界面 V2.1（便当盒）
