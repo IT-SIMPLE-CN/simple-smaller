@@ -213,7 +213,7 @@ struct ThumbTile: View {
     @ViewBuilder private var badge: some View {
         switch item.state {
         case .running(let f):
-            Text("\(Int(f * 100))%").font(.system(size: 10, weight: .semibold)).monospacedDigit()
+            Text(f < 0.02 ? "处理中" : "\(Int(f * 100))%").font(.system(size: 10, weight: .semibold)).monospacedDigit()
                 .foregroundStyle(.white).padding(.horizontal, 7).frame(height: 20).background(Capsule().fill(Color.brand))
         case .done:
             Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
@@ -474,7 +474,6 @@ struct CropRatioCard: View {
     }
 
     private func choose(_ preset: CropPreset) {
-        ws.cropAutoSet = false
         guard ws.draft.image.crop?.id != preset.id else { return }
         withAnimation(.smooth(duration: 0.3)) {
             ws.draft.image.crop = preset

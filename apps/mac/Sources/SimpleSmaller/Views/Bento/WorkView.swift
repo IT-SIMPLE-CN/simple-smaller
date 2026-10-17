@@ -46,10 +46,8 @@ struct WorkGrid: View {
                         topBar.frame(height: Self.barHeight).bentoAppear(1, trigger: appearKey)
                         ScrollView {
                             VStack(spacing: gap) {
-                                if let settings = mergedSettings { settings } else {
-                                    upper.frame(minHeight: 220)
-                                    lowerLeft.frame(minHeight: 220)
-                                }
+                                upper.frame(minHeight: 240)
+                                lowerLeft.frame(minHeight: 220)
                             }
                         }
                         .scrollIndicators(.automatic)
@@ -66,22 +64,12 @@ struct WorkGrid: View {
                     main.bentoAppear(0, trigger: appearKey)
                     VStack(spacing: gap) {
                         topBar.frame(height: Self.barHeight).bentoAppear(1, trigger: appearKey)
-                        if let settings = mergedSettings {
-                            HStack(spacing: gap) {
-                                ScrollView { settings }
-                                    .scrollIndicators(.automatic)
-                                    .frame(width: col)
-                                    .bentoAppear(2, trigger: appearKey)
-                                lowerRight.frame(width: col).bentoAppear(3, trigger: appearKey)
-                            }
-                        } else {
                             upper.frame(height: rowH).bentoAppear(2, trigger: appearKey)
                             HStack(spacing: gap) {
                                 lowerLeft.frame(width: col).bentoAppear(3, trigger: appearKey)
                                 lowerRight.frame(width: col).bentoAppear(4, trigger: appearKey)
                             }
                             .frame(height: rowH)
-                        }
                     }
                     .frame(width: 2 * col + gap)
                 }
@@ -128,7 +116,7 @@ struct WorkGrid: View {
             BentoCard(padding: EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20)) {
                 HStack(spacing: 10) {
                     Text(ws.pdfSegment.rawValue).font(.system(size: 13, weight: .semibold))
-                    Text(PdfInspector.segmentNote(ws.pdfSegment)).font(.system(size: 12)).foregroundStyle(Bento.secondary).lineLimit(1)
+                    Text(PdfNotes.segmentNote(ws.pdfSegment)).font(.system(size: 12)).foregroundStyle(Bento.secondary).lineLimit(1)
                     Spacer()
                 }
                 .frame(maxHeight: .infinity)
@@ -138,22 +126,28 @@ struct WorkGrid: View {
 
     // MARK: 参数卡
 
-    /// 还没拆成网格的分段：参数一节一张卡，竖着排。
-    private var mergedSettings: AnyView? {
-        if isImageCompress || isImageCrop { return nil }
-        return AnyView(SettingsStack(ws: ws))
-    }
-
     @ViewBuilder private var upper: some View {
-        if isImageCrop { CropRatioCard(ws: ws) } else { FormatQualityCard(ws: ws) }
+        switch ws.type {
+        case .image: if isImageCrop { CropRatioCard(ws: ws) } else { FormatQualityCard(ws: ws) }
+        case .video: if ws.videoSegment == .frames { FramesCard(ws: ws) } else { VideoPictureCard(ws: ws) }
+        case .pdf: PdfMainCard(ws: ws)
+        }
     }
 
     @ViewBuilder private var lowerLeft: some View {
-        if isImageCrop { CropSizeCard(ws: ws) } else { SizeCard(ws: ws) }
+        switch ws.type {
+        case .image: if isImageCrop { CropSizeCard(ws: ws) } else { SizeCard(ws: ws) }
+        case .video: if ws.videoSegment == .frames { FrameEachCard(ws: ws) } else { VideoFormatCard(ws: ws) }
+        case .pdf: PdfOptionsCard(ws: ws)
+        }
     }
 
     @ViewBuilder private var lowerRight: some View {
-        if isImageCrop { CropFormatStartCard(ws: ws) } else { OutputStartCard(ws: ws) }
+        switch ws.type {
+        case .image: if isImageCrop { CropFormatStartCard(ws: ws) } else { OutputStartCard(ws: ws) }
+        case .video: if ws.videoSegment == .frames { FramesOutputStartCard(ws: ws) } else { VideoAudioStartCard(ws: ws) }
+        case .pdf: if ws.pdfSegment == .compress { PdfStartCard(ws: ws) } else { OutputStartCard(ws: ws) }
+        }
     }
 }
 
@@ -163,23 +157,6 @@ struct PreviewCard<Content: View>: View {
 
     var body: some View {
         BentoCard(padding: EdgeInsets()) { content }
-    }
-}
-
-/// 视频、PDF 的参数：沿用各分段的设置节，每节一张白卡。
-struct SettingsStack: View {
-    let ws: Workspace
-
-    var body: some View {
-        VStack(spacing: Bento.gap) {
-            switch ws.type {
-            case .image: EmptyView()
-            case .video: VideoInspector(ws: ws)
-            case .pdf: PdfInspector(ws: ws)
-            }
-        }
-        .disabled(ws.running)
-        .opacity(ws.running ? 0.45 : 1)
     }
 }
 
@@ -496,6 +473,7 @@ struct RecipeBar: View {
             .frame(maxHeight: .infinity)
         }
         .disabled(ws.running)
+        .opacity(ws.running ? 0.45 : 1)
         .sheet(item: $editing) { recipe in
             RecipeEditorView(initial: recipe) { saved in ws.select(recipe: saved) }
         }
