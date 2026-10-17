@@ -37,6 +37,7 @@ scripts/publish-mac.sh          # 先传安装包，再原子替换 appcast
 | 更新源 | `https://bots.it-simple.cn/downloads/smaller/appcast.xml`（服务器 `itsimple-sg`，目录 `/var/www/project/static/downloads/smaller`） |
 | 更新包、DMG、校验和 | `https://itsimple-bot.oss-cn-shenzhen.aliyuncs.com/smaller/` |
 
+- **服务器路由**：`bots.it-simple.cn` 的 nginx 只放行清单上写明的路径。`/downloads/smaller/` 这一条加在服务器的 `/var/www/nginx/vhosts/bots.it-simple.cn.conf` 里，紧跟 `/downloads/mac/`，写法照抄那一条（2026-10-17 加），bots 仓库的 `deploy/production/nginx-docker.conf` 同步写了这一条。改这份配置前先备份；`docker exec nginx_proxy nginx -t` 通过后才热加载。这份网关是多个站点共用的。
 - **OSS**：分发桶与 bots 共用，按前缀分开。每个对象单独设为公共读，桶里其他对象的权限不变。
 - **凭据**：放在 `.local/oss.env`（600，不进仓库）。
 - **appcast 历史**：最多保留 12 条历史条目。Sparkle 永远挑当前系统装得了的最新一条，所以不会出现逐版本爬升。
