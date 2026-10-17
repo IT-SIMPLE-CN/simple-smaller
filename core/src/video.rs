@@ -39,7 +39,7 @@ pub struct Tools {
 }
 
 impl Tools {
-    /// 依次找：环境变量 SMALLER_FFMPEG_DIR → 应用包 Contents/Resources/bin → 可执行文件旁边 → 开发目录 .local/ffmpeg。
+    /// 依次找：环境变量 SMALLER_FFMPEG_DIR → 应用包 Contents/Resources/bin → 可执行文件旁边（Windows 安装目录）→ 开发目录 .local/ffmpeg。
     pub fn locate() -> Result<Self> {
         let mut dirs: Vec<PathBuf> = Vec::new();
         if let Ok(dir) = std::env::var("SMALLER_FFMPEG_DIR") {
@@ -53,13 +53,14 @@ impl Tools {
         }
         let arch = if cfg!(target_arch = "aarch64") { "arm64" } else { "x86_64" };
         dirs.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.local/ffmpeg").join(arch).join("bin"));
+        let exe = std::env::consts::EXE_SUFFIX;
         for dir in dirs {
-            let (ffmpeg, ffprobe) = (dir.join("ffmpeg"), dir.join("ffprobe"));
+            let (ffmpeg, ffprobe) = (dir.join(format!("ffmpeg{exe}")), dir.join(format!("ffprobe{exe}")));
             if ffmpeg.is_file() && ffprobe.is_file() {
                 return Ok(Tools { ffmpeg, ffprobe });
             }
         }
-        Err(VideoError::Tool("先运行 scripts/build-ffmpeg-mac.sh".into()))
+        Err(VideoError::Tool("找不到 ffmpeg：先运行 scripts/build-ffmpeg-mac.sh（Windows 见 docs/build.md）".into()))
     }
 }
 
@@ -399,11 +400,7 @@ pub fn transcode(
                 run_ffmpeg(tools, &common_tail(extra), duration, (0.0, 1.0), progress, cancel)
             }
             (false, rate) => {
-                let (name, tag) = match recipe.codec {
-                    VideoCodec::H264 => ("h264_videotoolbox", "avc1"),
-                    VideoCodec::Hevc => ("hevc_videotoolbox", "hvc1"),
-                };
-                let base = vec!["-c:v".to_string(), name.into(), "-tag:v".into(), tag.into(), "-allow_sw".into(), "0".into()];
+                let base = hardware_encoder(recipe.codec);
                 match rate {
                     Rate::TargetBytes(target) => {
                         let mut kbps = target_video_kbps(target, duration, audio);
@@ -420,14 +417,8 @@ pub fn transcode(
                         Ok(())
                     }
                     rate => {
-                        // Apple Silicon 的恒定质量模式，1–100。
-                        let q = match rate {
-                            Rate::High => "65",
-                            Rate::Medium => "55",
-                            _ => "45",
-                        };
                         let mut extra = base;
-                        extra.extend(["-q:v".into(), q.into()]);
+                        extra.extend(hardware_quality(rate));
                         run_ffmpeg(tools, &common_tail(extra), duration, (0.0, 1.0), progress, cancel)
                     }
                 }
@@ -444,6 +435,58 @@ pub fn transcode(
             let _ = std::fs::remove_file(&tmp);
             Err(e)
         }
+    }
+}
+
+/// 系统 / 显卡硬件编码器。mac 走 VideoToolbox；Windows 走 Media Foundation，
+/// 它会挑显卡厂商（NVIDIA / Intel / AMD）的编码器，H.264 没有硬件时用系统自带的软件编码器。
+/// HEVC 只走硬件或系统扩展，不内置 x265。
+fn hardware_encoder(codec: VideoCodec) -> Vec<String> {
+    let tag = match codec {
+        VideoCodec::H264 => "avc1",
+        VideoCodec::Hevc => "hvc1",
+    };
+    let mut args: Vec<String> = Vec::new();
+    if cfg!(windows) {
+        let name = match codec {
+            VideoCodec::H264 => "h264_mf",
+            VideoCodec::Hevc => "hevc_mf",
+        };
+        args.extend(["-c:v".into(), name.into(), "-tag:v".into(), tag.into()]);
+        // HEVC 系统里没有软件编码器，强制硬件，失败时报错而不是卡住。
+        if codec == VideoCodec::Hevc {
+            args.extend(["-hw_encoding".into(), "1".into()]);
+        }
+        // Media Foundation 编码器不认 yuv420p 以外的输入。
+        args.extend(["-pix_fmt".into(), "nv12".into()]);
+    } else {
+        let name = match codec {
+            VideoCodec::H264 => "h264_videotoolbox",
+            VideoCodec::Hevc => "hevc_videotoolbox",
+        };
+        args.extend(["-c:v".into(), name.into(), "-tag:v".into(), tag.into(), "-allow_sw".into(), "0".into()]);
+    }
+    args
+}
+
+/// 硬件编码的恒定质量参数。
+fn hardware_quality(rate: Rate) -> Vec<String> {
+    if cfg!(windows) {
+        // Media Foundation 的质量模式，0–100。
+        let q = match rate {
+            Rate::High => "75",
+            Rate::Medium => "65",
+            _ => "55",
+        };
+        vec!["-rate_control".into(), "quality".into(), "-quality".into(), q.into()]
+    } else {
+        // Apple Silicon 的恒定质量模式，1–100。
+        let q = match rate {
+            Rate::High => "65",
+            Rate::Medium => "55",
+            _ => "45",
+        };
+        vec!["-q:v".into(), q.into()]
     }
 }
 

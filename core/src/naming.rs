@@ -75,13 +75,27 @@ fn hyphenate(s: &str) -> String {
 }
 
 /// 文件名里不能出现的字符一律换掉；空名退回 `file`。
+/// 按两端都合法来定：Windows 不许 `<>:"/\\|?*`、结尾的点和空格，以及 CON、NUL、COM1 这类设备名。
 fn sanitize(s: &str) -> String {
     let cleaned: String = s
         .chars()
-        .map(|c| if matches!(c, '/' | '\\' | ':' | '\0') || c.is_control() { '-' } else { c })
+        .map(|c| if matches!(c, '/' | '\\' | ':' | '<' | '>' | '"' | '|' | '?' | '*' | '\0') || c.is_control() { '-' } else { c })
         .collect();
-    let cleaned = cleaned.trim().trim_start_matches('.').to_string();
-    if cleaned.is_empty() { "file".into() } else { cleaned }
+    let cleaned = cleaned.trim().trim_start_matches('.').trim_end_matches(['.', ' ']).to_string();
+    if cleaned.is_empty() {
+        return "file".into();
+    }
+    if is_device_name(&cleaned) { format!("{cleaned}-") } else { cleaned }
+}
+
+/// Windows 保留的设备名（不分大小写，带不带扩展名都不行）。
+fn is_device_name(s: &str) -> bool {
+    let stem = s.split('.').next().unwrap_or(s).to_ascii_uppercase();
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.as_bytes()[3].is_ascii_digit()
+            && stem.as_bytes()[3] != b'0')
 }
 
 /// 按规则生成文件名（不含扩展名）。
@@ -176,6 +190,11 @@ mod tests {
         let rule = NamingRule { template: "{name}".into(), ..Default::default() };
         assert_eq!(render(&rule, &vars("a/b:c")), "a-b-c");
         assert_eq!(render(&rule, &vars("")), "file");
+        assert_eq!(render(&rule, &vars("问<答>?*|\"x\". ")), "问-答-----x-");
+        assert_eq!(render(&rule, &vars("con")), "con-");
+        assert_eq!(render(&rule, &vars("COM1")), "COM1-");
+        assert_eq!(render(&rule, &vars("COM0")), "COM0");
+        assert_eq!(render(&rule, &vars("console")), "console");
     }
 
     #[test]

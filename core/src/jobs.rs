@@ -108,7 +108,19 @@ pub struct Plan {
 pub const MAX_FOLDER_FILES: usize = 5000;
 
 fn is_hidden(path: &Path) -> bool {
-    path.file_name().is_some_and(|n| n.to_string_lossy().starts_with('.'))
+    if path.file_name().is_some_and(|n| n.to_string_lossy().starts_with('.')) {
+        return true;
+    }
+    // Windows 上带「隐藏」或「系统」属性的也跳过（desktop.ini、Thumbs.db 这类）。
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const HIDDEN_OR_SYSTEM: u32 = 0x2 | 0x4;
+        if std::fs::symlink_metadata(path).is_ok_and(|m| m.file_attributes() & HIDDEN_OR_SYSTEM != 0) {
+            return true;
+        }
+    }
+    false
 }
 
 /// 文件包（App、照片图库这类）在访达里看着像一个文件，不往里找。
@@ -391,18 +403,50 @@ const BIG_PIXELS: u64 = 20_000_000;
 fn big_parallel() -> usize {
     static N: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
     *N.get_or_init(|| {
-        let mut mem: u64 = 0;
-        let mut len = std::mem::size_of::<u64>();
-        let name = c"hw.memsize";
-        let ok = unsafe { libc_sysctlbyname(name.as_ptr(), &mut mem as *mut u64 as *mut std::ffi::c_void, &mut len, std::ptr::null_mut(), 0) } == 0;
-        let gb = if ok { mem >> 30 } else { 8 };
+        let gb = total_memory().map_or(8, |b| b >> 30);
         if gb >= 32 { 4 } else if gb >= 16 { 3 } else { 2 }
     })
 }
 
-unsafe extern "C" {
-    #[link_name = "sysctlbyname"]
-    fn libc_sysctlbyname(name: *const std::ffi::c_char, oldp: *mut std::ffi::c_void, oldlenp: *mut usize, newp: *mut std::ffi::c_void, newlen: usize) -> i32;
+/// 物理内存字节数；读不到返回 None。
+#[cfg(target_os = "macos")]
+fn total_memory() -> Option<u64> {
+    unsafe extern "C" {
+        fn sysctlbyname(name: *const std::ffi::c_char, oldp: *mut std::ffi::c_void, oldlenp: *mut usize, newp: *mut std::ffi::c_void, newlen: usize) -> i32;
+    }
+    let mut mem: u64 = 0;
+    let mut len = std::mem::size_of::<u64>();
+    let ok = unsafe { sysctlbyname(c"hw.memsize".as_ptr(), &mut mem as *mut u64 as *mut std::ffi::c_void, &mut len, std::ptr::null_mut(), 0) } == 0;
+    ok.then_some(mem)
+}
+
+#[cfg(windows)]
+fn total_memory() -> Option<u64> {
+    #[repr(C)]
+    struct MemoryStatusEx {
+        length: u32,
+        memory_load: u32,
+        total_phys: u64,
+        avail_phys: u64,
+        total_page_file: u64,
+        avail_page_file: u64,
+        total_virtual: u64,
+        avail_virtual: u64,
+        avail_extended_virtual: u64,
+    }
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn GlobalMemoryStatusEx(buffer: *mut MemoryStatusEx) -> i32;
+    }
+    let mut status: MemoryStatusEx = unsafe { std::mem::zeroed() };
+    status.length = std::mem::size_of::<MemoryStatusEx>() as u32;
+    let ok = unsafe { GlobalMemoryStatusEx(&mut status) } != 0;
+    ok.then_some(status.total_phys)
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+fn total_memory() -> Option<u64> {
+    None
 }
 
 struct BigPermit;

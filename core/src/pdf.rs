@@ -378,7 +378,6 @@ pub fn render_long_image(path: &Path, width: u32, max_height: u32) -> Result<Vec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process::Command;
 
     fn scratch(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("smaller-pdf-test-{name}-{}", std::process::id()));
@@ -386,7 +385,7 @@ mod tests {
         d
     }
 
-    /// 用系统 sips 把一张 300 dpi 的无损大图做成单页 PDF：图片为主、可压空间大。
+    /// 把一张无损大图（PNG 原样嵌入，150 dpi）做成单页 PDF：图片为主、可压空间大。
     fn image_pdf(dir: &Path, name: &str, seed: u32) -> PathBuf {
         let (w, h) = (2400u32, 1600u32);
         let mut rgba = Vec::with_capacity((w * h * 4) as usize);
@@ -399,14 +398,7 @@ mod tests {
         let png = dir.join(format!("{name}.png"));
         image::save_buffer(&png, &rgba, w, h, image::ExtendedColorType::Rgba8).unwrap();
         let pdf = dir.join(format!("{name}.pdf"));
-        let st = Command::new("sips")
-            .args(["-s", "dpiWidth", "300", "-s", "dpiHeight", "300", "-s", "format", "pdf"])
-            .arg(&png)
-            .arg("--out")
-            .arg(&pdf)
-            .output()
-            .unwrap();
-        assert!(st.status.success());
+        images_to_pdf(&[png], PageMode::FitImage, &pdf, &|p| img::load(p).map_err(|e| e.to_string())).unwrap();
         pdf
     }
 
@@ -490,7 +482,7 @@ mod tests {
         assert_eq!(parts[0].file_name().unwrap().to_string_lossy(), "merged-01.pdf");
 
         let (w, h) = page_size(&a, 0).unwrap();
-        assert!((w - 576.0).abs() < 1.0 && (h - 384.0).abs() < 1.0, "{w}×{h}");
+        assert!((w - 1152.0).abs() < 1.0 && (h - 768.0).abs() < 1.0, "{w}×{h}");
         let pic = render_page(&a, 0, 800).unwrap();
         // MuPDF 渲染时边界向外取整，高可能多 1 像素。
         assert_eq!(pic.width, 800);
