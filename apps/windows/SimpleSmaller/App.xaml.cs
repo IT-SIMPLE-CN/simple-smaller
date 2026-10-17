@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using SimpleSmaller.Auto;
+using SimpleSmaller.Ring;
 using SimpleSmaller.Views.Sub;
 
 namespace SimpleSmaller;
@@ -54,6 +55,8 @@ public partial class App : Application
         TrayIcon.Refresh();
         ClipboardWatcher.Refresh();
         FolderWatcher.Refresh();
+        RingController.Refresh();
+        ExplorerMenu.Sync();
         AppSettings.Shared.PropertyChanged += OnSettingsChanged;
 
         // 应用退出后点了通知：系统带着通知参数重新启动本应用。
@@ -68,6 +71,15 @@ public partial class App : Application
         var rest = argv.Skip(1).ToArray();
         LaunchArgs.Apply(rest);
         OpenWindowArg(rest);
+
+        // 再次启动（右键菜单、命令行）转来的参数：拿出主窗口，按参数加文件。
+        Program.OnSecondLaunch(again => queue.TryEnqueue(() =>
+        {
+            Log.Info($"再次启动：{string.Join(' ', again)}");
+            ShowMain();
+            LaunchArgs.Apply(again);
+            OpenWindowArg(again);
+        }));
     }
 
     private static void OnSettingsChanged(object? sender, PropertyChangedEventArgs e)
@@ -84,6 +96,9 @@ public partial class App : Application
                 break;
             case nameof(AppSettings.WatchFolders):
                 FolderWatcher.Refresh();
+                break;
+            case nameof(AppSettings.RingEnabled):
+                RingController.Refresh();
                 break;
         }
     }
@@ -147,6 +162,7 @@ public partial class App : Application
             foreach (var t in MediaTypes.All) model.Cancel(model.Workspace(t));
         }
         Quitting = true;
+        RingHook.Shared.Stop();
         TrayIcon.Remove();
         notifier?.Teardown();
         AppModel.ClearUnlocked();

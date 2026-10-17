@@ -131,7 +131,8 @@ internal sealed class GeneralSettings : Reactive
             FormRow.Toggle("资源管理器圆环", settings.RingEnabled, on => settings.RingEnabled = on),
             FormRow.Create("唤出方式", FormRow.Value("按住 Alt 点文件")),
             FormRow.Toggle("托盘图标", settings.MenuBarIcon, on => settings.MenuBarIcon = on),
-            FormRow.Create("资源管理器右键", FormRow.Value("用简单小一点处理")),
+            FormRow.Toggle("资源管理器右键", ExplorerMenu.Enabled, on => ExplorerMenu.Enabled = on),
+            FormRow.Create("右键位置", FormRow.Value("显示更多选项 → 用简单小一点处理")),
             FormRow.Create("处理剪贴板", FormRow.Key("Ctrl+Shift+V")));
 
         Content = Columns.Two(Columns.Stack(outputCard, privacy), entry);
