@@ -28,5 +28,6 @@ PDF
   zip 9                              MIT                 打包 zip
   rayon 1                            MIT / Apache-2.0    并行处理
   UniFFI                             MPL-2.0             Swift 与引擎之间的接口
+  Sparkle 2.9.6                      MIT                 自动更新
 
 © 2021–2026 IT-SIMPLE
