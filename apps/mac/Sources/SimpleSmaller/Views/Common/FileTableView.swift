@@ -31,7 +31,7 @@ struct FileTableView: View {
         Table(of: FileItem.self, selection: $ws.selection) {
             TableColumn("名称") { item in
                 HStack(spacing: 8) {
-                    Thumb(image: item.thumbnail).frame(width: 22, height: 22)
+                    Thumb(image: item.thumbnail).frame(width: 22, height: 22).accessibilityHidden(true)
                     Text(item.name).lineLimit(1).truncationMode(.middle)
                 }
                 .help(item.url.path)

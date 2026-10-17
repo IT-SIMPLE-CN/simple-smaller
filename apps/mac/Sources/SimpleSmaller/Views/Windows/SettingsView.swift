@@ -8,7 +8,8 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            TopTabs(selection: $tab, options: Tab.allCases.map { ($0, $0.rawValue) })
+            TopTabs(selection: $tab, options: Tab.allCases.map { ($0, $0.rawValue) }, label: "设置分类")
+                .accessibilitySortPriority(10)
             Group {
                 switch tab {
                 case .general: GeneralSettings()
@@ -62,6 +63,7 @@ private struct SettingsCard<Content: View>: View {
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Bento.card))
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -98,6 +100,7 @@ private struct GeneralSettings: View {
                     }
                 }
             }
+            .bentoRegion(2)
             SettingsCard(symbol: "cursorarrow.click.2", title: "入口",
                          note: "圆环要读出你点的是哪个文件，所以需要辅助功能权限。只读取文件位置，不记录其他操作。") {
                 BentoToggleRow(label: "访达圆环", isOn: $settings.ringEnabled, height: 40)
@@ -117,6 +120,7 @@ private struct GeneralSettings: View {
                         .background(Capsule().fill(Bento.card))
                 }
             }
+            .bentoRegion(1)
         }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
             trusted = RingController.shared.isTrusted

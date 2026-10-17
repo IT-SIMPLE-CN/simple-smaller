@@ -51,12 +51,14 @@ struct ResultView: View {
                 .foregroundStyle(.white)
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(failed.count == ws.files.count ? Bento.failed : Color.brand))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.system(size: 20, weight: .semibold))
                 Text(subtitle).font(.system(size: 12)).foregroundStyle(Bento.secondary).lineLimit(1)
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 
     private var title: String {
@@ -143,6 +145,7 @@ struct ResultView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
                         .frame(width: 28, height: 28).background(Circle().fill(Bento.failed))
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(verbatim: "\(failed.count) 个失败").font(.system(size: 13, weight: .semibold))
                         Text(failNote).font(.system(size: 11)).lineLimit(2)
@@ -259,6 +262,7 @@ struct Gauge: View {
         }
         .onChange(of: fraction) { _, f in shown = f }
         .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isImage)
         .accessibilityLabel("这一批小了 \(Int((fraction * 100).rounded()))%")
     }
 }

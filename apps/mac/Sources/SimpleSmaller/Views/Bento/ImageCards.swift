@@ -373,13 +373,9 @@ struct BrandSlider: View {
         .focusable()
         .onKeyPress(.leftArrow) { value = max(range.lowerBound, value - step); return .handled }
         .onKeyPress(.rightArrow) { value = min(range.upperBound, value + step); return .handled }
-        .accessibilityElement()
-        .accessibilityAdjustableAction { dir in
-            switch dir {
-            case .increment: value = min(range.upperBound, value + step)
-            case .decrement: value = max(range.lowerBound, value - step)
-            @unknown default: break
-            }
+        // 旁白按系统滑杆读：有数值，上下轻扫可调。
+        .accessibilityRepresentation {
+            Slider(value: $value, in: range, step: step)
         }
     }
 }

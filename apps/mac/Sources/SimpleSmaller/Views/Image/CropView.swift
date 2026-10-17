@@ -203,8 +203,9 @@ struct CropCanvas: View {
             .animation(dragStart == nil && !reduceMotion ? .smooth(duration: 0.25) : nil, value: box)
         }
         .accessibilityElement()
+        .accessibilityAddTraits(.isImage)
         .accessibilityLabel("裁切框")
-        .accessibilityValue("\(Int(ws.effectiveCropBox(index).width)) × \(Int(ws.effectiveCropBox(index).height)) 像素")
+        .accessibilityValue(Text(verbatim: "\(Int(ws.effectiveCropBox(index).width)) × \(Int(ws.effectiveCropBox(index).height)) 像素"))
         .accessibilityHint("回车确认并到下一张，左右方向键切换")
     }
 

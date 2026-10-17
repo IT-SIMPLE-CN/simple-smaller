@@ -112,7 +112,8 @@ struct PageThumb: View {
                 .foregroundStyle(selected ? Color.brand : .secondary)
         }
         .accessibilityElement()
-        .accessibilityLabel("第 \(number) 页")
+        .accessibilityAddTraits(.isImage)
+        .accessibilityLabel(Text(verbatim: "第 \(number) 页"))
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
@@ -262,7 +263,8 @@ private struct ImageOrderGrid: View {
                         }
                         .onDrop(of: [.text], delegate: ImageDrop(target: item.id, ws: ws, dragging: $dragging))
                         .help(item.name)
-                        .accessibilityLabel("第 \(i + 1) 页，\(item.name)")
+                        .accessibilityAddTraits(.isImage)
+                        .accessibilityLabel(Text(verbatim: "第 \(i + 1) 页，\(item.name)"))
                     }
                 }
                 .padding(16)
