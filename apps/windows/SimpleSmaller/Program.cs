@@ -18,7 +18,11 @@ public static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        // Velopack 钩子放这里（最先执行）
+        // Velopack：安装、更新、卸载时会带特殊参数启动本程序，在这里处理完就退出，所以必须最先执行。
+        // 卸载前注销资源管理器右键菜单（只动本用户的注册表项）。
+        Velopack.VelopackApp.Build()
+            .OnBeforeUninstallFastCallback(_ => ExplorerMenu.Unregister())
+            .Run();
 
 #if DEBUG
         // 调试构建把日志写到 %TEMP%\SimpleSmaller-debug.log，方便在虚拟机里看。

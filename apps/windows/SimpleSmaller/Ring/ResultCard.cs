@@ -54,7 +54,7 @@ internal sealed class ResultCard : Grid
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.Children.Add(Icon());
-        var title = Themed.Text($"{CountText} · {run.Recipe.Name}", 13, semibold: true);
+        var title = FormTheme.Text($"{CountText} · {run.Recipe.Name}", 13, semibold: true);
         title.TextTrimming = TextTrimming.CharacterEllipsis;
         title.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(title, 1);
@@ -65,17 +65,17 @@ internal sealed class ResultCard : Grid
         switch (phase.Kind)
         {
             case QuickRunPhaseKind.Running:
-                body.Children.Add(Themed.Text(phase.Total > 1 ? $"处理中 {phase.Done} / {phase.Total}…" : "处理中…", 12, "BentoSecondary"));
+                body.Children.Add(FormTheme.Text(phase.Total > 1 ? $"处理中 {phase.Done} / {phase.Total}…" : "处理中…", 12, "BentoSecondary"));
                 if (run.Type == MediaType.Video)
                 {
-                    var note = Themed.Text("可以先收起，处理完会发通知。", 11, "BentoSecondary");
+                    var note = FormTheme.Text("可以先收起，处理完会发通知。", 11, "BentoSecondary");
                     note.Opacity = 0.7;
                     body.Children.Add(note);
                 }
                 break;
             case QuickRunPhaseKind.Failed:
             {
-                var message = Themed.Text(phase.Message ?? "", 12, "BentoSecondary");
+                var message = FormTheme.Text(phase.Message ?? "", 12, "BentoSecondary");
                 message.TextWrapping = TextWrapping.Wrap;
                 body.Children.Add(message);
                 var ok = new CapsuleButton("好", 26, "BentoFill");
@@ -87,11 +87,11 @@ internal sealed class ResultCard : Grid
             default:
                 if (undone)
                 {
-                    body.Children.Add(Themed.Text("已撤销，新文件移到了回收站。", 12, "BentoSecondary"));
+                    body.Children.Add(FormTheme.Text("已撤销，新文件移到了回收站。", 12, "BentoSecondary"));
                     break;
                 }
                 var sizes = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                sizes.Children.Add(Themed.Text($"{Format.Size(run.Before)} → {Format.Size(run.After)}", 12, "BentoSecondary"));
+                sizes.Children.Add(FormTheme.Text($"{Format.Size(run.Before)} → {Format.Size(run.After)}", 12, "BentoSecondary"));
                 if (run.After > 0 && run.After < run.Before)
                 {
                     sizes.Children.Add(Colored(Format.Change(run.Before, run.After), 12, Palette.Saving, true));
@@ -125,7 +125,7 @@ internal sealed class ResultCard : Grid
         }
     }
 
-    /// 固定颜色的字（省下 / 警告色不随深浅色变；Themed.Text 加载时会改回主题色）。
+    /// 固定颜色的字（省下 / 警告色不随深浅色变；FormTheme.Text 加载时会改回主题色）。
     private static TextBlock Colored(string text, double size, Brush brush, bool semibold) => new()
     {
         Text = text,
