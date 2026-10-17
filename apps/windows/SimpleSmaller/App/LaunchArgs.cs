@@ -1,7 +1,8 @@
 namespace SimpleSmaller;
 
 /// 启动参数（验证用，也给资源管理器右键菜单用）：
-/// --open <路径…>  加文件；--type 图片|视频|PDF；--segment <分段名>；--start 直接开始。
+/// --open <路径…>  加文件；--type 图片|视频|PDF；--segment <分段名>；--start 直接开始；
+/// --appearance dark|light 强制深浅色（验证用）。
 internal static class LaunchArgs
 {
     public static void Apply(string[] args)
@@ -23,6 +24,9 @@ internal static class LaunchArgs
                     break;
                 case "--segment" when i + 1 < args.Length:
                     segment = args[++i];
+                    break;
+                case "--appearance" when i + 1 < args.Length:
+                    App.Main?.SetAppearance(args[++i]);
                     break;
                 case "--start":
                     start = true;

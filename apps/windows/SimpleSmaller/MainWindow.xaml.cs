@@ -89,6 +89,12 @@ public sealed partial class MainWindow : Window
         center.SizeChanged += (_, _) => UpdateDragRegions();
     }
 
+    /// 强制深浅色（--appearance，验证用）；其余时候跟随系统。
+    public void SetAppearance(string mode)
+    {
+        Root.RequestedTheme = mode switch { "dark" => ElementTheme.Dark, "light" => ElementTheme.Light, _ => ElementTheme.Default };
+    }
+
     private double DisplayScale()
     {
         var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);

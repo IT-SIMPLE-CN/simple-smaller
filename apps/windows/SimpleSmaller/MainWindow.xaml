@@ -4,5 +4,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="简单小一点">
-    <Grid x:Name="Root" />
+    <!-- 外面包一层 UserControl：字体（MiSans）从这里继承给所有文字。 -->
+    <UserControl FontFamily="{StaticResource BentoFont}">
+        <Grid x:Name="Root" />
+    </UserControl>
 </Window>

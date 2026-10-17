@@ -67,7 +67,7 @@ internal sealed class WorkView : Reactive
             Motion.PageIn(result);
             return;
         }
-        main = Region(Slots.Main(ws), "文件");
+        main = Region(Slots.MainCard(ws), "文件");
         bar = Region(Slots.TopBar(ws), "配方");
         upper = Region(Slots.Upper(ws), "设置");
         lowerLeft = Region(Slots.LowerLeft(ws), "设置");

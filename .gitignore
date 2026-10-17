@@ -20,3 +20,6 @@ apps/windows/SimpleSmaller/Core/smaller_core.cs
 apps/windows/SimpleSmaller/Native/
 apps/windows/**/bin/
 apps/windows/**/obj/
+
+# MiSans 字体：协议不允许单独分发，构建时由 scripts/fetch-misans.ps1 下载
+apps/windows/SimpleSmaller/Assets/Fonts/

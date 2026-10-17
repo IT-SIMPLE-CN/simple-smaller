@@ -84,8 +84,8 @@
     <CornerRadius x:Key="BentoPanelRadius">18</CornerRadius>
     <Thickness x:Key="BentoCardPadding">20,18,20,18</Thickness>
 
-    <!-- 中文优先雅黑，西文与数字用系统字体。 -->
-    <FontFamily x:Key="BentoFont">Segoe UI Variable Text, Microsoft YaHei UI</FontFamily>
+    <!-- 界面字体 MiSans；缺字或没装时退回系统字体。 -->
+    <FontFamily x:Key="BentoFont">ms-appx:///Assets/Fonts/MiSansVF.ttf#MiSans VF, Segoe UI Variable Text, Microsoft YaHei UI</FontFamily>
     <FontFamily x:Key="BentoIcons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
     <Style x:Key="BentoCardStyle" TargetType="Border">

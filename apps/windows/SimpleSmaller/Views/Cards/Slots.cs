@@ -8,11 +8,11 @@ namespace SimpleSmaller.Views.Cards;
 /// 网格里每一格放什么。按类型分给 ImageSlots / VideoSlots / PdfSlots（各自一个文件）。
 internal static class Slots
 {
-    public static UIElement Main(Workspace ws) => ws.Type switch
+    public static UIElement MainCard(Workspace ws) => ws.Type switch
     {
-        MediaType.Image => ImageSlots.Main(ws),
-        MediaType.Video => VideoSlots.Main(ws),
-        _ => PdfSlots.Main(ws),
+        MediaType.Image => ImageSlots.MainCard(ws),
+        MediaType.Video => VideoSlots.MainCard(ws),
+        _ => PdfSlots.MainCard(ws),
     };
 
     /// 配方条；PDF 的合并、拆分、图片转 PDF 不用配方，换成这一段的说明。
