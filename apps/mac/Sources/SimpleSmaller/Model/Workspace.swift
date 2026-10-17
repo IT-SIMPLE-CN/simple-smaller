@@ -91,6 +91,8 @@ final class Workspace {
     /// 这一轮处理的文件（重试时只是失败的那几个）。
     var runItemIDs: Set<FileItem.ID> = []
     var running = false
+    /// 处理完换到完成页；「改设置再做一次」回到设置页，文件还在。
+    var showResult = false
     /// 这一批任务里引擎展开后的文件顺序（进度回调按这个序号报）。
     var planSources: [String] = []
     var finishedCount = 0

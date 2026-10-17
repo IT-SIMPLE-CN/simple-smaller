@@ -64,13 +64,8 @@ struct FramesInspectorSections: View {
 
         Text("比例裁切沿用「剪辑」里的设置。")
             .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineSpacing(3)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, InspectorMetrics.margin)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .top) { Divider() }
+            .foregroundStyle(Bento.secondary)
+            .padding(.horizontal, 6)
     }
 
     private var sourceFps: Int { Int((ws.currentVideo?.fps ?? 30).rounded()) }

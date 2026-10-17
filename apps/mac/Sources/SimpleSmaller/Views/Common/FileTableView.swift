@@ -269,7 +269,7 @@ extension Notification.Name {
 }
 
 /// 主窗口里按空格转成「快速查看」（和访达一样）；焦点在输入框、按钮上时不拦。
-private struct SpaceKeyWatcher: NSViewRepresentable {
+struct SpaceKeyWatcher: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { Probe() }
     func updateNSView(_ nsView: NSView, context: Context) {}
 

@@ -32,7 +32,10 @@ final class AppModel {
     let store = RecipeStore()
     let settings = AppSettings.shared
 
-    var selectedType: MediaType = .image
+    /// 切到某一类就离开首页（⌘1/2/3、拖入文件、启动参数都走这里）。
+    var selectedType: MediaType = .image { didSet { showHome = false } }
+    /// 首页：打开应用时显示；左上返回回到这里，各类的文件保留。
+    var showHome = true
     private(set) var workspaces: [MediaType: Workspace] = [:]
     var toast: String?
     /// 最近完成的任务（菜单栏小窗）。
@@ -87,10 +90,12 @@ final class AppModel {
             let existing = Set(ws.files.map(\.url))
             let fresh = items.filter { !existing.contains($0.url) }
             ws.files += fresh
+            if !fresh.isEmpty { ws.showResult = false }
             for item in fresh { loadMeta(item) }
             if type == .pdf { rebuildPageOrder(ws) }
         }
         if byType[selectedType] == nil, let first = byType.keys.first { selectedType = first }
+        showHome = false
     }
 
     /// 按分段名切到当前类型的某个分段（与工具栏分段切换效果相同）。
@@ -156,6 +161,7 @@ final class AppModel {
         ws.cropIndex = 0
         ws.pageOrder.removeAll()
         ws.finishedCount = 0
+        ws.showResult = false
     }
 
     /// 剪贴板里的图片存成临时 PNG 再处理；剪贴板里是文件就直接加。
@@ -262,6 +268,7 @@ final class AppModel {
         let items = retrying ?? ws.files
         for f in items { f.state = .waiting; f.outputs = [] }
         ws.running = true
+        ws.showResult = false
         // 每一轮一个编号：取消后马上重开，上一轮的后台循环与回调都认得出自己已经过期。
         ws.runGeneration += 1
         let gen = ws.runGeneration
@@ -515,6 +522,7 @@ final class AppModel {
             ws.job = nil
             ws.batchJobs = []
             ws.createdRoots = []
+            ws.showResult = false
             flash("已撤销，\(files.count) 个新文件移到了废纸篓")
         } catch {
             flash("撤销失败：\(error.localizedDescription)")
@@ -562,6 +570,8 @@ final class AppModel {
 
     private func finished(_ ws: Workspace, started: Date) {
         ws.running = false
+        // 有结果（完成、保留原图或失败）就换到完成页；全部停掉的不换。
+        if ws.files.contains(where: { $0.state != .cancelled && $0.state != .waiting }) { ws.showResult = true }
         noteFinishedInBackground(ws.files.filter { ws.runItemIDs.contains($0.id) && $0.state == .done }.count)
         endActivityIfIdle()
         // 只统计处理成功的（失败的不算进前后体积）。

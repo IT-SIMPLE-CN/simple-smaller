@@ -8,7 +8,6 @@ struct PdfInspector: View {
 
     var body: some View {
         InspectorScroll {
-            InspectorHeader(ws: ws, description: description)
             if !ws.files.isEmpty {
                 switch ws.pdfSegment {
                 case .compress: compressSections
@@ -17,8 +16,22 @@ struct PdfInspector: View {
                 case .toImages: toImagesSection
                 case .fromImages: fromImagesSection
                 }
+            } else {
+                InspectorSection(title: ws.usesRecipe ? ws.base.name : ws.pdfSegment.rawValue) {
+                    Text(description).font(.system(size: 12)).foregroundStyle(Bento.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            OutputSection(ws: ws)
+        }
+    }
+
+    /// 合并、拆分、图片转 PDF 没有配方：顶部横条写一句这个分段做什么。
+    static func segmentNote(_ s: Workspace.PdfSegment) -> String {
+        switch s {
+        case .merge: "把几个 PDF 按页面顺序合成一个文件，可排序、删页。"
+        case .split: "把一个 PDF 按每 N 页拆成多个文件。"
+        case .fromImages: "把图片按顺序做成一个 PDF，一张一页。"
+        default: ""
         }
     }
 

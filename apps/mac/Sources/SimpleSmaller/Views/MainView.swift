@@ -1,42 +1,31 @@
 import SwiftUI
 
+/// 主窗口（设计稿 V2.1）：没有文件时是首页；选了一类就是这一类的便当盒工作区，做完换到完成页。
+/// 工具栏用系统的（左边返回与标题、正中分段），浅灰窗口底上铺白色卡片。
 struct MainView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        @Bindable var model = model
         let ws = model.current
-        NavigationSplitView {
-            SidebarView()
-                .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
-        } detail: {
-            // 检查器是详情区右侧的面板，不用系统 .inspector：后者会把工具栏切成两段，
-            // 工具栏要贯通整窗，分段才能落在工作区正中。
-            // 左边是列表与状态栏；右边是检查器，内容自己上下滚，「开始」占满宽度固定在底部。
-            // 两边底栏同高，分隔线连成一条。
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    DetailView(ws: ws)
-                    StatusBar(ws: ws)
-                }
-                .frame(minWidth: 460)
-                Divider()
-                VStack(spacing: 0) {
-                    InspectorView(ws: ws)
-                    InspectorFooter(ws: ws)
-                }
-                .frame(width: 300)
-                // 底色只铺到工具栏下沿，不伸进工具栏：工具栏整条保持同一个底（深色下否则右上角发黑）。
-                .background(Color(nsColor: .windowBackgroundColor), ignoresSafeAreaEdges: [])
+        ZStack {
+            if model.showHome {
+                HomeView()
+                    .transition(.opacity)
+            } else {
+                WorkView(ws: ws)
+                    .transition(.opacity)
             }
-            // 工具栏下沿的细线只画在详情区（列表 + 检查器），不伸进边栏，左上角不会断出缺口。
-            .overlay(alignment: .top) { Divider() }
         }
-        // 不要工具栏下沿的硬分隔线：macOS 26 的悬浮边栏有圆角，硬线会在左上角断开成缺口。
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Bento.window.ignoresSafeArea())
+        .animation(.smooth(duration: 0.3), value: model.showHome)
         .modifier(HideToolbarSeparator())
-        .navigationTitle(title(ws))
-        .navigationSubtitle(subtitle(ws))
-        .toolbar { MainToolbar(ws: ws) }
+        .navigationTitle(model.showHome ? "简单小一点" : title(ws))
+        .navigationSubtitle(model.showHome ? "" : subtitle(ws))
+        .toolbar {
+            if model.showHome { HomeToolbar() } else { WorkToolbar(ws: ws) }
+        }
+        .modifier(HideWindowTitle(hidden: model.showHome))
         .overlay(alignment: .bottom) {
             if let toast = model.toast {
                 Text(toast)
@@ -44,19 +33,20 @@ struct MainView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(.regularMaterial, in: Capsule())
-                    .padding(.bottom, 44)
+                    .padding(.bottom, 28)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.smooth(duration: 0.3), value: model.toast)
         .background(NoInitialFocus())
+        // 拖到窗口任何地方：按类型自动分到图片、视频、PDF。
         .dropDestination(for: URL.self) { urls, _ in
-            model.add(urls)
+            model.add(urls, preferred: model.showHome ? nil : model.selectedType)
             return true
         }
     }
 
-    /// 视频剪辑、序列帧一次看一段：标题写这段的文件名（设计稿 04）。
+    /// 视频剪辑、序列帧一次看一段：标题写这段的文件名。
     private func singleVideo(_ ws: Workspace) -> FileItem? {
         guard ws.type == .video, ws.videoSegment != .compress else { return nil }
         return ws.currentVideo
@@ -68,22 +58,30 @@ struct MainView: View {
 
     private func subtitle(_ ws: Workspace) -> String {
         if let v = singleVideo(ws) {
-            // 「3840 × 2160 · 02:14 · HEVC HDR · 1.9 GB」；序列帧写帧率与总帧数。
-            var parts = ["\(v.width) × \(v.height)", Format.duration(v.duration)]
+            var parts: [String] = []
+            if ws.videoItems.count > 1, let i = ws.videoItems.firstIndex(where: { $0.id == v.id }) {
+                parts.append("第 \(i + 1) / \(ws.videoItems.count) 个")
+            }
+            parts += ["\(v.width) × \(v.height)", Format.duration(v.duration)]
             if ws.videoSegment == .frames {
                 parts.append("\(Int(v.fps.rounded())) fps")
                 parts.append("\(Int((v.duration * v.fps).rounded())) 帧")
             } else {
-                let codec = v.codec.lowercased() == "h264" ? "H.264" : v.codec.uppercased()
-                parts.append(v.hdr ? "\(codec) HDR" : codec)
+                if v.hdr { parts.append("HDR") }
                 parts.append(Format.size(v.bytes))
             }
             return parts.joined(separator: " · ")
         }
         guard !ws.files.isEmpty else { return "没有文件" }
+        if ws.running { return "处理中 \(ws.finishedCount) / \(ws.files.count)" }
+        if ws.showResult { return "\(ws.files.count) 个文件 · 已完成" }
         var parts = ["\(ws.files.count) 个文件"]
+        if ws.type == .image, ws.imageSegment == .crop {
+            let items = ws.cropItems
+            parts.append("已确认 \(items.filter { ws.cropConfirmed.contains($0.url) }.count) / \(items.count)")
+            return parts.joined(separator: " · ")
+        }
         if ws.type == .pdf, ws.pdfSegment != .fromImages {
-            // 合并时写删页、排序之后的页数。
             parts.append("\(ws.pdfSegment == .merge ? ws.pageOrder.count : ws.files.reduce(0) { $0 + $1.pages }) 页")
         }
         parts.append(Format.size(ws.totalBytes))
@@ -101,19 +99,43 @@ struct HideToolbarSeparator: ViewModifier {
     }
 }
 
-/// 工具栏：左边是边栏开关与标题（副标题写文件数与总体积）；
-/// 正中是「压缩 / 裁切」这类业务分段——它切换的是整个工作区，所以居中；
-/// 添加文件在检查器顶部的批量卡片里，「开始」固定在检查器底部。
-struct MainToolbar: ToolbarContent {
+/// 首页不写窗口标题（正中是品牌）。
+struct HideWindowTitle: ViewModifier {
+    let hidden: Bool
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *), hidden {
+            content.toolbar(removing: .title)
+        } else {
+            content
+        }
+    }
+}
+
+/// 工作区工具栏：左边返回首页；正中是业务分段；完成页右边是「撤销这一批」。
+struct WorkToolbar: ToolbarContent {
     @Environment(AppModel.self) private var model
     let ws: Workspace
 
     var body: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            Button { model.showHome = true } label: {
+                Image(systemName: "arrow.left")
+            }
+            .help("回首页（这一批文件保留）")
+            .accessibilityLabel("回首页")
+        }
         SegmentToolbarItem(ws: ws)
+        if ws.showResult, !ws.running {
+            ToolbarItem(placement: .primaryAction) {
+                Button("撤销这一批") { model.undo(ws) }
+                    .help("把这一批写出的文件移到废纸篓，原文件不动")
+            }
+        }
     }
 }
 
-/// 居中的业务分段。macOS 26 起工具栏会给每项套一层玻璃胶囊，分段自带底槽，叠起来是两层，这里关掉。
+/// 居中的业务分段。macOS 26 起工具栏会给每项套一层玻璃胶囊，分段自带白底，这里关掉。
 struct SegmentToolbarItem: ToolbarContent {
     let ws: Workspace
 
@@ -127,99 +149,7 @@ struct SegmentToolbarItem: ToolbarContent {
     }
 }
 
-struct StartButton: View {
-    @Environment(AppModel.self) private var model
-    let ws: Workspace
-
-    var body: some View {
-        Button { model.start(ws) } label: {
-            Text(ws.isUpToDate ? "已完成" : "开始").frame(maxWidth: .infinity)
-        }
-        .keyboardShortcut(.return, modifiers: .command)
-        // 这一批按当前配方做完了：再点只会多出一份重复的文件；改了配方或加了文件才重新可点。
-        .disabled(ws.files.isEmpty || !canStart || ws.isUpToDate)
-        .help(ws.isUpToDate ? "这一批已按当前配方处理完；改配方或加文件后可以再开始" : "按当前配方处理全部文件（⌘↩）")
-        .buttonStyle(BrandBlockStyle())
-    }
-
-    private var canStart: Bool {
-        // PDF 要加打开密码但还没填：不能开始，免得输出没加密码的文件。
-        if ws.type == .pdf, ws.pdfSegment != .toImages, ws.outputPasswordOn, ws.outputPassword.trimmingCharacters(in: .whitespaces).isEmpty { return false }
-        return switch ws.type {
-        case .pdf where ws.pdfSegment == .fromImages: ws.files.contains { $0.type == .image }
-        case .pdf where ws.pdfSegment == .merge: ws.files.filter { $0.type == .pdf }.count >= 1 && !ws.pageOrder.isEmpty
-        default: true
-        }
-    }
-}
-
-/// 检查器底部：占满宽度的「开始」，处理中变「停止」并带进度。
-struct InspectorFooter: View {
-    @Environment(AppModel.self) private var model
-    let ws: Workspace
-
-    var body: some View {
-        Group {
-            if ws.running {
-                Button { model.cancel(ws) } label: {
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text("停止")
-                        Text("\(ws.finishedCount) / \(ws.files.count)").monospacedDigit().foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .help("停止处理（⌘.）")
-                .buttonStyle(QuietBlockStyle())
-            } else {
-                StartButton(ws: ws)
-            }
-        }
-        .padding(.horizontal, 16)
-        .frame(height: StatusBar.height)
-        .overlay(alignment: .top) { Divider() }
-        .animation(.smooth(duration: 0.25), value: ws.running)
-    }
-}
-
-/// 品牌红主按钮（自绘，各系统版本一致）：悬停微亮、按下加深、禁用变淡。
-struct BrandBlockStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-    @State private var hovering = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(height: 32)
-            .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.brand)
-                    .brightness(configuration.isPressed ? -0.08 : (hovering && isEnabled ? 0.04 : 0))
-            }
-            .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.white.opacity(0.16), lineWidth: 0.5) }
-            .shadow(color: Color.brand.opacity(isEnabled ? 0.25 : 0), radius: 3, y: 1)
-            .opacity(isEnabled ? 1 : 0.4)
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .onHover { hovering = $0 }
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
-            .animation(.easeOut(duration: 0.15), value: hovering)
-    }
-}
-
-/// 次级按钮（处理中的「停止」）：与主按钮同尺寸，不抢眼。
-struct QuietBlockStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .frame(height: 32)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(configuration.isPressed ? 0.16 : 0.09)))
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
 struct SegmentPicker: View {
-    @Environment(AppModel.self) private var model
     let ws: Workspace
 
     var body: some View {
@@ -227,51 +157,24 @@ struct SegmentPicker: View {
         Group {
             switch ws.type {
             case .image:
-                SlidingSegmented(selection: $ws.imageSegment, options: Workspace.ImageSegment.allCases.map { ($0, $0.rawValue) })
-                    .frame(width: 150)
+                TopTabs(selection: $ws.imageSegment, options: Workspace.ImageSegment.allCases.map { ($0, $0.rawValue) })
             case .video:
-                SlidingSegmented(selection: $ws.videoSegment, options: Workspace.VideoSegment.allCases.map { ($0, $0.rawValue) })
-                    .frame(width: 216)
+                TopTabs(selection: $ws.videoSegment, options: Workspace.VideoSegment.allCases.map { ($0, $0.rawValue) })
             case .pdf:
-                SlidingSegmented(selection: $ws.pdfSegment, options: Workspace.PdfSegment.allCases.map { ($0, $0.rawValue) })
-                    .frame(width: 400)
+                TopTabs(selection: $ws.pdfSegment, options: Workspace.PdfSegment.allCases.map { ($0, $0.rawValue) })
             }
         }
         .accessibilityLabel("视图")
         .disabled(ws.running)
         .onChange(of: ws.imageSegment) { _, new in
             ws.enterImageSegment(new)
+            ws.showResult = false
         }
         .onChange(of: ws.videoSegment) { _, new in
             ws.draft.video.outputFrames = (new == .frames)
+            ws.showResult = false
         }
-    }
-}
-
-struct DetailView: View {
-    @Environment(AppModel.self) private var model
-    let ws: Workspace
-
-    var body: some View {
-        Group {
-                if ws.files.isEmpty {
-                    DropZone(type: ws.type, segment: ws.pdfSegment)
-                } else {
-                    switch ws.type {
-                    case .image:
-                        if ws.imageSegment == .crop { CropView(ws: ws) } else { FileTableView(ws: ws) }
-                    case .video:
-                        switch ws.videoSegment {
-                        case .compress: FileTableView(ws: ws)
-                        case .edit: VideoEditView(ws: ws)
-                        case .frames: VideoFramesView(ws: ws)
-                        }
-                    case .pdf:
-                        PdfDetailView(ws: ws)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: ws.pdfSegment) { _, _ in ws.showResult = false }
     }
 }
 

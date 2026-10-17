@@ -276,6 +276,9 @@ extension Recipe {
         image("img.xhs", "小红书 3:4") { $0.format = .jpeg; $0.quality = 90; $0.crop = CropPreset.imagePresets[0] }
         image("img.gzh", "公众号封面") { $0.format = .jpeg; $0.quality = 90; $0.crop = CropPreset.imagePresets[2] }
         list[list.count - 1].summaryOverride = "2.35:1"
+        image("img.dy", "抖音 9:16") { $0.format = .jpeg; $0.quality = 90; $0.crop = CropPreset.imagePresets[1] }
+        image("img.shop", "商品方图 1:1") { $0.format = .jpeg; $0.quality = 90; $0.crop = CropPreset.imagePresets[4] }
+        image("img.ig", "Instagram 4:5") { $0.format = .jpeg; $0.quality = 90; $0.crop = CropPreset.imagePresets[5] }
         image("img.500k", "限 500 KB") { $0.format = .original; $0.quality = 90; $0.targetKB = 500; $0.size = nil }
         image("img.lossless", "无损交付") { $0.format = .original; $0.lossless = true; $0.quality = 100; $0.size = nil }
 

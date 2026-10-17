@@ -6,7 +6,6 @@ struct VideoInspector: View {
 
     var body: some View {
         InspectorScroll {
-            InspectorHeader(ws: ws, description: description)
             if !ws.files.isEmpty {
                 if ws.videoSegment == .frames {
                     FramesInspectorSections(ws: ws)
@@ -16,15 +15,16 @@ struct VideoInspector: View {
                             .font(.caption).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    OutputSection(ws: ws)
                 } else {
                     pictureSection
                     codecSection
                     audioSection
-                    OutputSection(ws: ws)
                 }
             } else {
-                OutputSection(ws: ws)
+                InspectorSection(title: ws.base.name) {
+                    Text(description).font(.system(size: 12)).foregroundStyle(Bento.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
