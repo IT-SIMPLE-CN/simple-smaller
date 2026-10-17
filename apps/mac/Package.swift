@@ -12,6 +12,10 @@ let sdkVersion = ProcessInfo.processInfo.environment["SMALLER_SDK_VERSION"] ?? "
 let package = Package(
     name: "SimpleSmaller",
     platforms: [.macOS(.v14)],
+    // 自动更新（与 dotnfilm-bots 同一版本）。
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6"),
+    ],
     targets: [
         // UniFFI 生成的 C 头文件，模块名必须是 smaller_coreFFI，生成的 Swift 按这个名字 import。
         .systemLibrary(name: "smaller_coreFFI", path: "Sources/smaller_coreFFI"),
@@ -27,12 +31,18 @@ let package = Package(
         ),
         .executableTarget(
             name: "SimpleSmaller",
-            dependencies: ["SmallerCore"],
+            dependencies: ["SmallerCore", .product(name: "Sparkle", package: "Sparkle")],
             path: "Sources/SimpleSmaller",
             swiftSettings: [.swiftLanguageMode(.v5)],
             // SwiftPM 会把链接记录里的 SDK 版本写成最低系统版本（14.0），系统据此把应用当旧应用、
             // 不给 Liquid Glass。这里显式写明按新 SDK 链接；最低系统仍是 14。
-            linkerSettings: [.unsafeFlags(["-Xlinker", "-platform_version", "-Xlinker", "macos", "-Xlinker", "14.0", "-Xlinker", sdkVersion])]
+            // executableTarget 不会自带 rpath：装进 .app 后要能找到 Contents/Frameworks 里的 Sparkle，
+            // 直接跑 .build 里的可执行文件时 framework 就在它旁边。
+            linkerSettings: [.unsafeFlags([
+                "-Xlinker", "-platform_version", "-Xlinker", "macos", "-Xlinker", "14.0", "-Xlinker", sdkVersion,
+                "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks",
+                "-Xlinker", "-rpath", "-Xlinker", "@executable_path",
+            ])]
         ),
     ]
 )

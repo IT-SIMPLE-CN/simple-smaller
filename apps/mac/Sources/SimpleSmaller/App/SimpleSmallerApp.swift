@@ -74,8 +74,11 @@ struct AppCommands: Commands {
         let _ = { WindowOpener.action = openWindow }()
         CommandGroup(replacing: .appInfo) {
             Button("关于简单小一点") { openWindow(id: "about") }
+            Button("检查更新…") { Updates.shared.check() }
         }
         CommandGroup(before: .sidebar) {
+            Button("首页") { model.showHome = true }
+                .keyboardShortcut("0", modifiers: .command)
             ForEach(Array(MediaType.allCases.enumerated()), id: \.element) { i, type in
                 Button(type.title) { model.selectedType = type }
                     .keyboardShortcut(KeyEquivalent(Character("\(i + 1)")), modifiers: .command)
@@ -197,6 +200,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         hideAutoFillWindows()
+        // 启动更新器：按 Info.plist 的间隔在后台检查。
+        _ = Updates.shared
         // 系统往「编辑」菜单里加的「自动填充」，本应用没有可填的内容，拿掉。
         menuObserver = NotificationCenter.default.addObserver(forName: NSMenu.didAddItemNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { DispatchQueue.main.async { Self.tidyMenus() } }

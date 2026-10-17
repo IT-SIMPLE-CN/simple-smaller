@@ -69,6 +69,7 @@ private struct SettingsCard<Content: View>: View {
 
 private struct GeneralSettings: View {
     @Bindable private var settings = AppSettings.shared
+    @Bindable private var updates = Updates.shared
     @State private var trusted = RingController.shared.isTrusted
 
     var body: some View {
@@ -90,9 +91,10 @@ private struct GeneralSettings: View {
                         }
                     }
                 }
-                SettingsCard(symbol: "lock.shield", title: "隐私", note: "文件只在本机处理，不上传。") {
-                    BentoRow(label: "联网", height: 40) {
-                        Text("不联网").foregroundStyle(Bento.secondary)
+                SettingsCard(symbol: "lock.shield", title: "隐私与更新", note: "文件只在本机处理，不上传。除检查更新外，应用不联网。") {
+                    BentoToggleRow(label: "自动检查更新", isOn: $updates.automaticallyChecks, height: 40)
+                    BentoRow(label: "现在检查", height: 40) {
+                        Button("检查更新…") { Updates.shared.check() }
                     }
                 }
             }

@@ -22,6 +22,23 @@
 	<string>AccentColor</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>zh_CN</string>
+	<!-- Sparkle 的更新弹窗按这里协商语言：不声明中文就是英文。 -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>zh_CN</string>
+		<string>en</string>
+	</array>
+	<!-- 自动更新：每 6 小时查一次，发现新版本先问，同意才下载安装。公钥公开，私钥在发布机钥匙串。 -->
+	<key>SUFeedURL</key>
+	<string>https://bots.it-simple.cn/downloads/smaller/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>TSBmtLd7w2O7Czd8wBFupmAzftqt/9vm5GpCyhIwEog=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>21600</integer>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSApplicationCategoryType</key>

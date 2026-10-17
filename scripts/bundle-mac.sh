@@ -20,6 +20,11 @@ APP="$ROOT/.local/app/SimpleSmaller.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin"
 cp "$BIN" "$APP/Contents/MacOS/SimpleSmaller"
+# Sparkle 按标准位置找更新器，framework 放 Contents/Frameworks；内部是相对符号链接，用 ditto 搬。
+# 不做沙盒用不上 XPC 服务，删掉，免得多两个要单独签名的嵌套包。
+mkdir -p "$APP/Contents/Frameworks"
+ditto "$(dirname "$BIN")/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+rm -rf "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices" "$APP/Contents/Frameworks/Sparkle.framework/XPCServices"
 if [ "$UNIVERSAL" = "universal" ]; then
   for t in ffmpeg ffprobe; do
     lipo -create "$ROOT/.local/ffmpeg/arm64/bin/$t" "$ROOT/.local/ffmpeg/x86_64/bin/$t" -output "$APP/Contents/Resources/bin/$t"
@@ -42,7 +47,8 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
-VERSION="$(grep '^version' "$ROOT/Cargo.toml" | head -1 | cut -d'"' -f2)"
+# 对外版本号在 apps/mac/version.txt；构建号取 main 的提交数，只增不减，Sparkle 按它比新旧。
+VERSION="$(tr -d ' \n' < "$ROOT/apps/mac/version.txt")"
 BUILD="$(git -C "$ROOT" rev-list --count HEAD)"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" "$ROOT/apps/mac/Info.plist" > "$APP/Contents/Info.plist"
 codesign --force --deep --sign - "$APP" > /dev/null 2>&1
