@@ -123,6 +123,6 @@ enum RingMenu {
     private static func custom(_ store: RecipeStore, _ type: MediaType) -> RingSlot {
         let mine = store.mine(for: type).prefix(4).map { RingChoice(label: $0.name, sub: "我的配方", action: .run($0)) }
         return RingSlot(label: "自定义", choices: Array(mine) + [RingChoice(label: "打开窗口…", sub: "细调后开始", action: .openMain)],
-                        defaultIndex: mine.isEmpty ? 0 : 0)
+                        defaultIndex: 0)
     }
 }

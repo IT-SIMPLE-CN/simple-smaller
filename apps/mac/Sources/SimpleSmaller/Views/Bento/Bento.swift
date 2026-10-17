@@ -1,6 +1,15 @@
 import AppKit
 import SwiftUI
 
+extension Color {
+    /// 品牌红，只用于主按钮、选中与进度。
+    static let brand = Color(red: 0xEF / 255, green: 0x39 / 255, blue: 0x22 / 255)
+    /// 变小了（完成、节省）。
+    static let saving = Color(red: 0x1B / 255, green: 0x7F / 255, blue: 0x4E / 255)
+    /// 提醒（保留原文件、原图不够大）。
+    static let warning = Color(red: 0xC2 / 255, green: 0x41 / 255, blue: 0x0C / 255)
+}
+
 /// 便当盒界面（设计稿 V2.1）的共用色板、尺寸与组件。
 /// 浅灰窗口底上放白色圆角卡片；墨黑用于文字与选中胶囊，品牌红只用于主按钮、选中标记与进度。
 enum Bento {

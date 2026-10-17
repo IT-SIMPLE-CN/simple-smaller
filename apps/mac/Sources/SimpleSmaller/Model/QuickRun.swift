@@ -125,7 +125,7 @@ final class QuickRun {
             model.recent.insert(job, at: 0)
             model.loadRecentThumbnail(job.id, from: urls.first)
             model.recent = Array(model.recent.prefix(10))
-            Notifier.jobFinished(title: title, after: after, outputs: outputs, elapsed: 0)
+            Notifier.jobFinished(title: title, after: after, outputs: outputs)
         }
         onFinished?()
     }

@@ -20,7 +20,5 @@ final class Updates {
         automaticallyChecks = controller.updater.automaticallyChecksForUpdates
     }
 
-    var canCheck: Bool { controller.updater.canCheckForUpdates }
-
     func check() { controller.checkForUpdates(nil) }
 }

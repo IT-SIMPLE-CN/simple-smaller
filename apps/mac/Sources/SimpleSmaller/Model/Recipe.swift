@@ -228,10 +228,10 @@ struct Recipe: Codable, Equatable, Hashable, Identifiable, Sendable {
     var pdf = PdfBody()
     var naming = NamingSettings()
     var stripMetadata = true
-    /// 边栏小字按设计稿写死的，优先于自动生成。
+    /// 配方摘要按设计稿写死的，优先于自动生成。
     var summaryOverride: String?
 
-    /// 边栏右侧的小字。
+    /// 配方的一句摘要（配方胶囊的悬停提示、圆环外圈、设置里的配方表）。
     var summary: String {
         if let summaryOverride { return summaryOverride }
         switch type {
@@ -263,7 +263,7 @@ struct Recipe: Codable, Equatable, Hashable, Identifiable, Sendable {
 }
 
 extension Recipe {
-    /// 内置配方（设计稿边栏「常用配方」）。
+    /// 内置配方（顶部配方条里排在前面的那些）。
     static let builtIns: [Recipe] = {
         var list: [Recipe] = []
         func image(_ id: String, _ name: String, _ edit: (inout ImageBody) -> Void) {
@@ -306,7 +306,6 @@ extension Recipe {
         pdf("pdf.print", "打印保真") { $0.level = .print }
         pdf("pdf.long", "转长图") { $0.longImage = true; $0.imageFormat = .jpeg; $0.imageWidth = 1080 }
 
-        // 新装的「我的配方」示例：官网三档 srcset。
         return list
     }()
 

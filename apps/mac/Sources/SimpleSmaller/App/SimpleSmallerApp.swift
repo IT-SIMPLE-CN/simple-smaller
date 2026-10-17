@@ -1,17 +1,6 @@
 import AppKit
 import SwiftUI
 
-extension Color {
-    /// 品牌红，只用于主按钮、选中与进度。
-    static let brand = Color(red: 0xEF / 255, green: 0x39 / 255, blue: 0x22 / 255)
-    static let saving = Color(red: 0x1B / 255, green: 0x7F / 255, blue: 0x4E / 255)
-    static let warning = Color(red: 0xC2 / 255, green: 0x41 / 255, blue: 0x0C / 255)
-}
-
-extension NSColor {
-    static let brand = NSColor(red: 0xEF / 255, green: 0x39 / 255, blue: 0x22 / 255, alpha: 1)
-}
-
 @main
 struct SimpleSmallerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
@@ -22,7 +11,7 @@ struct SimpleSmallerApp: App {
         Window("简单小一点", id: "main") {
             MainView()
                 .environment(model)
-                // 边栏 200 + 列表（六列都要放得下，约 600）+ 检查器 300。
+                // 便当盒三档布局的最窄一档（WorkGrid 在 1080 以下切成窄档）。
                 .frame(minWidth: 1000, minHeight: 640)
         }
         .defaultSize(width: 1280, height: 800)

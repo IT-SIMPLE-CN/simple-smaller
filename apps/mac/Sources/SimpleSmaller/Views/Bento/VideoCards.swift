@@ -314,13 +314,6 @@ enum VideoCards {
     }
 }
 
-extension Format {
-    /// 「25 MB」「7.5 MB」。
-    static func megabytes(_ mb: Double) -> String {
-        mb.rounded() == mb ? "\(Int(mb)) MB" : String(format: "%.1f MB", mb)
-    }
-}
-
 extension Workspace {
     /// 序列帧会生成多少张（每段按截取范围算）。
     func frameCount(_ item: FileItem) -> Int {

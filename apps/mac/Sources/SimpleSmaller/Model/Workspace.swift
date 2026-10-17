@@ -25,11 +25,8 @@ final class FileItem: Identifiable {
     var bytes: UInt64 = 0
     var width = 0
     var height = 0
-    var hasAlpha = false
-    var graphic = false
     var duration: Double = 0
     var fps: Double = 0
-    var bitrate: UInt64 = 0
     var codec = ""
     var hasAudio = false
     var hdr = false
@@ -98,7 +95,6 @@ final class Workspace {
     /// 这一批任务里引擎展开后的文件顺序（进度回调按这个序号报）。
     var planSources: [String] = []
     var finishedCount = 0
-    var lastRunRoots: [URL] = []
 
     // 图片裁切：每张手调过的框（原图像素坐标）、当前第几张。动了就按新框，不用再确认。
     var cropBoxes: [URL: CGRect] = [:]
@@ -194,7 +190,6 @@ final class Workspace {
         return out
     }
 
-    /// PDF 合并、拆分、图片转 PDF 用不上压缩配方：边栏不显示选中、批量头不写配方名。
     /// 上一次点「开始」时的配方与分段：都没变、文件也都处理完了，再点开始只会多出一份重复的文件。
     var lastRun: (draft: Recipe, segment: String)?
     var segmentKey: String { "\(imageSegment.rawValue)|\(videoSegment.rawValue)|\(pdfSegment.rawValue)" }
@@ -205,6 +200,7 @@ final class Workspace {
         return finished && last.draft == draft && last.segment == segmentKey
     }
 
+    /// PDF 合并、拆分、图片转 PDF 用不上配方：不显示配方条，换成一句说明。
     var usesRecipe: Bool { !(type == .pdf && [.merge, .split, .fromImages].contains(pdfSegment)) }
 
     func item(for path: String) -> FileItem? { files.first { $0.url.path == path || $0.unlockedURL?.path == path } }

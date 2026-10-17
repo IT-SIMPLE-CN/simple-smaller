@@ -93,7 +93,7 @@ struct FileTableView: View {
         .tableStyle(.inset)
         .alternatingRowBackgrounds(.enabled)
         .modifier(NoTopScrollEdge())
-        // 表格的滚动视图会延伸到工具栏下面、把表头底色画上去，和检查器上方一明一暗；裁在自己的区域内。
+        // 表格的滚动视图会延伸到卡片外、把表头底色画上去；裁在自己的区域内。
         .clipped()
     }
 
@@ -253,7 +253,7 @@ struct Tag: View {
     }
 }
 
-/// macOS 26 的滚动边缘效果会让工具栏按表头取色，和右边检查器上方的底色一明一暗；关掉顶部这一侧。
+/// macOS 26 的滚动边缘效果会在表头上方加一层渐隐，放在卡片里不好看；关掉顶部这一侧。
 struct NoTopScrollEdge: ViewModifier {
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {

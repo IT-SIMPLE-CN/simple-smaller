@@ -223,7 +223,7 @@ final class AppModel {
                 await MainActor.run {
                     switch header {
                     case .success(let h):
-                        item.width = h.width; item.height = h.height; item.hasAlpha = h.hasAlpha; item.bytes = h.bytes
+                        item.width = h.width; item.height = h.height; item.bytes = h.bytes
                     case .failure(let reason):
                         item.metaError = reason.message
                         item.bytes = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? UInt64) ?? 0
@@ -234,7 +234,7 @@ final class AppModel {
                 await MainActor.run {
                     if let m = meta {
                         item.width = Int(m.width); item.height = Int(m.height); item.duration = m.duration
-                        item.fps = m.fps; item.bitrate = m.bitrate; item.codec = m.codec; item.hasAudio = m.hasAudio
+                        item.fps = m.fps; item.codec = m.codec; item.hasAudio = m.hasAudio
                         item.hdr = m.hdr; item.bytes = m.bytes
                     } else {
                         item.metaError = "读不出这段视频"
@@ -318,7 +318,6 @@ final class AppModel {
         if ws.type == .pdf, ws.pdfSegment == .toImages { namingSettings.template = ws.draft.pdf.longImage ? "{name}-长图" : "{name}" }
         let naming = namingSettings.ffi(date: Format.today)
         let place = settings.place
-        let started = Date()
         let listener = ListenerBridge(
             progress: { [weak self] index, fraction in
                 guard ws.runGeneration == gen else { return }
@@ -330,7 +329,7 @@ final class AppModel {
             },
             finished: { [weak self] in
                 guard ws.runGeneration == gen else { return }
-                self?.finished(ws, started: started)
+                self?.finished(ws)
             }
         )
         let recipe = ws.draft
@@ -559,7 +558,7 @@ final class AppModel {
             // 视频逐段按文件夹送出，新建的「文件夹-small」要另外清掉。
             if ws.type == .video { try engine.trash(paths: ws.createdRoots) }
             for f in ws.files where f.state == .done || f.state == .kept { f.state = .waiting; f.outputs = [] }
-            // 回到处理前：底栏不再显示上一批的结果。
+            // 回到处理前：不再显示上一批的结果。
             ws.finishedCount = 0
             ws.job = nil
             ws.batchJobs = []
@@ -610,7 +609,7 @@ final class AppModel {
         updateDock()
     }
 
-    private func finished(_ ws: Workspace, started: Date) {
+    private func finished(_ ws: Workspace) {
         ws.running = false
         // 有结果（完成、保留原图或失败）就换到完成页；全部停掉的不换。
         if ws.files.contains(where: { $0.state != .cancelled && $0.state != .waiting }) { ws.showResult = true }
@@ -624,7 +623,7 @@ final class AppModel {
         let outputs = ws.files.flatMap { $0.outputs.map { URL(fileURLWithPath: $0.path) } }
         recent.insert(RecentJob(title: title, recipe: ws.draft.name, before: before, after: after, date: Date(), outputs: outputs, thumbnail: ws.files.first?.thumbnail), at: 0)
         recent = Array(recent.prefix(10))
-        Notifier.jobFinished(title: title, after: after, outputs: outputs, elapsed: Date().timeIntervalSince(started))
+        Notifier.jobFinished(title: title, after: after, outputs: outputs)
     }
 
     func reveal(_ urls: [URL]) {

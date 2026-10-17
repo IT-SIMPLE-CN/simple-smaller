@@ -84,8 +84,6 @@ final class RecipeStore {
         save()
     }
 
-    /// 前 n 个某类配方（圆环外圈、右键菜单用）。
-    func top(_ n: Int, for type: MediaType) -> [Recipe] { Array(all.filter { $0.type == type }.prefix(n)) }
 
     func export(ids: [String], to url: URL) throws {
         let list = all.filter { ids.contains($0.id) }.map { r -> Recipe in

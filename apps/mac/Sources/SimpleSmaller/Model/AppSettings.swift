@@ -97,7 +97,7 @@ enum Notifier {
     }
 
     @MainActor
-    static func jobFinished(title: String, after: UInt64, outputs: [URL], elapsed: TimeInterval) {
+    static func jobFinished(title: String, after: UInt64, outputs: [URL]) {
         guard Bundle.main.bundleIdentifier != nil, !NSApp.isActive, !outputs.isEmpty else { return }
         let content = UNMutableNotificationContent()
         content.title = "简单小一点"

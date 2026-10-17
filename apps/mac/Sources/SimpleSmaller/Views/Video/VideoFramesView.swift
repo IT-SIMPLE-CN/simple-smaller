@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 视频「序列帧」（设计稿 04b）：上面是范围与要导出的帧（竖线），下面预览前 12 帧；底栏写将生成多少张。
+/// 视频「序列帧」（设计稿 04b）：上面是范围与要导出的帧（竖线），下面预览前 12 帧；张数写在右边的「抽帧」卡里。
 struct VideoFramesView: View {
     @Bindable var ws: Workspace
 

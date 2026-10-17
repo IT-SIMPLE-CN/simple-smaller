@@ -80,7 +80,7 @@ struct VideoStage: View {
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
-        // 底色只铺在自己的区域：伸进工具栏和边栏下面会让标题看不清、边栏玻璃透出深色。
+        // 深色底只铺在自己的区域，不伸进工具栏下面。
         .background(Color(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255), ignoresSafeAreaEdges: [])
         .clipped()
         .environment(\.colorScheme, .dark)
