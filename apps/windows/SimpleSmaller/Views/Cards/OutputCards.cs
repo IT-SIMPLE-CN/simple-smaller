@@ -150,7 +150,18 @@ internal static class CardBody
             HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
-        scroll.SizeChanged += (_, _) => body.MinHeight = scroll.ViewportHeight;
+        scroll.SizeChanged += (_, _) =>
+        {
+            // 窄窗口时卡片排在可滚动的一列里（高度不受限）：卡片按内容高，不再撑满，免得布局来回撑。
+            var stacked = false;
+            for (var p = VisualTreeHelper.GetParent(scroll); p is not null && !stacked; p = VisualTreeHelper.GetParent(p))
+            {
+                if (p is StackPanel or ScrollViewer) stacked = true;
+                if (p is Main.WorkView) break;
+            }
+            var min = stacked ? 0 : Math.Floor(scroll.ViewportHeight);
+            if (Math.Abs(body.MinHeight - min) >= 1) body.MinHeight = min;
+        };
         return scroll;
     }
 }

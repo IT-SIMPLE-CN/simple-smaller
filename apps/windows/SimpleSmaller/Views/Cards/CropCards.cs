@@ -28,6 +28,8 @@ internal sealed class FrameCard : Reactive
     private readonly TextBlock originalBig = Themed.Text("原尺寸", 28, "BentoSecondary", Themed.Light);
     private readonly TextBlock originalNote = Themed.Text("每张保持原来的宽高，只压体积", 12, "BentoSecondary");
     private readonly Segments<bool> custom;
+    private ScrollViewer? fit;
+    private readonly StackPanel segs = new() { Orientation = Orientation.Horizontal, Spacing = 12 };
     private readonly StackPanel original = new() { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Center };
 
     // 选了比例：输出宽。
@@ -79,7 +81,7 @@ internal sealed class FrameCard : Reactive
         };
         sizeField.VerticalAlignment = VerticalAlignment.Center;
         ToolTipService.SetToolTip(extra, "这个配方每张图还会多出这几档小图，给网站按屏幕大小加载用；在配方里改");
-        var cols = new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto, GridLength.Auto };
+        var cols = new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto };
         foreach (var c in cols)
         {
             plain.ColumnDefinitions.Add(new ColumnDefinition { Width = c });
@@ -88,8 +90,14 @@ internal sealed class FrameCard : Reactive
         Put(plain, sizeField, 1);
         Put(plain, px1, 2);
         Put(plain, extra, 3);
-        Put(plain, axis, 5);
-        Put(plain, custom, 6);
+        segs.Children.Add(axis);
+        segs.Children.Add(custom);
+        Put(plain, segs, 5);
+        plain.RowSpacing = 8;
+        plain.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        plain.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        // 窄窗口时一行放不下：两组分段换到第二行。
+        plain.SizeChanged += (_, _) => WrapSegments();
         // 原尺寸时：大字 + 一句说明占前几列。
         originalBig.Opacity = 0.6;
         original.Children.Add(originalBig);
@@ -114,13 +122,23 @@ internal sealed class FrameCard : Reactive
         Put(crop, widthField, 2);
         Put(crop, plus, 3);
         Put(crop, Themed.Text("px", 13, "BentoSecondary"), 4);
-        var right = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+        var right = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Center };
         heightText.HorizontalAlignment = HorizontalAlignment.Right;
-        var shortRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Right };
+        // 窄时提醒换行（靠右对齐），不截掉。
+        var shortRow = new Grid { ColumnSpacing = 4, HorizontalAlignment = HorizontalAlignment.Right };
+        shortRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        shortRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(shortText, 1);
+        shortText.TextWrapping = TextWrapping.Wrap;
+        shortText.TextAlignment = TextAlignment.Right;
+        shortText.MaxLines = 2;
+        heightText.TextWrapping = TextWrapping.Wrap;
+        heightText.TextAlignment = TextAlignment.Right;
+        shortIcon.VerticalAlignment = VerticalAlignment.Top;
+        shortIcon.Margin = new Thickness(0, 2, 0, 0);
         AutomationProperties.SetAccessibilityView(shortIcon, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         shortRow.Children.Add(shortIcon);
         shortRow.Children.Add(shortText);
-        shortText.TextTrimming = TextTrimming.CharacterEllipsis;
         right.Children.Add(heightText);
         right.Children.Add(shortRow);
         Put(crop, right, 5);
@@ -140,10 +158,36 @@ internal sealed class FrameCard : Reactive
         body.Children.Add(grid);
         Grid.SetRow(panel, 4);
         body.Children.Add(panel);
-        card = Card.Create(CardBody.Fit(body));
+        fit = CardBody.Fit(body);
+        fit.SizeChanged += (_, _) => WrapSegments();
+        card = Card.Create(fit);
         Content = card;
         Watch(ws, nameof(Workspace.Draft), nameof(Workspace.Base), nameof(Workspace.Running), nameof(Workspace.CropBoxes), nameof(Workspace.CropIndex));
         WatchList(ws.Files);
+    }
+
+    /// 可用宽度按卡片的可视宽算（Grid 内容放不下时会被排成比自己的格子还宽，量它自己不准）。
+    private void WrapSegments()
+    {
+        if (fit is null || fit.ViewportWidth <= 0) return;
+        var width = fit.ViewportWidth - panel.Padding.Left - panel.Padding.Right;
+        double left = 0;
+        foreach (var e in new FrameworkElement[] { axisLabel, sizeField, px1, extra, original })
+        {
+            if (e.Visibility == Visibility.Visible && Grid.GetRow(e) == 0)
+            {
+                left += e.DesiredSize.Width + plain.ColumnSpacing;
+            }
+        }
+        var wrap = left + segs.DesiredSize.Width + 8 > width;
+        if (wrap == (Grid.GetRow(segs) == 1))
+        {
+            return;
+        }
+        Grid.SetRow(segs, wrap ? 1 : 0);
+        Grid.SetColumn(segs, wrap ? 0 : 5);
+        Grid.SetColumnSpan(segs, wrap ? 6 : 1);
+        segs.HorizontalAlignment = wrap ? HorizontalAlignment.Left : HorizontalAlignment.Right;
     }
 
     private static void Put(Grid g, FrameworkElement e, int col)
@@ -246,6 +290,7 @@ internal sealed class FrameCard : Reactive
             custom.Selected = hasSize;
         }
         Lock.Apply(card, ws.Running);
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, WrapSegments);
     }
 
     /// 高按比例；自由比例按当前这张框的宽高比。
@@ -274,12 +319,25 @@ internal sealed class RatioTile : Button
         Style = (Style)Application.Current.Resources["BentoBareButton"];
         HorizontalAlignment = HorizontalAlignment.Stretch;
         Motion.SetPress(this, true);
-        ratio = new TextBlock { Text = ratioText, FontSize = 15, FontWeight = Themed.Semibold, MaxLines = 1 };
+        ratio = new TextBlock { Text = ratioText, FontSize = 15, FontWeight = Themed.Semibold, MaxLines = 1, TextTrimming = TextTrimming.Clip };
         name = new TextBlock { Text = nameText, FontSize = 10, MaxLines = 1, TextTrimming = TextTrimming.Clip };
         var stack = new StackPanel { Spacing = 1 };
         // 放不下时整体缩小（最多到 80% 左右），不截断比例。
-        stack.Children.Add(new Viewbox { Child = ratio, StretchDirection = StretchDirection.DownOnly, HorizontalAlignment = HorizontalAlignment.Left, Height = 20 });
+        stack.Children.Add(ratio);
         stack.Children.Add(name);
+        name.TextTrimming = TextTrimming.CharacterEllipsis;
+        // 放不下时字号缩小（mac 的 minimumScaleFactor 0.8；窄窗口格子更窄，这里放到 0.7），再不够就截断。
+        back.SizeChanged += (_, e) =>
+        {
+            // 窄窗口时格子很窄：内边距收小一些。
+            var pad = e.NewSize.Width < 64 ? 5 : 10;
+            if (back.Padding.Left != pad) back.Padding = new Thickness(pad, 8, pad, 8);
+            var room = e.NewSize.Width - 2 * pad;
+            var probe = new TextBlock { Text = ratio.Text, FontSize = 15, FontWeight = ratio.FontWeight, FontFamily = ratio.FontFamily };
+            probe.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            var k = Math.Clamp(room / Math.Max(1, probe.DesiredSize.Width), 0.7, 1);
+            if (Math.Abs(ratio.FontSize - 15 * k) > 0.1) ratio.FontSize = 15 * k;
+        };
         back.Child = stack;
         Content = back;
         AutomationProperties.SetName(this, label);

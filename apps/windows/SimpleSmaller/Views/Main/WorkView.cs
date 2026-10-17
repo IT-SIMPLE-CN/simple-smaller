@@ -91,6 +91,8 @@ internal sealed class WorkView : Reactive
 
     private readonly Grid wide = new() { ColumnSpacing = Gap, RowSpacing = Gap };
     private readonly Grid tall = new() { ColumnSpacing = Gap, RowSpacing = Gap };
+    /// 窄档右侧可滚动的那一列（放上方与左下两格）。
+    private StackPanel? column;
 
     private void Arrange(bool appear)
     {
@@ -98,6 +100,11 @@ internal sealed class WorkView : Reactive
         {
             return;
         }
+        // 先把各格从原来的容器里拿出来再换排布。不能靠 Parent 找容器：容器一旦离开界面树，Parent 就是 null，
+        // 格子还挂在旧容器里，再放进新网格会抛「已经是别的元素的子元素」。
+        wide.Children.Clear();
+        tall.Children.Clear();
+        column?.Children.Clear();
         host.Children.Clear();
         Detach(main, bar, upper, lowerLeft, lowerRight);
         if (narrow == true)
@@ -113,7 +120,7 @@ internal sealed class WorkView : Reactive
             tall.RowDefinitions.Add(new RowDefinition());
             Place(tall, main, 0, 0, rowSpan: 3);
             Place(tall, bar, 0, 1);
-            var stack = new StackPanel { Spacing = Gap };
+            var stack = column = new StackPanel { Spacing = Gap };
             ((FrameworkElement)upper!).MinHeight = 240;
             ((FrameworkElement)lowerLeft!).MinHeight = 220;
             stack.Children.Add(upper);
