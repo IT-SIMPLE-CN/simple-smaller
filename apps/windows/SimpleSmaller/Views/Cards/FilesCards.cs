@@ -16,87 +16,119 @@ namespace SimpleSmaller.Views.Cards;
 
 // MARK: - 左大卡：拖放 / 文件
 
-/// 没有文件时的左大卡：整张卡就是拖放区，也可以选取或粘贴（设计稿 02）。
+/// 没有文件时的左大卡：整张卡就是拖放区，也可以选取或粘贴（设计稿 V2.1 · 02 空状态）。
+/// 斜纹底 + 2px 内描边，中间红色插画、标题、格式、按钮与一句提示。图片、视频、PDF 三种共用。
 internal sealed class DropCard : UserControl
 {
     private readonly Workspace ws;
-    private readonly Rectangle dash = new() { RadiusX = 18, RadiusY = 18, StrokeThickness = 1.5, StrokeDashArray = new DoubleCollection { 4, 4 } };
-    private readonly Border circle = new() { Width = 76, Height = 76, CornerRadius = new CornerRadius(38) };
-    private readonly FontIcon arrow = new() { Glyph = "", FontSize = 30 };
+    private readonly Border zone = new() { CornerRadius = new CornerRadius(18), BorderThickness = new Thickness(2) };
+    private readonly Border tint = new() { CornerRadius = new CornerRadius(16), IsHitTestVisible = false, Opacity = 0 };
+    private readonly FrameworkElement art = DropArt.Illustration();
+    private readonly Border pasteBack = new() { Height = 40, CornerRadius = new CornerRadius(20), Padding = new Thickness(18, 0, 18, 0), BorderThickness = new Thickness(1) };
     private bool targeted;
 
     public DropCard(Workspace ws)
     {
         this.ws = ws;
-        circle.Child = arrow;
-        AutomationProperties.SetAccessibilityView(circle, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
-        var center = new StackPanel { Spacing = 14, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        circle.HorizontalAlignment = HorizontalAlignment.Center;
-        center.Children.Add(circle);
-        var title = Themed.Text(Title, 18, "BentoPrimary", Themed.Semibold);
+        var center = new StackPanel { Spacing = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Padding = new Thickness(12, 0, 12, 0) };
+        art.HorizontalAlignment = HorizontalAlignment.Center;
+        center.Children.Add(art);
+        var texts = new StackPanel { Spacing = 6 };
+        var title = Themed.Text(Title, 22, "BentoPrimary", Themed.Bold);
         title.HorizontalAlignment = HorizontalAlignment.Center;
+        title.TextAlignment = TextAlignment.Center;
+        title.TextWrapping = TextWrapping.Wrap;
         AutomationProperties.SetHeadingLevel(title, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level2);
-        center.Children.Add(title);
+        texts.Children.Add(title);
         if (Formats is { } f)
         {
             var formats = Themed.Text(f, 12, "BentoSecondary");
+            formats.CharacterSpacing = 40;
             formats.HorizontalAlignment = HorizontalAlignment.Center;
-            center.Children.Add(formats);
+            formats.TextAlignment = TextAlignment.Center;
+            formats.TextWrapping = TextWrapping.Wrap;
+            texts.Children.Add(formats);
         }
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
-        var pick = new CapsuleButton("选取文件…", 40, "BentoInk", "BentoOnInk");
-        pick.Click += async (_, _) => await FilePicker.PickAsync(ws.Type);
+        center.Children.Add(texts);
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
+        var pick = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"] };
+        Motion.SetPress(pick, true);
+        var pickRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        pickRow.Children.Add(new LineIcon(Icons.Plus, 15, 2.2, "BentoOnInk") { VerticalAlignment = VerticalAlignment.Center });
+        pickRow.Children.Add(Themed.Text("选取文件…", 13, "BentoOnInk", Themed.Semibold));
+        var pickBack = new Border { Height = 40, CornerRadius = new CornerRadius(20), Padding = new Thickness(18, 0, 18, 0), Child = pickRow };
+        Themed.OnTheme(pickBack, () => pickBack.Background = Palette.Get(pickBack, "BentoInk"));
+        pick.Content = pickBack;
+        AutomationProperties.SetName(pick, "选取文件…");
+        pick.Click += async (_, _) =>
+        {
+            if (ws.Type == MediaType.Pdf) await PdfFilePicker.PickAsync(ws);
+            else await FilePicker.PickAsync(ws.Type);
+        };
         pick.KeyboardAccelerators.Add(new KeyboardAccelerator { Key = VirtualKey.O, Modifiers = VirtualKeyModifiers.Control });
         pick.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
         buttons.Children.Add(pick);
         if (ws.Type == MediaType.Image)
         {
-            var paste = new CapsuleButton("粘贴 Ctrl+Shift+V", 40);
-            AutomationProperties.SetName(paste, "粘贴");
+            var paste = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"] };
+            Motion.SetPress(paste, true);
+            var pasteRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+            pasteRow.Children.Add(new LineIcon(Icons.Clipboard, 15) { VerticalAlignment = VerticalAlignment.Center });
+            pasteRow.Children.Add(Themed.Text("粘贴", 13));
+            pasteRow.Children.Add(Themed.Text("Ctrl+Shift+V", 11, "BentoSecondary"));
+            pasteBack.Child = pasteRow;
+            paste.Content = pasteBack;
+            AutomationProperties.SetName(paste, "粘贴（Ctrl+Shift+V）");
             paste.Click += async (_, _) => await AppModel.Shared.PasteFromClipboardAsync();
             paste.KeyboardAccelerators.Add(new KeyboardAccelerator { Key = VirtualKey.V, Modifiers = VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift });
             paste.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
             buttons.Children.Add(paste);
         }
         center.Children.Add(buttons);
+        var note = Themed.Text("也可以在资源管理器里按住 Alt 点文件，不用开这个窗口", 11, "BentoSecondary");
+        note.HorizontalAlignment = HorizontalAlignment.Center;
+        note.TextAlignment = TextAlignment.Center;
+        note.TextWrapping = TextWrapping.Wrap;
+        center.Children.Add(note);
 
         var area = new Grid();
-        area.Children.Add(dash);
+        area.Children.Add(DropArt.Stripes());
+        area.Children.Add(tint);
         area.Children.Add(center);
-        if (ws.Type == MediaType.Image)
-        {
-            var note = Themed.Text("也可以在资源管理器里按住 Alt 点文件，不用开这个窗口", 12, "BentoSecondary");
-            note.HorizontalAlignment = HorizontalAlignment.Center;
-            note.VerticalAlignment = VerticalAlignment.Bottom;
-            note.Margin = new Thickness(12, 0, 12, 18);
-            note.TextWrapping = TextWrapping.Wrap;
-            note.TextAlignment = TextAlignment.Center;
-            area.Children.Add(note);
-        }
-        Content = Card.Create(area);
+        zone.Child = area;
+        Content = Card.Create(zone, new Thickness(14));
 
         AllowDrop = true;
         DragEnter += (_, e) => Target(e.DataView.Contains(StandardDataFormats.StorageItems));
-        DragOver += (_, e) =>
-        {
-            if (e.DataView.Contains(StandardDataFormats.StorageItems))
-            {
-                e.AcceptedOperation = DataPackageOperation.Copy;
-                e.DragUIOverride.Caption = "加进来";
-            }
-        };
         DragLeave += (_, _) => Target(false);
-        Drop += async (_, e) =>
+        // PDF 的拖入（含「图片转 PDF」）由主窗口统一分类接收，这里只管变红。
+        if (ws.Type != MediaType.Pdf)
         {
-            e.Handled = true;
-            Target(false);
-            if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+            DragOver += (_, e) =>
             {
-                return;
-            }
-            var items = await e.DataView.GetStorageItemsAsync();
-            AppModel.Shared.Add(items.Select(i => i.Path).Where(p => !string.IsNullOrEmpty(p)), ws.Type);
-        };
+                if (e.DataView.Contains(StandardDataFormats.StorageItems))
+                {
+                    e.AcceptedOperation = DataPackageOperation.Copy;
+                    e.DragUIOverride.Caption = "加进来";
+                }
+            };
+            Drop += async (_, e) =>
+            {
+                e.Handled = true;
+                Target(false);
+                if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+                {
+                    return;
+                }
+                var items = await e.DataView.GetStorageItemsAsync();
+                AppModel.Shared.Add(items.Select(i => i.Path).Where(p => !string.IsNullOrEmpty(p)), ws.Type);
+            };
+        }
+        else
+        {
+            Drop += (_, _) => Target(false);
+        }
         Themed.OnTheme(this, Paint);
     }
 
@@ -110,17 +142,18 @@ internal sealed class DropCard : UserControl
         Paint();
         if (on)
         {
-            Motion.SpringScale(circle, 1.08f, 0.45f);
-            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => Motion.SpringScale(circle, 1f, 0.6f));
+            Motion.SpringScale(art, 1.04f, 0.45f);
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => Motion.SpringScale(art, 1f, 0.6f));
         }
     }
 
     private void Paint()
     {
-        circle.Background = targeted ? Palette.Brand : Palette.Get(this, "BentoFill");
-        arrow.Foreground = targeted ? new SolidColorBrush(Microsoft.UI.Colors.White) : Palette.Get(this, "BentoPrimary");
-        dash.Stroke = targeted ? Palette.Brand : Palette.Get(this, "BentoLine");
-        dash.Fill = targeted ? new SolidColorBrush(Windows.UI.Color.FromArgb(13, 0xEF, 0x39, 0x22)) : null;
+        zone.BorderBrush = targeted ? Palette.Brand : DropArt.Edge(this);
+        tint.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(18, 0xEF, 0x39, 0x22));
+        tint.Opacity = targeted ? 1 : 0;
+        pasteBack.Background = Palette.Get(this, "BentoCard");
+        pasteBack.BorderBrush = DropArt.Edge(this);
     }
 
     private string Title => ws.Type switch

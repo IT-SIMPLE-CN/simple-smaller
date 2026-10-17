@@ -11,12 +11,12 @@ using Windows.System;
 
 namespace SimpleSmaller.Views.Preview;
 
-/// 视频「剪辑」（设计稿 04）：上面是画面与比例框，下面是播放、截取与时间轴。
+/// 视频「剪辑」（设计稿 V2.1 · 06）：上面是画面与比例框，下面是播放、截取与时间轴。
 /// 拖时间轴两端截取，单击时间轴设为封面；比例框可拖动取景。多段视频时底部可切换。
 internal sealed class VideoEditView : Reactive
 {
     private readonly Workspace ws;
-    private readonly Grid root = new() { RowSpacing = 10 };
+    private readonly Grid root = new() { RowSpacing = 12 };
     private readonly VideoStage stage;
     private readonly TrimBar trim;
     private readonly VideoFilmStrip strip;
@@ -121,7 +121,7 @@ internal sealed class VideoEditView : Reactive
     private static void Show(UIElement e, bool on) => e.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
 }
 
-/// 画面：深色底上等比放视频，比例框外压暗，左上角写「9:16 · 1080 × 1920」。
+/// 画面：深色底（#151618）上等比放视频，比例框白色 2px、框外压暗 55%，左上角标签「9:16 · 1080 × 1920 · 框可拖」。
 internal sealed class VideoStage : UserControl
 {
     private static readonly SolidColorBrush White = new(Microsoft.UI.Colors.White);
@@ -129,8 +129,8 @@ internal sealed class VideoStage : UserControl
     private readonly Canvas canvas = new();
     private readonly Border host;
     /// 框外压暗：上、下、左、右四块。
-    private readonly Border[] dims = Enumerable.Range(0, 4).Select(_ => new Border { Background = new SolidColorBrush(Windows.UI.Color.FromArgb(128, 0, 0, 0)), IsHitTestVisible = false }).ToArray();
-    private readonly Border box = new() { BorderBrush = White, BorderThickness = new Thickness(1), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
+    private readonly Border[] dims = Enumerable.Range(0, 4).Select(_ => new Border { Background = new SolidColorBrush(Windows.UI.Color.FromArgb(140, 0, 0, 0)), IsHitTestVisible = false }).ToArray();
+    private readonly Border box = new() { BorderBrush = White, BorderThickness = new Thickness(2), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
     private readonly TextBlock labelText = new() { FontSize = 11, Foreground = White };
     private readonly Border label;
     private MediaPlayerElement? player;
@@ -147,11 +147,13 @@ internal sealed class VideoStage : UserControl
         label = new Border
         {
             Child = labelText,
-            Padding = new Thickness(6, 2, 6, 2),
-            CornerRadius = new CornerRadius(4),
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(140, 0, 0, 0)),
+            Height = 26,
+            Padding = new Thickness(10, 0, 10, 0),
+            CornerRadius = new CornerRadius(13),
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(36, 255, 255, 255)),
             IsHitTestVisible = false,
         };
+        labelText.VerticalAlignment = VerticalAlignment.Center;
         AutomationProperties.SetAccessibilityView(label, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         AutomationProperties.SetName(box, "取景框，可拖动");
         foreach (var d in dims) canvas.Children.Add(d);
@@ -161,7 +163,7 @@ internal sealed class VideoStage : UserControl
         host = new Border
         {
             CornerRadius = new CornerRadius(16),
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x1C, 0x1C, 0x1E)),
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x15, 0x16, 0x18)),
             Child = canvas,
             RequestedTheme = ElementTheme.Dark,
         };
@@ -226,7 +228,8 @@ internal sealed class VideoStage : UserControl
             }
         }
         var size = ws.VideoOutputSize(item);
-        labelText.Text = $"{ws.Draft.Video.Crop?.Name ?? "原比例"} · {(int)size.Width} × {(int)size.Height}";
+        var crop = ws.Draft.Video.Crop;
+        labelText.Text = $"{crop?.Name ?? "原比例"} · {(int)size.Width} × {(int)size.Height}{(crop != null ? " · 框可拖" : "")}";
         Layout();
     }
 
@@ -234,13 +237,13 @@ internal sealed class VideoStage : UserControl
     {
         if (item == null || ActualWidth <= 0) return;
         double w = ActualWidth, h = ActualHeight;
-        // 四周留 24，底部留 24。
-        var aw = Math.Max(1, w - 48);
-        var ah = Math.Max(1, h - 48);
+        // 画面铺满深色底的宽或高（设计稿不留边）。
+        var aw = Math.Max(1, w);
+        var ah = Math.Max(1, h);
         var scale = Math.Min(aw / Math.Max(1, item.Width), ah / Math.Max(1, item.Height));
         var dw = item.Width * scale;
         var dh = item.Height * scale;
-        var rect = new Rect(Math.Round((w - dw) / 2), Math.Round(24 + (ah - dh) / 2), dw, dh);
+        var rect = new Rect(Math.Round((w - dw) / 2), Math.Round((h - dh) / 2), dw, dh);
         layout = (scale, rect);
         foreach (var e in new FrameworkElement?[] { player, animated })
         {
@@ -250,8 +253,9 @@ internal sealed class VideoStage : UserControl
             Canvas.SetLeft(e, rect.X);
             Canvas.SetTop(e, rect.Y);
         }
-        Canvas.SetLeft(label, rect.X + 12);
-        Canvas.SetTop(label, rect.Y + 12);
+        // 标签贴深色底的左上角（14, 14），不跟画面走。
+        Canvas.SetLeft(label, 14);
+        Canvas.SetTop(label, 14);
         if (ws.VideoCropBox(item) is { } b)
         {
             var v = ToView(b);
@@ -316,27 +320,31 @@ internal sealed class VideoStage : UserControl
     }
 }
 
-/// 播放、截取与时间轴。
+/// 播放、截取与时间轴（设计稿 V2.1 · 06）：黑色圆形播放钮、时间、浅红「截取 00:18 – 01:03 · 45 秒」、右边提示；
+/// 下面 52 高的缩略图条，截取范围外蒙白，范围是品牌红框（上下 3、两端 12），白色播放头。
 internal sealed class TrimBar : UserControl
 {
     private const int Count = 14;
-    private const double HandleWidth = 10;
-    private const double BarHeight = 44;
+    private const double HandleWidth = 12;
+    private const double BarHeight = 52;
     private readonly Workspace ws;
     private readonly Button play = new() { Style = (Style)Application.Current.Resources["BentoBareButton"] };
-    private readonly FontIcon playIcon = new() { FontSize = 14, Glyph = "" };
-    private readonly TextBlock time = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+    private readonly Border playBack = new() { Width = 40, Height = 40, CornerRadius = new CornerRadius(20) };
+    private readonly TextBlock time = new() { FontSize = 20, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock range = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock hint = new() { Text = "拖两端截取 · 单击设为封面", FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Opacity = 0.75, TextTrimming = TextTrimming.CharacterEllipsis };
+    private readonly Border rangeBack = new() { Height = 28, Padding = new Thickness(12, 0, 12, 0), CornerRadius = new CornerRadius(14), VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock hint = new() { Text = "拖两端截取 · 单击设为封面", FontSize = 11, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly Grid timeline = new() { Height = BarHeight, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
-    private readonly Grid thumbs = new() { ColumnSpacing = 1 };
+    private readonly Grid thumbs = new() { ColumnSpacing = 2 };
     private readonly Border[] cells = new Border[Count];
     private readonly Canvas overlay = new() { IsHitTestVisible = false };
     private readonly Rectangle dimLeft = new(), dimRight = new();
-    private readonly Grid frame = new();
+    private readonly Border frame = new() { BorderBrush = Palette.Brand, BorderThickness = new Thickness(HandleWidth, 3, HandleWidth, 3), CornerRadius = new CornerRadius(10) };
     private readonly Border cover;
-    private readonly Rectangle playhead = new() { Width = 2, Height = BarHeight, Fill = new SolidColorBrush(Microsoft.UI.Colors.White) };
-    private readonly Rectangle playheadShade = new() { Width = 4, Height = BarHeight, Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(90, 0, 0, 0)) };
+    private readonly Border playhead = new() { Width = 2, Height = BarHeight + 4, Background = new SolidColorBrush(Microsoft.UI.Colors.White) };
+    private readonly Border playheadShade = new() { Width = 4, Height = BarHeight + 4, CornerRadius = new CornerRadius(2), Background = new SolidColorBrush(Windows.UI.Color.FromArgb(70, 0, 0, 0)) };
+    private Microsoft.UI.Xaml.Shapes.Path playPath = new();
+    private bool playing;
     private FileItem? item;
     private string? thumbsFor;
     private CancellationTokenSource? thumbsCts;
@@ -348,20 +356,23 @@ internal sealed class TrimBar : UserControl
     public TrimBar(Workspace ws)
     {
         this.ws = ws;
-        Padding = new Thickness(4, 0, 4, 0);
-        play.Content = new Border { Width = 28, Height = 28, Child = playIcon, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
+        Padding = new Thickness(6, 4, 6, 2);
+        play.Content = playBack;
+        SetPlayIcon(false);
+        Motion.SetPress(play, true);
         AutomationProperties.SetName(play, "播放");
         ToolTipService.SetToolTip(play, "播放 / 暂停（空格）");
         play.Click += (_, _) => Playback?.Toggle();
+        rangeBack.Child = range;
         var top = new Grid { ColumnSpacing = 12 };
-        foreach (var w in new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
+        foreach (var w in new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star) })
             top.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
         top.Children.Add(play);
         Grid.SetColumn(time, 1);
         top.Children.Add(time);
-        Grid.SetColumn(range, 2);
-        top.Children.Add(range);
-        Grid.SetColumn(hint, 4);
+        Grid.SetColumn(rangeBack, 2);
+        top.Children.Add(rangeBack);
+        Grid.SetColumn(hint, 3);
         top.Children.Add(hint);
 
         for (var k = 0; k < Count; k++)
@@ -371,24 +382,23 @@ internal sealed class TrimBar : UserControl
             Grid.SetColumn(cells[k], k);
             thumbs.Children.Add(cells[k]);
         }
-        var thumbsClip = new Border { CornerRadius = new CornerRadius(4), Child = thumbs };
+        var thumbsClip = new Border { CornerRadius = new CornerRadius(12), Child = thumbs };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAccessibilityView(thumbsClip, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         timeline.Children.Add(thumbsClip);
 
-        // 截取框：上下 3、两端 10 的品牌红把手，把手中间一道白色握痕。
-        frame.Children.Add(new Border { BorderBrush = Palette.Brand, BorderThickness = new Thickness(3), CornerRadius = new CornerRadius(4) });
-        frame.Children.Add(Grip(HorizontalAlignment.Left));
-        frame.Children.Add(Grip(HorizontalAlignment.Right));
         frame.Height = BarHeight;
-        var coverIcon = new FontIcon { Glyph = "", FontSize = 8, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White) };
+        var coverIcon = new FontIcon { Glyph = "", FontSize = 8, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White) };
         cover = new Border { Width = 16, Height = 14, CornerRadius = new CornerRadius(3), Background = new SolidColorBrush(Windows.UI.Color.FromArgb(153, 0, 0, 0)), Child = coverIcon };
         dimLeft.Height = dimRight.Height = BarHeight;
-        overlay.Children.Add(dimLeft);
-        overlay.Children.Add(dimRight);
         overlay.Children.Add(frame);
         overlay.Children.Add(cover);
         overlay.Children.Add(playheadShade);
         overlay.Children.Add(playhead);
+        // 两端蒙白要跟着缩略图条的圆角裁掉（Border 按圆角裁子元素）。
+        var dims = new Canvas { IsHitTestVisible = false };
+        dims.Children.Add(dimLeft);
+        dims.Children.Add(dimRight);
+        timeline.Children.Add(new Border { CornerRadius = new CornerRadius(12), Child = dims, IsHitTestVisible = false });
         timeline.Children.Add(overlay);
         AutomationProperties.SetName(timeline, "时间轴");
         timeline.SizeChanged += (_, _) => LayoutOverlay();
@@ -397,7 +407,7 @@ internal sealed class TrimBar : UserControl
         timeline.PointerReleased += Released;
         timeline.PointerCaptureLost += (_, _) => { pressed = false; dragging = Handle.None; };
 
-        var stack = new StackPanel { Spacing = 8 };
+        var stack = new StackPanel { Spacing = 10 };
         stack.Children.Add(top);
         stack.Children.Add(timeline);
         Content = stack;
@@ -407,29 +417,26 @@ internal sealed class TrimBar : UserControl
 
     public VideoPlayback? Playback { get; set; }
 
-    private static Border Grip(HorizontalAlignment side) => new()
+    /// 白色实心三角 / 两竖（14）。
+    private void SetPlayIcon(bool isPlaying)
     {
-        Width = HandleWidth,
-        HorizontalAlignment = side,
-        CornerRadius = new CornerRadius(4),
-        Background = Palette.Brand,
-        Child = new Border
-        {
-            Width = 2,
-            Height = 14,
-            CornerRadius = new CornerRadius(1),
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(230, 255, 255, 255)),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        },
-    };
+        if (playBack.Child != null && isPlaying == playing) return;
+        playing = isPlaying;
+        playBack.Child = Glyph24.Create(isPlaying ? Icons.PauseFill : Icons.PlayFill, 14, out var path);
+        playPath = path;
+        playPath.Fill = Palette.Get(this, "BentoOnInk");
+    }
 
     private void Paint()
     {
-        time.Foreground = playIcon.Foreground = Palette.Get(this, "BentoPrimary");
-        range.Foreground = hint.Foreground = Palette.Get(this, "BentoSecondary");
+        playBack.Background = Palette.Get(this, "BentoInk");
+        playPath.Fill = Palette.Get(this, "BentoOnInk");
+        time.Foreground = Palette.Get(this, "BentoPrimary");
+        hint.Foreground = Palette.Get(this, "BentoSecondary");
+        rangeBack.Background = Palette.Get(this, "BentoAlertFill");
+        range.Foreground = Palette.Get(this, "BentoAlertText");
         var card = ((SolidColorBrush)Palette.Get(this, "BentoCard")).Color;
-        var veil = new SolidColorBrush(Windows.UI.Color.FromArgb(178, card.R, card.G, card.B));
+        var veil = new SolidColorBrush(Windows.UI.Color.FromArgb(184, card.R, card.G, card.B));
         dimLeft.Fill = dimRight.Fill = veil;
         var fill = Palette.Get(this, "BentoFill");
         foreach (var c in cells) c.Background = fill;
@@ -448,7 +455,7 @@ internal sealed class TrimBar : UserControl
         this.item = item;
         var r = ws.TrimRange(item);
         var end = r.End < 1 ? r.End : Math.Round(r.End);
-        range.Text = $"截取 {Format.Duration(r.Start)} – {Format.Duration(end)}（{Seconds(r.End - r.Start)}）";
+        range.Text = $"截取 {Format.Duration(r.Start)} – {Format.Duration(end)} · {Seconds(r.End - r.Start)}";
         AutomationProperties.SetItemStatus(timeline, $"截取 {Format.Duration(r.Start)} 到 {Format.Duration(r.End)}");
         if (thumbsFor != item.FilePath)
         {
@@ -487,16 +494,17 @@ internal sealed class TrimBar : UserControl
         var r = ws.TrimRange(item);
         var x0 = r.Start / d * w;
         var x1 = r.End / d * w;
+        // 蒙白：左边从 0 到截取起点、右边从终点到头。
         dimLeft.Width = Math.Max(0, x0);
         dimRight.Width = Math.Max(0, w - x1);
         Canvas.SetLeft(dimRight, x1);
         frame.Width = Math.Max(HandleWidth * 2, x1 - x0);
-        Canvas.SetLeft(frame, x0);
+        Canvas.SetLeft(frame, Math.Min(x0, w - frame.Width));
         if (ws.Draft.Video.ExportCover && ws.CoverAt.TryGetValue(item.FilePath, out var c))
         {
             cover.Visibility = Visibility.Visible;
             Canvas.SetLeft(cover, c / d * w - 8);
-            Canvas.SetTop(cover, BarHeight - 16);
+            Canvas.SetTop(cover, BarHeight - 18);
         }
         else
         {
@@ -510,14 +518,16 @@ internal sealed class TrimBar : UserControl
         var p = Playback;
         var t = p?.Time ?? 0;
         time.Text = Format.Timecode(t);
-        playIcon.Glyph = p?.Playing == true ? "" : "";
+        SetPlayIcon(p?.Playing == true);
         AutomationProperties.SetName(play, p?.Playing == true ? "暂停" : "播放");
         if (item == null) return;
         var w = timeline.ActualWidth;
         var d = Math.Max(0.001, item.Duration);
         var x = Math.Min(Math.Max(t, 0), d) / d * w;
         Canvas.SetLeft(playhead, x - 1);
+        Canvas.SetTop(playhead, -2);
         Canvas.SetLeft(playheadShade, x - 2);
+        Canvas.SetTop(playheadShade, -2);
     }
 
     private double TimeAt(double x) => item == null ? 0 : Math.Min(Math.Max(0, x / Math.Max(1, timeline.ActualWidth) * item.Duration), item.Duration);

@@ -10,7 +10,7 @@ using Windows.Foundation;
 
 namespace SimpleSmaller.Views.Preview;
 
-/// 视频「序列帧」（设计稿 04b）：上面是范围与要导出的帧（竖线），下面预览前 12 帧；张数写在右边的「抽帧」卡里。
+/// 视频「序列帧」（设计稿 V2.1 · 07）：上面灰底面板是范围与要导出的帧（竖线），下面灰底面板预览前 16 帧；张数写在右边的「抽帧」卡里。
 internal sealed class VideoFramesView : Reactive
 {
     private readonly Workspace ws;
@@ -25,7 +25,7 @@ internal sealed class VideoFramesView : Reactive
         rangeBar = new FrameRangeBar(ws);
         preview = new FramePreviewGrid(ws);
         strip = new VideoFilmStrip(ws);
-        var root = new Grid { RowSpacing = 10 };
+        var root = new Grid { RowSpacing = 12 };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -64,21 +64,23 @@ internal sealed class VideoFramesView : Reactive
     }
 }
 
-/// 范围条：缩略图底上画出每一帧的位置（最多 30 条竖线），两端可拖，只导出一段。
+/// 范围条：浅红标签「范围：全片 00:00 – 00:10」+ 右边提示；缩略图底上白色竖线是每一帧（最多 60 条），品牌红框两端可拖，只导出一段。
 internal sealed class FrameRangeBar : UserControl
 {
     private const int Count = 14;
-    private const double BarHeight = 52;
+    private const double BarHeight = 48;
     private readonly Workspace ws;
-    private readonly TextBlock title = new() { FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-    private readonly TextBlock hint = new() { Text = "竖线是要导出的帧，拖两端只导出一段", FontSize = 11, Opacity = 0.75, HorizontalAlignment = HorizontalAlignment.Right, TextTrimming = TextTrimming.CharacterEllipsis };
+    private readonly TextBlock title = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+    private readonly Border titleBack = new() { Height = 26, Padding = new Thickness(10, 0, 10, 0), CornerRadius = new CornerRadius(13) };
+    private readonly TextBlock hint = new() { Text = "竖线是要导出的帧，拖两端只导出一段", FontSize = 12, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+    private readonly Border panel = new() { CornerRadius = new CornerRadius(16), Padding = new Thickness(14, 12, 14, 12) };
     private readonly Grid bar = new() { Height = BarHeight, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
     private readonly Grid thumbs = new() { ColumnSpacing = 1 };
     private readonly Border[] cells = new Border[Count];
     private readonly Canvas overlay = new() { IsHitTestVisible = false };
     private readonly Rectangle dimLeft = new() { Height = BarHeight }, dimRight = new() { Height = BarHeight };
     private readonly Microsoft.UI.Xaml.Shapes.Path ticks = new() { StrokeThickness = 1 };
-    private readonly Border frame = new() { BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(4), Height = BarHeight };
+    private readonly Border frame = new() { BorderThickness = new Thickness(12, 3, 12, 3), CornerRadius = new CornerRadius(12), Height = BarHeight };
     private FileItem? item;
     private string? thumbsFor;
     private CancellationTokenSource? cts;
@@ -87,11 +89,11 @@ internal sealed class FrameRangeBar : UserControl
     public FrameRangeBar(Workspace ws)
     {
         this.ws = ws;
-        Padding = new Thickness(16, 14, 16, 14);
         var head = new Grid { ColumnSpacing = 12 };
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        head.Children.Add(title);
+        titleBack.Child = title;
+        head.Children.Add(titleBack);
         Grid.SetColumn(hint, 1);
         head.Children.Add(hint);
         for (var k = 0; k < Count; k++)
@@ -101,14 +103,17 @@ internal sealed class FrameRangeBar : UserControl
             Grid.SetColumn(cells[k], k);
             thumbs.Children.Add(cells[k]);
         }
-        var thumbsClip = new Border { CornerRadius = new CornerRadius(4), Child = thumbs };
+        var thumbsClip = new Border { CornerRadius = new CornerRadius(12), Child = thumbs };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAccessibilityView(thumbsClip, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         bar.Children.Add(thumbsClip);
-        ticks.Stroke = new SolidColorBrush(Windows.UI.Color.FromArgb(230, 0xEF, 0x39, 0x22));
+        ticks.Stroke = new SolidColorBrush(Windows.UI.Color.FromArgb(140, 255, 255, 255));
         frame.BorderBrush = Palette.Brand;
-        overlay.Children.Add(dimLeft);
-        overlay.Children.Add(dimRight);
-        overlay.Children.Add(ticks);
+        // 蒙白与竖线跟着缩略图条的圆角裁掉；红框在最上面。
+        var clipped = new Canvas { IsHitTestVisible = false };
+        clipped.Children.Add(dimLeft);
+        clipped.Children.Add(dimRight);
+        clipped.Children.Add(ticks);
+        bar.Children.Add(new Border { CornerRadius = new CornerRadius(12), Child = clipped, IsHitTestVisible = false });
         overlay.Children.Add(frame);
         bar.Children.Add(overlay);
         AutomationProperties.SetName(bar, "导出范围");
@@ -137,10 +142,11 @@ internal sealed class FrameRangeBar : UserControl
             if (ws.Trim.TryGetValue(item.FilePath, out var r) && r.Start <= 0.01 && r.End >= item.Duration - 0.01) ws.SetTrim(item.FilePath, null);
         };
         bar.PointerCaptureLost += (_, _) => draggingStart = null;
-        var stack = new StackPanel { Spacing = 8 };
+        var stack = new StackPanel { Spacing = 10 };
         stack.Children.Add(head);
         stack.Children.Add(bar);
-        Content = stack;
+        panel.Child = stack;
+        Content = panel;
         Loaded += (_, _) => Paint();
         ActualThemeChanged += (_, _) => Paint();
     }
@@ -157,7 +163,9 @@ internal sealed class FrameRangeBar : UserControl
 
     private void Paint()
     {
-        title.Foreground = Palette.Get(this, "BentoPrimary");
+        panel.Background = Palette.Get(this, "BentoFill");
+        titleBack.Background = Palette.Get(this, "BentoAlertFill");
+        title.Foreground = Palette.Get(this, "BentoAlertText");
         hint.Foreground = Palette.Get(this, "BentoSecondary");
         var card = ((SolidColorBrush)Palette.Get(this, "BentoCard")).Color;
         dimLeft.Fill = dimRight.Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(178, card.R, card.G, card.B));
@@ -220,27 +228,28 @@ internal sealed class FrameRangeBar : UserControl
         Canvas.SetLeft(dimRight, x1);
         frame.Width = Math.Max(8, x1 - x0);
         Canvas.SetLeft(frame, x0);
-        // 要导出的帧：张数多时按 30 条均匀示意。
+        // 要导出的帧：张数多时按 60 条均匀示意。
         var n = ws.FrameCount(item);
-        var count = Math.Min(n, 30);
+        var count = Math.Min(n, 60);
         var g = new GeometryGroup();
         for (var k = 0; k < count; k++)
         {
             var t = ws.FrameTime(item, count == n ? k : k * n / Math.Max(1, count));
             var x = t / d * w;
-            g.Children.Add(new LineGeometry { StartPoint = new Point(x, 6), EndPoint = new Point(x, BarHeight - 6) });
+            g.Children.Add(new LineGeometry { StartPoint = new Point(x, 0), EndPoint = new Point(x, BarHeight) });
         }
         ticks.Data = g;
     }
 }
 
-/// 预览前 12 帧，文件名按实际输出写。
+/// 预览前 16 帧（灰底面板、4 列），文件名按实际输出写。
 internal sealed class FramePreviewGrid : UserControl
 {
     private readonly Workspace ws;
     private readonly TextBlock title = new() { FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock folder = new() { FontSize = 11, FontFamily = new FontFamily("Cascadia Mono, Consolas"), HorizontalAlignment = HorizontalAlignment.Right, TextTrimming = TextTrimming.CharacterEllipsis };
     private readonly AdaptiveGrid grid = new();
+    private readonly Border panel = new() { CornerRadius = new CornerRadius(16) };
     private readonly List<(Border Box, Image Image, TextBlock Name)> tiles = new();
     private string key = "";
     private CancellationTokenSource? cts;
@@ -254,22 +263,27 @@ internal sealed class FramePreviewGrid : UserControl
         head.Children.Add(title);
         Grid.SetColumn(folder, 1);
         head.Children.Add(folder);
-        var stack = new StackPanel { Spacing = 10, Padding = new Thickness(16) };
-        stack.Children.Add(head);
-        stack.Children.Add(grid);
-        Content = new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var root = new Grid { RowSpacing = 10, Padding = new Thickness(14, 12, 14, 12) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.Children.Add(head);
+        var scroll = new ScrollViewer { Content = grid, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        Grid.SetRow(scroll, 1);
+        root.Children.Add(scroll);
+        panel.Child = root;
+        Content = panel;
         Loaded += (_, _) => Paint();
         ActualThemeChanged += (_, _) => Paint();
     }
 
     private void Paint()
     {
+        panel.Background = Palette.Get(this, "BentoFill");
         title.Foreground = Palette.Get(this, "BentoPrimary");
         folder.Foreground = Palette.Get(this, "BentoSecondary");
         foreach (var (box, _, name) in tiles)
         {
-            box.Background = Palette.Get(this, "BentoFill");
-            box.BorderBrush = Palette.Get(this, "BentoLine");
+            box.Background = Palette.Get(this, "BentoLine");
             name.Foreground = Palette.Get(this, "BentoSecondary");
         }
     }
@@ -284,7 +298,7 @@ internal sealed class FramePreviewGrid : UserControl
 
     public void Update(FileItem item)
     {
-        var n = Math.Min(12, ws.FrameCount(item));
+        var n = Math.Min(16, ws.FrameCount(item));
         title.Text = $"预览前 {n} 帧";
         folder.Text = $"{System.IO.Path.GetFileNameWithoutExtension(item.FilePath)}_frames/";
         var crop = ws.VideoCropBox(item);
@@ -308,9 +322,9 @@ internal sealed class FramePreviewGrid : UserControl
     private void AddTile()
     {
         var image = VideoFrames.DecorImage();
-        var box = new Border { CornerRadius = new CornerRadius(4), BorderThickness = new Thickness(0.5), Child = image };
-        var name = new TextBlock { FontSize = 11 };
-        var cell = new StackPanel { Spacing = 4 };
+        var box = new Border { CornerRadius = new CornerRadius(8), Child = image };
+        var name = new TextBlock { FontSize = 10, FontFamily = new FontFamily("Cascadia Mono, Consolas"), TextTrimming = TextTrimming.CharacterEllipsis, MaxLines = 1 };
+        var cell = new StackPanel { Spacing = 5 };
         cell.Children.Add(box);
         cell.Children.Add(name);
         AutomationProperties.SetAccessibilityView(box, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
@@ -337,10 +351,10 @@ internal sealed class FramePreviewGrid : UserControl
     }
 }
 
-/// 自适应网格：每格至少 132、至多 220 宽，铺满一行；格子高度按画面比例。
+/// 帧网格：固定 4 列铺满（设计稿 V2.1 · 07，列距 10、行距 12）；格子高度按画面比例。
 internal sealed class AdaptiveGrid : Panel
 {
-    private const double Min = 132, Max = 220, Gap = 10, RowGap = 12;
+    private const double Gap = 10, RowGap = 12;
     private double aspect = 16.0 / 9;
 
     public double Aspect
@@ -357,8 +371,8 @@ internal sealed class AdaptiveGrid : Panel
     private (int Cols, double Cell) Columns(double width)
     {
         if (double.IsInfinity(width) || width <= 0) width = 600;
-        var cols = Math.Max(1, (int)Math.Floor((width + Gap) / (Min + Gap)));
-        var cell = Math.Min(Max, (width - (cols - 1) * Gap) / cols);
+        const int cols = 4;
+        var cell = Math.Max(1, (width - (cols - 1) * Gap) / cols);
         return (cols, cell);
     }
 

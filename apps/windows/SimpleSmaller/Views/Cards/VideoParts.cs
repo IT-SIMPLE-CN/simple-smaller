@@ -43,11 +43,22 @@ internal static class VideoParts
         return Paint(b, x => { x.Background = Palette.Get(x, "BentoFill"); name.Foreground = Palette.Get(x, "BentoPrimary"); });
     }
 
-    /// 开关行：系统开关，开着是品牌红。
+    /// 开关行：系统开关，开着是品牌红；关着照设计稿是浅灰底、白圆钮、无描边。
     public static (Border Row, ToggleSwitch Switch) ToggleRow(string label, double height = 44)
     {
-        // 开关颜色（品牌红底、白钮）在 Themes/Bento.xaml 全局设好。
+        // 开着的颜色（品牌红底、白钮）在 Themes/Bento.xaml 全局设好；关着的颜色只改视频卡里的开关。
         var ts = new ToggleSwitch { OnContent = null, OffContent = null, MinWidth = 0, Margin = new Thickness(0, 0, -10, 0) };
+        foreach (var (theme, fill) in new[] { ("Light", Windows.UI.Color.FromArgb(255, 0xD9, 0xDC, 0xE0)), ("Dark", Windows.UI.Color.FromArgb(255, 0x45, 0x47, 0x4C)) })
+        {
+            var d = new ResourceDictionary();
+            foreach (var state in new[] { "", "PointerOver", "Pressed" })
+            {
+                d["ToggleSwitchFillOff" + state] = new SolidColorBrush(fill);
+                d["ToggleSwitchStrokeOff" + state] = new SolidColorBrush(fill);
+                d["ToggleSwitchKnobFillOff" + state] = new SolidColorBrush(Microsoft.UI.Colors.White);
+            }
+            ts.Resources.ThemeDictionaries[theme] = d;
+        }
         AutomationProperties.SetName(ts, label);
         return (Row(label, ts, height), ts);
     }
@@ -90,14 +101,14 @@ internal static class VideoParts
         IsTabStop = false,
     };
 
-    /// 「已修改」+「存为新配方」。
-    public static StackPanel RecipeAccessory(Workspace ws)
+    /// 卡片头右边：「已修改」（改过才出现）+「另存为配方」（设计稿 V2.1 · 06 / 07）。
+    public static (StackPanel Panel, Border Modified) RecipeAccessory(Workspace ws)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         var tag = new TextBlock { Text = "已修改", FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
-        var tagBack = new Border { Height = 26, Padding = new Thickness(10, 0, 10, 0), CornerRadius = new CornerRadius(13), Child = tag };
+        var tagBack = new Border { Height = 26, Padding = new Thickness(10, 0, 10, 0), CornerRadius = new CornerRadius(13), Child = tag, VerticalAlignment = VerticalAlignment.Center };
         Paint(tagBack, b => { b.Background = Palette.Get(b, "BentoAlertFill"); tag.Foreground = Palette.Get(b, "BentoAlertText"); });
-        var save = new CapsuleButton("存为新配方", 26);
+        var save = new CapsuleButton("另存为配方", 34);
         save.Click += (_, _) =>
         {
             var r = ws.Draft with { Id = "", Name = ws.Base.BuiltIn ? $"{ws.Base.Name} 改" : ws.Base.Name, BuiltIn = false };
@@ -105,13 +116,52 @@ internal static class VideoParts
         };
         row.Children.Add(tagBack);
         row.Children.Add(save);
-        return row;
+        return (row, tagBack);
     }
 
     public static void Show(UIElement e, bool visible) => e.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
 
-    /// 卡片头。
-    public static Header Header(string glyph, string title, string? subtitle = null) => new() { Glyph = glyph, Title = title, Subtitle = subtitle };
+    /// 卡片头：图标是设计稿的线性图标（Icons 里的路径）。
+    public static Header Header(string icon, string title, string? subtitle = null) =>
+        new Header { Title = title, Subtitle = subtitle }.WithIcon(icon);
+
+    /// 左边 64 宽的小标题、中间控件、右边说明（设计稿「画面比例 / 分辨率 / 画质」一行）。
+    public static Grid LabeledRow(string label, UIElement content, UIElement? trailing = null)
+    {
+        var g = new Grid { ColumnSpacing = 12 };
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var t = Caption(label, 12);
+        t.VerticalAlignment = VerticalAlignment.Center;
+        g.Children.Add(t);
+        if (content is FrameworkElement fe)
+        {
+            fe.HorizontalAlignment = HorizontalAlignment.Left;
+            fe.VerticalAlignment = VerticalAlignment.Center;
+        }
+        Grid.SetColumn((FrameworkElement)content, 1);
+        g.Children.Add(content);
+        if (trailing is FrameworkElement tr)
+        {
+            tr.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(tr, 2);
+            g.Children.Add(tr);
+        }
+        return g;
+    }
+
+    /// 可点的灰底行：左名称，右「值 ›」，点开一个菜单（设计稿「每一帧」卡的格式、宽）。
+    public static (Button Button, TextBlock Value) MenuRow(string label, MenuFlyout menu)
+    {
+        var value = new TextBlock { FontSize = 13, MaxLines = 1, TextTrimming = TextTrimming.CharacterEllipsis };
+        Paint(value, t => t.Foreground = Palette.Get(t, "BentoSecondary"));
+        var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], HorizontalAlignment = HorizontalAlignment.Stretch, Flyout = menu };
+        Motion.SetPress(b, true);
+        b.Content = Row(label, value);
+        AutomationProperties.SetName(b, label);
+        return (b, value);
+    }
 
     public static SolidColorBrush Color(byte a, byte r, byte g, byte b) => new(Windows.UI.Color.FromArgb(a, r, g, b));
 }

@@ -80,4 +80,30 @@ public static class Icons
     public static readonly string Video = LineIcon.Rect(3, 6, 13, 12, 2) + "M16 10l5-3v10l-5-3";
     public const string Pdf = "M6 3h8l4 4v14H6zM14 3v4h4";
     public static readonly string Ring = LineIcon.Circle(12, 12, 8) + LineIcon.Circle(12, 12, 3) + "M12 4v5M20 12h-5";
+
+    // ---------- 卡片头与按钮（V2.1 · 视频 / 序列帧 / 空状态 / 处理中） ----------
+    /// 两道滑杆（「画面与画质」「格式与质量」）。
+    public static readonly string Sliders = "M4 8h9M17 8h3M4 16h3M11 16h9" + LineIcon.Circle(15, 8, 2) + LineIcon.Circle(9, 16, 2);
+    /// 胶片（「格式」「抽帧」）。
+    public static readonly string Film = LineIcon.Rect(3, 4, 18, 16, 2) + "M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4";
+    /// 喇叭（「声音与附带」）。
+    public const string Speaker = "M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6";
+    /// 文件夹（「输出」）。
+    public const string Folder = "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z";
+    /// 图层（「这一批文件」）。
+    public const string Layers = "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5";
+    /// 加号。
+    public const string Plus = "M12 5v14M5 12h14";
+    /// 剪贴板（粘贴）。
+    public static readonly string Clipboard = LineIcon.Rect(6, 5, 12, 16, 2) + "M9 3h6v4H9z";
+    /// 向右箭头（开始块）。
+    public const string ArrowRight = "M5 12h14M13 6l6 6-6 6";
+    /// 播放三角（填充）。
+    public const string PlayFill = "M7 4l13 8-13 8z";
+    /// 暂停两竖（填充）。
+    public static readonly string PauseFill = LineIcon.Rect(6, 4, 4, 16, 1) + LineIcon.Rect(14, 4, 4, 16, 1);
+    /// 停止方块（填充，开始块处理中）。
+    public static readonly string StopFill = LineIcon.Rect(6, 6, 12, 12, 2);
+    /// 对勾（开始块已完成）。
+    public const string Check = "M5 12.5l4.5 4.5L19 7.5";
 }
