@@ -88,6 +88,67 @@ public sealed partial class MainWindow : Window
         trailing.SizeChanged += (_, _) => UpdateDragRegions();
         leading.SizeChanged += (_, _) => UpdateDragRegions();
         center.SizeChanged += (_, _) => UpdateDragRegions();
+        HookShortcuts();
+        HookClose();
+    }
+
+    // ---------- 快捷键（mac 的 AppCommands）与关闭 ----------
+
+    /// Ctrl+O 选取文件、Ctrl+Shift+V 粘贴、Ctrl+0 首页、Ctrl+1/2/3 切类型、Ctrl+, 设置、
+    /// Ctrl+Shift+R 重试失败的、Ctrl+Delete 从列表移除所选。开始（Ctrl+Enter）与停止（Ctrl+.）在开始块上。
+    private void HookShortcuts()
+    {
+        void add(Windows.System.VirtualKey key, Windows.System.VirtualKeyModifiers mods, Action action)
+        {
+            var a = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = key, Modifiers = mods };
+            a.Invoked += (_, e) => { e.Handled = true; action(); };
+            Root.KeyboardAccelerators.Add(a);
+        }
+        const Windows.System.VirtualKeyModifiers ctrl = Windows.System.VirtualKeyModifiers.Control;
+        const Windows.System.VirtualKeyModifiers ctrlShift = ctrl | Windows.System.VirtualKeyModifiers.Shift;
+        add(Windows.System.VirtualKey.O, ctrl, PickFiles);
+        add(Windows.System.VirtualKey.V, ctrlShift, async () => await model.PasteFromClipboardAsync());
+        add(Windows.System.VirtualKey.Number0, ctrl, () => model.ShowHome = true);
+        for (var i = 0; i < MediaTypes.All.Length; i++)
+        {
+            var type = MediaTypes.All[i];
+            add(Windows.System.VirtualKey.Number1 + i, ctrl, () => model.SelectedType = type);
+        }
+        add((Windows.System.VirtualKey)188 /* , */, ctrl, () => App.OpenSettings());
+        add(Windows.System.VirtualKey.R, ctrlShift, () =>
+        {
+            var ws = model.Current;
+            if (!ws.Running && ws.Files.Any(f => f.State.IsFailed)) model.RetryFailed(ws);
+        });
+        add(Windows.System.VirtualKey.Delete, ctrl, () =>
+        {
+            var ws = model.Current;
+            if (!ws.Running && ws.Selection.Count > 0) model.Remove(ws.Selection, ws);
+        });
+        Root.KeyboardAcceleratorPlacementMode = Microsoft.UI.Xaml.Input.KeyboardAcceleratorPlacementMode.Hidden;
+    }
+
+    /// 选取文件（Ctrl+O）。
+    private async void PickFiles()
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker();
+        picker.FileTypeFilter.Add("*");
+        picker.CommitButtonText = "添加";
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, App.MainHwnd);
+        var files = await picker.PickMultipleFilesAsync();
+        if (files.Count > 0) model.Add(files.Select(f => f.Path), model.ShowHome ? null : model.SelectedType);
+    }
+
+    /// 关闭主窗口：开着托盘图标就收到托盘（后台的剪贴板、监视文件夹照常），否则退出（处理中先确认）。
+    private void HookClose()
+    {
+        AppWindow.Closing += (_, e) =>
+        {
+            if (App.Quitting) return;
+            e.Cancel = true;
+            if (Views.Sub.TrayIcon.IsShown) AppWindow.Hide();
+            else App.Quit();
+        };
     }
 
     /// 强制深浅色（--appearance，验证用）；其余时候跟随系统。

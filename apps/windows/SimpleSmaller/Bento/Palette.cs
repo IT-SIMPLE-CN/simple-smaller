@@ -10,6 +10,15 @@ public static class Palette
     public static Brush Get(FrameworkElement element, string key)
     {
         var resources = Application.Current.Resources;
+        // 先只查各字典的主题分支：XamlControlsResources 没有「Dark」分支，按键直接查会按应用主题（浅色）
+        // 解析到 Bento.xaml 的浅色值，--appearance dark 时整窗变浅。
+        foreach (var dict in resources.MergedDictionaries)
+        {
+            if (ThemeOnly(dict, element.ActualTheme, key) is Brush b)
+            {
+                return b;
+            }
+        }
         foreach (var dict in resources.MergedDictionaries)
         {
             if (Lookup(dict, element.ActualTheme, key) is Brush b)
@@ -18,6 +27,13 @@ public static class Palette
             }
         }
         return Lookup(resources, element.ActualTheme, key) as Brush ?? (Brush)resources[key];
+    }
+
+    private static object? ThemeOnly(ResourceDictionary dict, ElementTheme theme, string key)
+    {
+        var themeKey = IsHighContrast ? "HighContrast" : theme == ElementTheme.Dark ? "Dark" : "Light";
+        if (!dict.ThemeDictionaries.TryGetValue(themeKey, out var t) || t is not ResourceDictionary td || !td.TryGetValue(key, out var v)) return null;
+        return v;
     }
 
     private static object? Lookup(ResourceDictionary dict, ElementTheme theme, string key)
