@@ -154,7 +154,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return .terminateNow
     }
 
+    /// macOS 27 的自动填充会给输入框建一个「SafariPlatformSupportAutoCompleteWindow」浮窗，
+    /// 本应用没有可填的内容，它就空着挂在屏幕边上。出现就收起。
+    private var autoFillObserver: NSObjectProtocol?
+
+    private func hideAutoFillWindows() {
+        autoFillObserver = NotificationCenter.default.addObserver(forName: NSApplication.didUpdateNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                for w in NSApp.windows where w.isVisible && (w.identifier?.rawValue.contains("AutoComplete") ?? false) {
+                    w.orderOut(nil)
+                }
+            }
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        hideAutoFillWindows()
         // 验证用：`SMALLER_APPEARANCE=light|dark` 强制外观，不动系统设置。
         switch ProcessInfo.processInfo.environment["SMALLER_APPEARANCE"] {
         case "light": NSApp.appearance = NSAppearance(named: .aqua)

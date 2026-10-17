@@ -181,19 +181,22 @@ private struct LevelRow: View {
 /// 输出加打开密码：发给客户的报价、合同常用。密码不写进配方、不保存。
 private struct PasswordOption: View {
     @Bindable var ws: Workspace
-    @State private var on = false
+    @FocusState private var focused: Bool
 
     var body: some View {
         InspectorSection(title: "打开密码") {
-            InspectorToggle(label: "输出加打开密码", isOn: Binding(get: { on || !ws.outputPassword.isEmpty }, set: { v in
-                on = v
-                if !v { ws.outputPassword = "" }
+            InspectorToggle(label: "输出加打开密码", isOn: Binding(get: { ws.outputPasswordOn }, set: { v in
+                ws.outputPasswordOn = v
+                if v { DispatchQueue.main.async { focused = true } } else { ws.outputPassword = "" }
             }))
-            if on || !ws.outputPassword.isEmpty {
+            if ws.outputPasswordOn {
                 SecureField("设置密码", text: Binding(get: { ws.outputPassword }, set: { ws.outputPassword = String($0.utf8.count > 127 ? String(decoding: Array($0.utf8.prefix(127)), as: UTF8.self) : $0) }))
                     .textFieldStyle(.roundedBorder)
-                Text("只在这次处理里用，不保存。忘了密码就打不开，记得另外告诉对方。")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .focused($focused)
+                Text(ws.outputPassword.trimmingCharacters(in: .whitespaces).isEmpty ? "先设好密码才能开始。" : "只在这次处理里用，不保存。忘了密码就打不开，记得另外告诉对方。")
+                    .font(.caption)
+                    .foregroundStyle(ws.outputPassword.trimmingCharacters(in: .whitespaces).isEmpty ? AnyShapeStyle(Color.warning) : AnyShapeStyle(.secondary))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

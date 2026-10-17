@@ -43,6 +43,8 @@ final class FileItem: Identifiable {
     var outDir: URL?
     /// 加密 PDF 输入密码后解出的临时副本，处理时代替原文件。
     var unlockedURL: URL?
+    /// 预览用的文件：解锁过的 PDF 用副本（加密的原文件渲染不出来）。
+    var previewURL: URL { unlockedURL ?? url }
     var outputs: [Output] = []
 
     init(url: URL, root: URL?, type: MediaType) {
@@ -83,6 +85,7 @@ final class Workspace {
     var createdRoots: [String] = []
     /// PDF 输出加的打开密码。只在这次处理里用，不写进配方、不保存。
     var outputPassword = ""
+    var outputPasswordOn = false
     /// 第几轮处理；取消后重开，上一轮的回调据此作废。
     var runGeneration = 0
     /// 这一轮处理的文件（重试时只是失败的那几个）。

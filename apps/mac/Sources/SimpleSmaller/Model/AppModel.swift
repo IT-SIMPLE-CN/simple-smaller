@@ -128,6 +128,7 @@ final class AppModel {
         }
         item.unlockedURL = out
         item.metaError = nil
+        item.thumbnail = nil
         if case .failed = item.state { item.state = .waiting }
         loadMeta(item)
         return nil
@@ -235,7 +236,7 @@ final class AppModel {
                 }
             }
         }
-        let request = QLThumbnailGenerator.Request(fileAt: item.url, size: CGSize(width: 96, height: 96), scale: 2, representationTypes: .thumbnail)
+        let request = QLThumbnailGenerator.Request(fileAt: item.previewURL, size: CGSize(width: 96, height: 96), scale: 2, representationTypes: .thumbnail)
         QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
             guard let image = rep?.nsImage else { return }
             Task { @MainActor in item.thumbnail = image }
@@ -252,6 +253,10 @@ final class AppModel {
     /// 开始处理这一批；`retrying` 给出时只重做这几个（失败重试），其余结果保留。
     func start(_ ws: Workspace, retrying: [FileItem]? = nil) {
         guard !ws.running, !ws.files.isEmpty else { return }
+        if ws.type == .pdf, ws.pdfSegment != .toImages, ws.outputPasswordOn, ws.outputPassword.trimmingCharacters(in: .whitespaces).isEmpty {
+            flash("先设好打开密码，或者关掉「输出加打开密码」")
+            return
+        }
         Self.log.info("开始 \(ws.type.title, privacy: .public)：\(ws.files.count) 个文件，配方「\(ws.draft.name, privacy: .public)」")
         let items = retrying ?? ws.files
         for f in items { f.state = .waiting; f.outputs = [] }

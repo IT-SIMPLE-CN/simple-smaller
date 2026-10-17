@@ -49,7 +49,7 @@ private struct PageStrip: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 10) {
                     ForEach(0..<item.pages, id: \.self) { i in
-                        PageThumb(image: thumbs.thumbnails(for: item.url).flatMap { i < $0.count ? $0[i] : nil }, number: i + 1, height: 96)
+                        PageThumb(image: thumbs.thumbnails(for: item.previewURL).flatMap { i < $0.count ? $0[i] : nil }, number: i + 1, height: 96)
                     }
                 }
                 .padding(.bottom, 2)
@@ -59,7 +59,7 @@ private struct PageStrip: View {
         .padding(.vertical, 12)
         .frame(height: 168)
         .background(.bar)
-        .task(id: item.url) { thumbs.load(item.url) }
+        .task(id: item.previewURL) { thumbs.load(item.previewURL) }
     }
 }
 
@@ -136,7 +136,7 @@ private struct PageGrid: View {
                     ForEach(Array(ws.pageOrder.enumerated()), id: \.offset) { i, ref in
                         let file = Int(ref.file)
                         let item = file < pdfs.count ? pdfs[file] : nil
-                        PageThumb(image: item.flatMap { thumbs.thumbnails(for: $0.url) }.flatMap { Int(ref.page) < $0.count ? $0[Int(ref.page)] : nil },
+                        PageThumb(image: item.flatMap { thumbs.thumbnails(for: $0.previewURL) }.flatMap { Int(ref.page) < $0.count ? $0[Int(ref.page)] : nil },
                                   number: i + 1, selected: selected.contains(i),
                                   badge: pdfs.count > 1 ? "\(file + 1)·\(ref.page + 1)" : nil)
                             .opacity(dragging == i ? 0.4 : 1)
@@ -160,7 +160,7 @@ private struct PageGrid: View {
         .focusEffectDisabled()
         .onDeleteCommand { deleteSelected() }
         .onKeyPress(.delete) { deleteSelected(); return .handled }
-        .task(id: pdfs.map(\.url)) { for p in pdfs { thumbs.load(p.url) } }
+        .task(id: pdfs.map(\.previewURL)) { for p in pdfs { thumbs.load(p.previewURL) } }
     }
 
     private func tap(_ i: Int) {

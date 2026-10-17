@@ -142,7 +142,9 @@ struct StartButton: View {
     }
 
     private var canStart: Bool {
-        switch ws.type {
+        // PDF 要加打开密码但还没填：不能开始，免得输出没加密码的文件。
+        if ws.type == .pdf, ws.pdfSegment != .toImages, ws.outputPasswordOn, ws.outputPassword.trimmingCharacters(in: .whitespaces).isEmpty { return false }
+        return switch ws.type {
         case .pdf where ws.pdfSegment == .fromImages: ws.files.contains { $0.type == .image }
         case .pdf where ws.pdfSegment == .merge: ws.files.filter { $0.type == .pdf }.count >= 1 && !ws.pageOrder.isEmpty
         default: true

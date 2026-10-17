@@ -60,7 +60,14 @@ struct FileTableView: View {
             ForEach(ws.files) { item in
                 // 处理完的行可以直接拖出：压好的文件拖进微信、浏览器、邮件。
                 TableRow(item)
-                    .itemProvider { item.outputs.first.flatMap { NSItemProvider(contentsOf: URL(fileURLWithPath: $0.path)) } }
+                    .itemProvider {
+                        // 传文件地址（不是文件内容），拖到访达、微信里保留原文件名。
+                        guard let out = item.outputs.first else { return nil }
+                        let url = URL(fileURLWithPath: out.path)
+                        let provider = NSItemProvider(object: url as NSURL)
+                        provider.suggestedName = url.lastPathComponent
+                        return provider
+                    }
             }
         }
         .contextMenu(forSelectionType: FileItem.ID.self) { ids in
@@ -250,7 +257,7 @@ extension Notification.Name {
     static let quickLookSelection = Notification.Name("SimpleSmaller.quickLookSelection")
 }
 
-/// 表格会吞掉空格；焦点在表格上时按空格，转成「快速查看」。
+/// 主窗口里按空格转成「快速查看」（和访达一样）；焦点在输入框、按钮上时不拦。
 private struct SpaceKeyWatcher: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { Probe() }
     func updateNSView(_ nsView: NSView, context: Context) {}
@@ -263,7 +270,10 @@ private struct SpaceKeyWatcher: NSViewRepresentable {
             guard window != nil else { return }
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
                 guard e.keyCode == 49, e.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,
-                      let w = self?.window, e.window === w, w.firstResponder is NSTableView else { return e }
+                      let w = self?.window, e.window === w else { return e }
+                // 焦点在表格里，或没有控件拿着焦点（点表格行时焦点留在窗口上）才接；在输入框、按钮上按空格照常。
+                let inTable = (w.firstResponder as? NSView).map { sequence(first: $0, next: { $0.superview }).contains { $0 is NSTableView } } ?? false
+                guard inTable || w.firstResponder === w else { return e }
                 NotificationCenter.default.post(name: .quickLookSelection, object: nil)
                 return nil
             }
