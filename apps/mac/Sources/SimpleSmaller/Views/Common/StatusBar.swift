@@ -46,9 +46,8 @@ struct StatusBar: View {
                 // 裁切时写确认进度（设计稿 03 顶栏的「已确认 n / 12」）。
                 let items = ws.cropItems
                 Text("已确认 \(items.filter { ws.cropConfirmed.contains($0.url) }.count) / \(items.count)").monospacedDigit()
-            } else if ws.type == .pdf, ws.pdfSegment == .merge || ws.pdfSegment == .fromImages {
-                Text(verbatim: ws.pdfSegment == .merge ? "合并成 1 个文件 · \(ws.pageOrder.count) 页" : "做成 1 个 PDF · \(ws.files.filter { $0.type == .image }.count) 页")
-                    .monospacedDigit()
+            } else if ws.type == .pdf, ws.pdfSegment == .merge {
+                Text(verbatim: "合并成 1 个文件 · \(ws.pageOrder.count) 页").monospacedDigit()
             } else if ws.type == .video, ws.videoSegment == .frames {
                 // 序列帧：将生成多少张、约多大（设计稿 04b 底栏）。
                 Text(verbatim: framesSummary).monospacedDigit()

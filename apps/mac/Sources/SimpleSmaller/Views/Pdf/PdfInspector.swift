@@ -73,10 +73,6 @@ struct PdfInspector: View {
 
     @ViewBuilder private var mergeSection: some View {
         InspectorSection(title: "合并") {
-            InspectorRow(label: "页数") { Text(verbatim: "\(ws.pageOrder.count) 页").foregroundStyle(.secondary).monospacedDigit() }
-            InspectorRow(label: "文件") { Text(verbatim: "\(ws.files.filter { $0.type == .pdf }.count) 个").foregroundStyle(.secondary) }
-            Text("按左边的顺序合成一个 PDF；删掉的页不会出现在结果里，原文件不动。")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             InspectorToggle(label: "去掉作者与修改记录", isOn: $ws.draft.stripMetadata)
         }
         PasswordOption(ws: ws)
@@ -98,7 +94,7 @@ struct PdfInspector: View {
 
     private var splitSummary: String {
         let parts = ws.files.filter { $0.type == .pdf }.reduce(0) { $0 + Int((Double($1.pages) / Double(max(1, p.splitEvery))).rounded(.up)) }
-        return "共拆出 \(parts) 个文件，放进旁边的「原名-拆分」文件夹，按 -01、-02 编号。"
+        return "共拆出 \(parts) 个文件"
     }
 
     // MARK: 转图片 / 图片转 PDF

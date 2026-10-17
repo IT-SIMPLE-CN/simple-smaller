@@ -107,8 +107,12 @@ struct InspectorHeader: View {
                         .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(.separator, lineWidth: 0.5))
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(ws.files.count) 个文件 · 统一设置").font(.system(size: 13, weight: .semibold))
-                        recipeLine
+                        if showsRecipe {
+                            Text("\(ws.files.count) 个文件 · 统一设置").font(.system(size: 13, weight: .semibold))
+                            recipeLine
+                        } else {
+                            Text("\(ws.files.count) 个文件").font(.system(size: 13, weight: .semibold))
+                        }
                     }
                     Spacer(minLength: 8)
                     AddFilesButton(ws: ws)
@@ -121,6 +125,11 @@ struct InspectorHeader: View {
         .sheet(item: $saving) { r in
             RecipeEditorView(initial: r) { saved in ws.select(recipe: saved) }
         }
+    }
+
+    /// PDF 合并、拆分、图片转 PDF 用不上压缩配方，不显示配方名，免得以为会按「邮件附件」压。
+    private var showsRecipe: Bool {
+        !(ws.type == .pdf && [.merge, .split, .fromImages].contains(ws.pdfSegment))
     }
 
     private var recipeLine: some View {
