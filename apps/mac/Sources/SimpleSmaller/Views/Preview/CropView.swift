@@ -166,7 +166,7 @@ struct CropCanvas: View {
                     } else if let thumb = item.thumbnail {
                         Image(nsImage: thumb).resizable()
                     } else {
-                        Rectangle().fill(.quaternary)
+                        Rectangle().fill(Bento.fill)
                     }
                 }
                 .frame(width: layout.display.width, height: layout.display.height)

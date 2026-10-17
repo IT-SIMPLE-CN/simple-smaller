@@ -109,7 +109,7 @@ struct PageThumb: View {
             }
             Text(verbatim: "\(number)")
                 .font(.system(size: 11).monospacedDigit())
-                .foregroundStyle(selected ? Color.brand : .secondary)
+                .foregroundStyle(selected ? Color.brand : Bento.secondary)
         }
         .accessibilityElement()
         .accessibilityAddTraits(.isImage)
@@ -133,7 +133,7 @@ private struct PageGrid: View {
             HStack {
                 Text(verbatim: "合并后 \(ws.pageOrder.count) 页 · 来自 \(pdfs.count) 个文件").font(.system(size: 12, weight: .semibold))
                 Spacer()
-                Text("拖动可排序 · 选中后按 Delete 删除").font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text("拖动可排序 · 选中后按 Delete 删除").font(.system(size: 11)).foregroundStyle(Bento.secondary.opacity(0.75))
             }
             .padding(.horizontal, 8)
             .frame(height: 36)
@@ -229,7 +229,7 @@ private struct ImageOrderGrid: View {
             HStack {
                 Text(verbatim: "\(images.count) 张图片 · 一张一页").font(.system(size: 12, weight: .semibold))
                 Spacer()
-                Text("拖动可排序 · 选中后按 Delete 删除").font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text("拖动可排序 · 选中后按 Delete 删除").font(.system(size: 11)).foregroundStyle(Bento.secondary.opacity(0.75))
             }
             .padding(.horizontal, 8)
             .frame(height: 36)
@@ -246,7 +246,7 @@ private struct ImageOrderGrid: View {
                                     }
                                 }
                             Text(verbatim: "\(i + 1)").font(.system(size: 11).monospacedDigit())
-                                .foregroundStyle(ws.selection.contains(item.id) ? Color.brand : .secondary)
+                                .foregroundStyle(ws.selection.contains(item.id) ? Color.brand : Bento.secondary)
                         }
                         .opacity(dragging == item.id ? 0.4 : 1)
                         .contentShape(Rectangle())

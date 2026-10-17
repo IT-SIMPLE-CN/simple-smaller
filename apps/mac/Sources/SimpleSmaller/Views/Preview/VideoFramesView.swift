@@ -45,7 +45,7 @@ private struct FrameRangeBar: View {
                 Spacer()
                 Text("竖线是要导出的帧，拖两端只导出一段")
                     .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Bento.secondary.opacity(0.75))
             }
             GeometryReader { geo in
                 let w = geo.size.width
@@ -64,15 +64,15 @@ private struct FrameRangeBar: View {
                                     if k < thumbs.count {
                                         Image(decorative: thumbs[k], scale: 2).resizable().scaledToFill()
                                     } else {
-                                        Rectangle().fill(.quaternary)
+                                        Rectangle().fill(Bento.fill)
                                     }
                                 }
                                 .clipped()
                         }
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    Rectangle().fill(Color(nsColor: .windowBackgroundColor).opacity(0.7)).frame(width: max(0, x0))
-                    Rectangle().fill(Color(nsColor: .windowBackgroundColor).opacity(0.7)).frame(width: max(0, w - x1)).offset(x: x1)
+                    Rectangle().fill(Bento.card.opacity(0.7)).frame(width: max(0, x0))
+                    Rectangle().fill(Bento.card.opacity(0.7)).frame(width: max(0, w - x1)).offset(x: x1)
                     // 要导出的帧：张数多时按 30 条均匀示意。
                     Path { p in
                         for k in 0..<ticks {
@@ -142,7 +142,7 @@ private struct FramePreviewGrid: View {
                 HStack {
                     Text("预览前 \(n) 帧").font(.system(size: 12, weight: .semibold))
                     Spacer()
-                    Text(verbatim: "\(stem)_frames/").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                    Text(verbatim: "\(stem)_frames/").font(.system(size: 11, design: .monospaced)).foregroundStyle(Bento.secondary)
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 132, maximum: 220), spacing: 10)], spacing: 12) {
                     ForEach(0..<n, id: \.self) { k in
@@ -153,14 +153,14 @@ private struct FramePreviewGrid: View {
                                     if let cg = images[k] {
                                         Image(decorative: cg, scale: 1).resizable().scaledToFill()
                                     } else {
-                                        Rectangle().fill(.quaternary)
+                                        Rectangle().fill(Bento.fill)
                                     }
                                 }
                                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(.separator, lineWidth: 0.5))
                             Text(verbatim: String(format: "_%04d.%@", k + 1, ext))
                                 .font(.system(size: 11).monospacedDigit())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Bento.secondary)
                         }
                     }
                 }

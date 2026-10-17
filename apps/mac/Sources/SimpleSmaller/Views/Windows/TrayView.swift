@@ -15,7 +15,7 @@ struct TrayView: View {
             dropArea
                 .padding(12)
             HStack {
-                Text("配方").foregroundStyle(.secondary)
+                Text("配方").foregroundStyle(Bento.secondary)
                 Spacer()
                 Picker("配方", selection: $recipeID) {
                     ForEach(MediaType.allCases) { type in
@@ -31,10 +31,10 @@ struct TrayView: View {
             .padding(.horizontal, 14)
             .padding(.bottom, 10)
             Divider()
-            Text("最近").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+            Text("最近").font(.system(size: 11, weight: .semibold)).foregroundStyle(Bento.secondary)
                 .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 4)
             if model.recent.isEmpty {
-                Text("还没有处理过文件").font(.system(size: 12)).foregroundStyle(.tertiary)
+                Text("还没有处理过文件").font(.system(size: 12)).foregroundStyle(Bento.secondary.opacity(0.75))
                     .padding(.horizontal, 14).padding(.vertical, 10)
             } else {
                 VStack(spacing: 0) {
@@ -56,16 +56,16 @@ struct TrayView: View {
     private var dropArea: some View {
         VStack(spacing: 6) {
             Image(systemName: "arrow.down.doc").font(.system(size: 22, weight: .light))
-                .foregroundStyle(targeted ? Color.brand : Color.secondary)
+                .foregroundStyle(targeted ? Color.brand : Bento.secondary)
             Text("拖到这里").font(.system(size: 13, weight: .semibold))
-            Text("或 ⌘⇧V 处理剪贴板里的图片").font(.system(size: 11)).foregroundStyle(.secondary)
+            Text("或 ⌘⇧V 处理剪贴板里的图片").font(.system(size: 11)).foregroundStyle(Bento.secondary)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 104)
         .background {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(style: StrokeStyle(lineWidth: 1.2, dash: [5, 4]))
-                .foregroundStyle(targeted ? Color.brand : Color.secondary.opacity(0.35))
+                .foregroundStyle(targeted ? Color.brand : Bento.secondary.opacity(0.35))
                 .background(targeted ? Color.brand.opacity(0.06) : .clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .animation(.smooth(duration: 0.2), value: targeted)
@@ -108,10 +108,10 @@ private struct RecentRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(job.title).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
                     Text(verbatim: "\(job.recipe) · \(Format.size(job.before)) → \(Format.size(job.after))")
-                        .font(.system(size: 11).monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                        .font(.system(size: 11).monospacedDigit()).foregroundStyle(Bento.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 6)
-                Text(Self.relative(job.date)).font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text(Self.relative(job.date)).font(.system(size: 11)).foregroundStyle(Bento.secondary.opacity(0.75))
             }
             .padding(.horizontal, 8)
             .frame(height: 42)

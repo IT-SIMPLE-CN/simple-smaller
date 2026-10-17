@@ -39,7 +39,7 @@ struct CompareView: View {
             })
         }
         .padding(12)
-        .background(.background.secondary)
+        .background(Bento.fill)
         .task(id: item.id) {
             before = NSImage(contentsOf: item.url)
             after = item.outputs.first.flatMap { NSImage(contentsOf: URL(fileURLWithPath: $0.path)) }

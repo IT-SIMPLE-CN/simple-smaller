@@ -144,11 +144,11 @@ struct TrimBar: View {
                     .font(.system(size: 12).monospacedDigit())
                 Text(verbatim: "截取 \(Format.duration(range.lowerBound)) – \(Format.duration(range.upperBound < 1 ? range.upperBound : range.upperBound.rounded()))（\(Self.seconds(range.upperBound - range.lowerBound))）")
                     .font(.system(size: 12).monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Bento.secondary)
                 Spacer()
                 Text("拖两端截取 · 单击设为封面")
                     .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Bento.secondary.opacity(0.75))
             }
             timeline(range: range)
                 .frame(height: 44)
@@ -184,7 +184,7 @@ struct TrimBar: View {
                                 if k < thumbs.count {
                                     Image(decorative: thumbs[k], scale: 2).resizable().scaledToFill()
                                 } else {
-                                    Rectangle().fill(.quaternary)
+                                    Rectangle().fill(Bento.fill)
                                 }
                             }
                             .clipped()
@@ -193,9 +193,9 @@ struct TrimBar: View {
                 .frame(width: w, alignment: .leading)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                 // 截取范围外压淡。
-                Rectangle().fill(Color(nsColor: .windowBackgroundColor).opacity(0.7))
+                Rectangle().fill(Bento.card.opacity(0.7))
                     .frame(width: max(0, x0))
-                Rectangle().fill(Color(nsColor: .windowBackgroundColor).opacity(0.7))
+                Rectangle().fill(Bento.card.opacity(0.7))
                     .frame(width: max(0, w - x1))
                     .offset(x: x1)
                 // 截取框：上下 3pt、两端 10pt 的品牌红把手。

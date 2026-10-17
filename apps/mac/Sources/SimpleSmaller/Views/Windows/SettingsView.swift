@@ -40,8 +40,8 @@ private struct SettingsCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 30, height: 30)
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 34, height: 34)
                     .background(Circle().fill(Bento.fill))
                     .accessibilityHidden(true)
                 Text(title).font(.system(size: 14, weight: .semibold)).accessibilityAddTraits(.isHeader)
@@ -62,7 +62,7 @@ private struct SettingsCard<Content: View>: View {
         .padding(.top, 14)
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Bento.card))
+        .background(RoundedRectangle(cornerRadius: Bento.cardRadius, style: .continuous).fill(Bento.card))
         .accessibilityElement(children: .contain)
     }
 }
@@ -210,7 +210,7 @@ private struct RecipeSettings: View {
         }
         .padding(16)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Bento.card))
+        .background(RoundedRectangle(cornerRadius: Bento.cardRadius, style: .continuous).fill(Bento.card))
         .sheet(item: $editing) { r in RecipeEditorView(initial: r) { _ in } }
     }
 

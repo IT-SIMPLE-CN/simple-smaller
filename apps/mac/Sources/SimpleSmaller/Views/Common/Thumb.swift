@@ -11,7 +11,7 @@ struct Thumb: View {
                 if let image {
                     Image(nsImage: image).resizable().scaledToFill()
                 } else {
-                    Rectangle().fill(.quaternary)
+                    Rectangle().fill(Bento.fill)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))

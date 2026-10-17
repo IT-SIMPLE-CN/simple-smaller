@@ -38,14 +38,14 @@ struct FileTableView: View {
             .width(min: 110)
             TableColumn(ws.type == .pdf ? "页数" : ws.type == .video ? "时长 · 尺寸" : "尺寸") { item in
                 Text(detail(item))
-                    .foregroundStyle(item.metaError == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.warning))
+                    .foregroundStyle(item.metaError == nil ? AnyShapeStyle(Bento.secondary) : AnyShapeStyle(Color.warning))
                     .monospacedDigit()
                     .help(Self.explain(item.metaError))
             }
             // 列宽按设计稿固定：尺寸 104、原大小 80、输出 80、变化 64、状态 92；名称列吃掉其余宽度。
             .width(min: ws.type == .video ? 128 : 88, ideal: ws.type == .video ? 150 : 104)
             TableColumn("原大小") { item in
-                Text(Format.size(item.bytes)).foregroundStyle(.secondary).monospacedDigit()
+                Text(Format.size(item.bytes)).foregroundStyle(Bento.secondary).monospacedDigit()
             }
             .width(min: 64, ideal: 80)
             // 不做试压：点「开始」写出后才有输出体积。
@@ -108,7 +108,7 @@ struct FileTableView: View {
         case .done:
             Text(Format.size(item.afterBytes)).monospacedDigit()
         case .kept:
-            Text("—").foregroundStyle(.secondary)
+            Text("—").foregroundStyle(Bento.secondary)
         default:
             // 还没处理的行不写字（设计稿同）。
             EmptyView()
@@ -117,7 +117,7 @@ struct FileTableView: View {
 
     @ViewBuilder private func change(_ item: FileItem) -> some View {
         if item.state == .kept {
-            Text(ws.type == .pdf ? "已很小" : "+0%").foregroundStyle(.secondary)
+            Text(ws.type == .pdf ? "已很小" : "+0%").foregroundStyle(Bento.secondary)
         } else if item.state == .done, item.afterBytes > 0, item.bytes > 0 {
             Text(Format.change(item.bytes, item.afterBytes))
                 .foregroundStyle(item.afterBytes < item.bytes ? Color.saving : Color.warning)
@@ -136,7 +136,7 @@ struct StateLabel: View {
         case .waiting where item.metaError == "有打开密码":
             Text("需要密码").foregroundStyle(Color.warning).help("右键 →「输入密码…」，密码只在这次处理里用，不保存")
         case .waiting:
-            if queued { Text("等待").foregroundStyle(.secondary) }
+            if queued { Text("等待").foregroundStyle(Bento.secondary) }
         case .running(let p):
             // 图片一张很快，没有中间进度，只标「处理中」；视频与 PDF 带百分比。
             Text(item.type == .image || p <= 0 ? "处理中" : "处理中 \(Int(p * 100))%")

@@ -229,7 +229,7 @@ struct RecipeEditorView: View {
                         TextField("", value: $r.video.targetMB, format: .number.grouping(.never))
                             .frame(width: 52).multilineTextAlignment(.trailing)
                             .disabled(r.video.rate != .size)
-                        Text("MB（按时长倒推码率）").foregroundStyle(.secondary)
+                        Text("MB（按时长倒推码率）").foregroundStyle(Bento.secondary)
                     }
                 }
                 line("声音") { chip("保留声音", on: $r.video.keepAudio) }
@@ -252,7 +252,7 @@ struct RecipeEditorView: View {
                 line("大小上限") {
                     HStack(spacing: 6) {
                         TextField("", value: $r.pdf.targetMB, format: .number.grouping(.never)).frame(width: 52).multilineTextAlignment(.trailing)
-                        Text("MB").foregroundStyle(.secondary)
+                        Text("MB").foregroundStyle(Bento.secondary)
                     }
                 }
             } else if r.pdf.level == .email {
@@ -285,7 +285,7 @@ struct RecipeEditorView: View {
                 }
             } }
             line("示例") {
-                Text(verbatim: example).font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
+                Text(verbatim: example).font(.system(.body, design: .monospaced)).foregroundStyle(Bento.secondary)
                     .lineLimit(1).truncationMode(.middle)
             }
             line("") {
