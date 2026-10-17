@@ -307,7 +307,7 @@ public sealed class Segments<T> : Grid where T : notnull
             var on = EqualityComparer<T>.Default.Equals(value, selected);
             AutomationProperties.SetItemStatus(button, on ? "已选" : "");
             Brush fg = kind == Kind.Top
-                ? (on ? Palette.Get(this, "BentoOnInk") : Palette.Get(this, "BentoPrimary"))
+                ? (on ? Palette.Get(this, "BentoOnInk") : Palette.Get(this, "BentoSoft"))
                 : (on ? Palette.Get(this, "BentoPrimary") : Palette.Get(this, kind == Kind.Mini ? "BentoSoft" : "BentoSecondary"));
             if (text is not null)
             {
