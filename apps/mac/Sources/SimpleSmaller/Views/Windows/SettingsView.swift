@@ -136,7 +136,11 @@ private struct AutoSettings: View {
                             }
                             .labelsHidden()
                             .frame(maxWidth: 160)
-                            Button { settings.watchFolders.removeAll { $0.id == watch.id } } label: { Image(systemName: "minus.circle") }
+                            Button {
+                                // 正在遍历这一行的绑定，改数组放到下一轮。
+                                let id = watch.id
+                                DispatchQueue.main.async { settings.watchFolders.removeAll { $0.id == id } }
+                            } label: { Image(systemName: "minus.circle") }
                                 .buttonStyle(.borderless)
                                 .help("不再监视")
                         }

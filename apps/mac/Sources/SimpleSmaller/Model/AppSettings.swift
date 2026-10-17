@@ -15,18 +15,23 @@ final class AppSettings {
 
     var outputLocation: OutputLocation { didSet { d.set(outputLocation.rawValue, forKey: "outputLocation") } }
     var outputFolder: String { didSet { d.set(outputFolder, forKey: "outputFolder") } }
-    var ringEnabled: Bool { didSet { d.set(ringEnabled, forKey: "ringEnabled"); RingController.shared.refresh() } }
+    var ringEnabled: Bool { didSet { d.set(ringEnabled, forKey: "ringEnabled"); Self.later { RingController.shared.refresh() } } }
     var menuBarIcon: Bool { didSet { d.set(menuBarIcon, forKey: "menuBarIcon") } }
     /// 复制图片时自动换成压缩版（默认关）。
-    var clipboardAuto: Bool { didSet { d.set(clipboardAuto, forKey: "clipboardAuto"); ClipboardWatcher.shared.refresh() } }
+    var clipboardAuto: Bool { didSet { d.set(clipboardAuto, forKey: "clipboardAuto"); Self.later { ClipboardWatcher.shared.refresh() } } }
     /// 剪贴板图片的长边上限；0 为不缩小。
     var clipboardMaxEdge: Int { didSet { d.set(clipboardMaxEdge, forKey: "clipboardMaxEdge") } }
     /// 监视的文件夹与各自的配方。
     var watchFolders: [WatchFolder] {
         didSet {
             d.set(try? JSONEncoder().encode(watchFolders), forKey: "watchFolders")
-            FolderWatcher.shared.refresh()
+            Self.later { FolderWatcher.shared.refresh() }
         }
+    }
+
+    /// 设置值改完之后再刷新监视器：在 didSet 里马上回头读同一个值会触发「同时访问」崩溃。
+    private static func later(_ work: @escaping @MainActor () -> Void) {
+        DispatchQueue.main.async { MainActor.assumeIsolated(work) }
     }
 
     private init() {
