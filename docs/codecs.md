@@ -49,12 +49,22 @@
 | zimg | 3.0.6 | WTFPL |
 | gifski | 1.34 | AGPL-3.0 |
 
+Windows 版的 ffmpeg.exe / ffprobe.exe 由 `scripts/build-ffmpeg-windows.sh` 在 Mac 上用 llvm-mingw 20260922（LLVM 23.1.2，UCRT）交叉编译 ARM64 与 x64 两套，全部静态链接，只依赖系统 DLL，单个 exe ARM64 约 23 MB、x64 约 31 MB。组件与 mac 相同（FFmpeg n9.0.2 + x264 `b35605ac` + zimg 3.0.6，另编 zlib 1.3.2 静态库），系统侧换成 Media Foundation：速度优先用 `h264_mf` / `hevc_mf`（会挑显卡厂商的硬件编码器，H.264 没有硬件时用系统软件编码器；HEVC 只走硬件或系统扩展）。另加 dav1d 1.5.4（BSD-2-Clause）做 AV1 软件解码，因为 ffmpeg 自带的 av1 解码器只走硬件，而 Windows 没有 VideoToolbox 那样的系统兜底。为了编过 n9.0 的 Media Foundation 编码器同时开了 d3d11va。不带 x265、NVENC、QSV、AMF 及其他编码库。之前临时用的 BtbN 构建带 x265、单个 exe 90–158 MB，已弃用。
+
+| 组件（仅 Windows） | 版本 | 许可证 |
+| --- | --- | --- |
+| dav1d | 1.5.4 | BSD-2-Clause |
+| zlib | 1.3.2 | zlib |
+| llvm-mingw 运行库（libc++、libunwind、compiler-rt） | 20260922 | Apache-2.0 WITH LLVM-exception |
+
+随包许可文本放在 `apps/windows/SimpleSmaller/Assets/ThirdParty/`（FFmpeg 的 `LICENSE.md` 与 GPLv3 全文、x264、zimg、dav1d、zlib，均取自对应源码），随应用一起安装。LLVM 运行库的例外条款允许二进制分发不附声明。
+
 1. 探测：ffprobe 读时长、显示尺寸（按旋转修正）、帧率、码率、音轨、HDR（PQ / HLG）。
 2. 滤镜链：裁切 → HDR 转 SDR（zscale + hable 色调映射，输出 BT.709）→ 限帧率 → 缩放（Lanczos，宽高取偶数）→ yuv420p。
 3. 编码：
    - H.264 画质优先：x264 `-preset slow`；码率档用 CRF 20 / 23 / 27；限体积用两遍编码，码率按「目标体积 × 0.97 ÷ 时长 − 音频 128k」倒推，不超过源码率，超出目标再按比例降码率重压一次。
    - 速度优先与 HEVC：VideoToolbox，码率档用恒定质量 65 / 55 / 45，限体积用目标码率并校验重试。
-   - 音频：AudioToolbox AAC 128k；去掉元数据（含位置）；文件头前置。
+   - 音频：AAC 128k（mac 用 AudioToolbox 的 `aac_at`；Windows 版 ffmpeg 没有它，要用自带的 `aac` 或 `aac_mf`）；去掉元数据（含位置）；文件头前置。
 4. 静态帧：ffmpeg 输出 RGBA 原始帧。序列帧交给图片管线编码；GIF 交给 gifski。
 5. 进度读 `-progress`；取消时结束子进程。输出先写同目录隐藏临时文件，完成后改名，失败或取消时删除。
 
