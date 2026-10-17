@@ -40,7 +40,7 @@ struct StatusBar: View {
     @ViewBuilder private var status: some View {
         switch phase {
         case .empty:
-            Text("全部在本机处理")
+            EmptyView()
         case .ready:
             if ws.type == .image, ws.imageSegment == .crop {
                 // 裁切时写确认进度（设计稿 03 顶栏的「已确认 n / 12」）。
@@ -52,8 +52,6 @@ struct StatusBar: View {
             } else if ws.type == .video, ws.videoSegment == .frames {
                 // 序列帧：将生成多少张、约多大（设计稿 04b 底栏）。
                 Text(verbatim: framesSummary).monospacedDigit()
-            } else {
-                Text("\(ws.files.filter { $0.state == .waiting }.count) 个待处理").monospacedDigit()
             }
         case .running:
             HStack(spacing: 10) {
@@ -105,8 +103,9 @@ struct StatusBar: View {
                 Color.clear.frame(width: 0, height: 0)
             }
         case .ready:
-            if ws.type == .video, ws.videoSegment == .frames {
-                Text(framesHint).foregroundStyle(framesTotal > 200 ? AnyShapeStyle(Color.warning) : AnyShapeStyle(.tertiary))
+            // 序列帧张数太多时提醒；左边已经写了总张数与体积。
+            if ws.type == .video, ws.videoSegment == .frames, framesTotal > 200 {
+                Text("张数较多，网页动画建议 60–120 张").foregroundStyle(Color.warning)
             }
         }
     }
@@ -143,12 +142,6 @@ struct StatusBar: View {
 
     private var framesSummary: String {
         "将生成 \(framesTotal) 张 · 约 \(Format.size(UInt64(Double(framesTotal) * bytesPerFrame)))"
-    }
-
-    private var framesHint: String {
-        if framesTotal > 200 { return "张数较多，网页动画建议 60–120 张" }
-        let w = ws.draft.video.frameWidth.map { "，\($0)" } ?? ""
-        return "每张约 \(Format.size(UInt64(bytesPerFrame)))（\(ws.draft.video.frameFormat.title)\(w)）"
     }
 
     private var hint: String {

@@ -38,6 +38,8 @@ struct SimpleSmallerApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
+        // 不在「窗口」菜单里列出。
+        .commandsRemoved()
 
         MenuBarExtra(isInserted: Binding(get: { settings.menuBarIcon }, set: { settings.menuBarIcon = $0 })) {
             TrayView()
@@ -90,11 +92,14 @@ struct AppCommands: Commands {
                 .keyboardShortcut("y")
                 .disabled(model.current.selection.isEmpty)
         }
+        CommandGroup(replacing: .help) {
+            Link("访问官网", destination: URL(string: "https://www.it-simple.cn/")!)
+        }
         CommandMenu("处理") {
             Button("开始") { model.start(model.current) }
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(model.current.files.isEmpty || model.current.running)
-            Button("取消") { model.cancel(model.current) }
+            Button("停止") { model.cancel(model.current) }
                 .keyboardShortcut(".", modifiers: .command)
                 .disabled(!model.current.running)
             Button("重试失败的") { model.retryFailed(model.current) }
@@ -158,6 +163,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 本应用没有可填的内容，它就空着挂在屏幕边上。出现就收起。
     private var autoFillObserver: NSObjectProtocol?
 
+    /// 系统会在之后往「编辑」菜单里补「自动填充」，往「窗口」菜单里留连续的分隔线：每次菜单有变化都收拾一遍。
+    private static func tidyMenus() {
+        for top in NSApp.mainMenu?.items ?? [] {
+            guard let menu = top.submenu else { continue }
+            for item in menu.items where item.title == "自动填充" || item.title == "AutoFill" { menu.removeItem(item) }
+            var lastWasSeparator = true
+            for item in menu.items {
+                if item.isSeparatorItem, lastWasSeparator { menu.removeItem(item); continue }
+                lastWasSeparator = item.isSeparatorItem
+            }
+            if let last = menu.items.last, last.isSeparatorItem { menu.removeItem(last) }
+        }
+    }
+
+    private var menuObserver: NSObjectProtocol?
+
     private func hideAutoFillWindows() {
         autoFillObserver = NotificationCenter.default.addObserver(forName: NSApplication.didUpdateNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
@@ -170,6 +191,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         hideAutoFillWindows()
+        // 系统往「编辑」菜单里加的「自动填充」，本应用没有可填的内容，拿掉。
+        menuObserver = NotificationCenter.default.addObserver(forName: NSMenu.didAddItemNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { DispatchQueue.main.async { Self.tidyMenus() } }
+        }
+        DispatchQueue.main.async { Self.tidyMenus() }
         // 验证用：`SMALLER_APPEARANCE=light|dark` 强制外观，不动系统设置。
         switch ProcessInfo.processInfo.environment["SMALLER_APPEARANCE"] {
         case "light": NSApp.appearance = NSAppearance(named: .aqua)

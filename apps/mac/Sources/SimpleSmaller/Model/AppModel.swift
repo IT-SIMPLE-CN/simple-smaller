@@ -99,8 +99,8 @@ final class AppModel {
         switch ws.type {
         case .image:
             guard let s = Workspace.ImageSegment(rawValue: name) else { return }
-            if s == .crop, ws.draft.image.crop == nil { ws.draft.image.crop = CropPreset.imagePresets[0] }
             ws.imageSegment = s
+            ws.enterImageSegment(s)
         case .video:
             guard let s = Workspace.VideoSegment(rawValue: name) else { return }
             ws.draft.video.outputFrames = (s == .frames)

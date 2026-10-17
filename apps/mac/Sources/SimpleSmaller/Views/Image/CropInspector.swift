@@ -64,6 +64,7 @@ struct CropInspectorSections: View {
     }
 
     private func choose(_ preset: CropPreset) {
+        ws.cropAutoSet = false
         guard ws.draft.image.crop?.id != preset.id else { return }
         withAnimation(.smooth(duration: 0.3)) {
             ws.draft.image.crop = preset

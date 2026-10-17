@@ -123,12 +123,30 @@ final class Workspace {
     var modified: Bool {
         var d = draft
         d.video.outputFrames = base.video.outputFrames
+        if cropAutoSet { d.image.crop = base.image.crop; d.image.cropWidth = base.image.cropWidth }
         return d != base
+    }
+
+    /// 切到「裁切」时配方没有比例，先放一个小红书 3:4 让画面有框；用户没在比例列表里选过就不算改了配方。
+    /// 没选就回到「压缩」，这个临时比例撤掉，压缩时不会悄悄裁图。
+    var cropAutoSet = false
+
+    func enterImageSegment(_ s: ImageSegment) {
+        if s == .crop, draft.image.crop == nil {
+            draft.image.crop = CropPreset.imagePresets[0]
+            cropAutoSet = true
+        } else if s == .compress, cropAutoSet {
+            draft.image.crop = nil
+            draft.image.cropWidth = nil
+            cropAutoSet = false
+            resetCrop()
+        }
     }
     var totalBytes: UInt64 { files.reduce(0) { $0 + $1.bytes } }
     var selectedItems: [FileItem] { files.filter { selection.contains($0.id) } }
 
     func select(recipe: Recipe) {
+        cropAutoSet = false
         recipeID = recipe.id
         base = recipe
         draft = recipe

@@ -177,7 +177,7 @@ struct ImageInspector: View {
                 // 裁切（设计稿 03）：比例、输出尺寸、框放在哪、格式与质量（与「压缩」共用）。
                 CropInspectorSections(ws: ws)
                 formatSection(formats: [.webp, .avif, .jpeg, .png] + (ws.draft.image.format == .original ? [.original] : []),
-                              note: "与「压缩」共用，任一处改都同步")
+                              note: nil)
                 Text("每张默认居中、按比例取最大，不调也能直接开始。要调的拖框移动、拖四角缩放；↩ 确认并到下一张，←/→ 切换，⌘Z 撤回这一张。")
                     .font(.caption)
                     .foregroundStyle(.secondary)

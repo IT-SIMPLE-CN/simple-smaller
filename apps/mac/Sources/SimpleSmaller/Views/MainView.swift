@@ -239,8 +239,7 @@ struct SegmentPicker: View {
         .accessibilityLabel("视图")
         .disabled(ws.running)
         .onChange(of: ws.imageSegment) { _, new in
-            // 回到「压缩」不清裁切；切到「裁切」时若配方没有比例，默认用小红书 3:4。
-            if new == .crop, ws.draft.image.crop == nil { ws.draft.image.crop = CropPreset.imagePresets[0] }
+            ws.enterImageSegment(new)
         }
         .onChange(of: ws.videoSegment) { _, new in
             ws.draft.video.outputFrames = (new == .frames)

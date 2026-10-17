@@ -62,7 +62,7 @@ struct FramesInspectorSections: View {
             InspectorToggle(label: "另存一张拼图总览", isOn: $ws.draft.video.frameContactSheet)
         }
 
-        Text("比例裁切沿用「剪辑」里的设置。常见用途：网页滚动动画、产品 360°、拉片选图。")
+        Text("比例裁切沿用「剪辑」里的设置。")
             .font(.caption)
             .foregroundStyle(.secondary)
             .lineSpacing(3)

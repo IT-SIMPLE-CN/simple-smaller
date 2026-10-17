@@ -97,7 +97,7 @@ struct VideoInspector: View {
     // MARK: 格式与编码
 
     @ViewBuilder private var codecSection: some View {
-        InspectorSection(title: ws.videoSegment == .edit ? "格式与编码（与「压缩」共用）" : "格式与编码") {
+        InspectorSection(title: "格式与编码") {
             SlidingSegmented(selection: $ws.draft.video.codec, options: [(.h264, "MP4 H.264"), (.hevc, "MP4 HEVC"), (.gif, "GIF")])
                 .accessibilityLabel("格式")
             if ws.draft.video.codec == .gif {
