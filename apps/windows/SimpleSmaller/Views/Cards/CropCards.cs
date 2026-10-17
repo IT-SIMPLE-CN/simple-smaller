@@ -21,7 +21,7 @@ internal sealed class FrameCard : Reactive
     // 原比例：尺寸。
     private readonly Grid plain = new() { ColumnSpacing = 12 };
     private readonly TextBlock axisLabel = Themed.Text("", 12, "BentoSecondary");
-    private readonly NumberField sizeField = new("像素") { FontSize = 36, FontWeight = Themed.Light };
+    private readonly NumberField sizeField = new("像素") { FontSize = 36, FontWeight = Themed.Medium, CharacterSpacing = -50 };
     private readonly TextBlock px1 = Themed.Text("px", 13, "BentoSecondary");
     private readonly TextBlock extra = Themed.Text("", 11, "BentoSecondary");
     private readonly Segments<SizeAxis> axis;
@@ -34,7 +34,7 @@ internal sealed class FrameCard : Reactive
 
     // 选了比例：输出宽。
     private readonly Grid crop = new() { ColumnSpacing = 10 };
-    private readonly NumberField widthField = new("输出宽度") { FontSize = 32, FontWeight = Themed.Light, Width = 92, TextAlignment = TextAlignment.Center };
+    private readonly NumberField widthField = new("输出宽度") { FontSize = 32, FontWeight = Themed.Medium, CharacterSpacing = -50, MinWidth = 40, TextAlignment = TextAlignment.Center };
     private readonly TextBlock heightText = Themed.Text("", 12, "BentoSecondary");
     private readonly TextBlock shortText = Themed.Text("", 11, "BentoSecondary");
     private readonly FontIcon shortIcon = new() { Glyph = "", FontSize = 11 };
@@ -45,11 +45,12 @@ internal sealed class FrameCard : Reactive
         accessory = new SaveRecipeAccessory(ws);
         header.Trailing = accessory;
 
-        // 比例格子：9 格一排。
+        // 比例格子（设计稿 V2.2）：原比例 + 7 个平台比例一排，格子里写全名。
+        // 「公众号次图 1:1」与「电商主图 1:1」同比例，设计稿只放后者；当前配方正好用它时才显示。
         var grid = new Grid { ColumnSpacing = 6 };
         AutomationProperties.SetName(grid, "比例");
         var all = new List<CropPreset?> { null };
-        all.AddRange(CropPreset.ImagePresets);
+        all.AddRange(CropPreset.ImagePresets.Where(p => p.Id != "gzh2" || ws.Draft.Image.Crop?.Id == "gzh2"));
         for (var i = 0; i < all.Count; i++)
         {
             var p = all[i];
@@ -197,15 +198,15 @@ internal sealed class FrameCard : Reactive
         g.Children.Add(e);
     }
 
-    /// 比例格子里写短名（一行放得下）；完整名字在悬停和旁白里。
+    /// 比例格子里的平台名，照设计稿 V2.2。
     public static string ShortName(CropPreset p) => p.Id switch
     {
         "dy" => "抖音",
-        "gzh" => "公众号",
-        "gzh2" => "次图",
-        "shop" => "电商",
-        "ig" => "IG",
-        "banner" => "横幅",
+        "gzh" => "公众号封面",
+        "gzh2" => "公众号次图",
+        "shop" => "电商主图",
+        "ig" => "Instagram",
+        "banner" => "网站横幅",
         _ => p.Name,
     };
 
@@ -281,7 +282,7 @@ internal sealed class FrameCard : Reactive
             original.Visibility = hasSize ? Visibility.Collapsed : Visibility.Visible;
             if (image.Size is { } s)
             {
-                axisLabel.Text = image.SizeAxis.Title();
+                axisLabel.Text = $"尺寸 · {image.SizeAxis.Title()}";
                 sizeField.Value = s;
                 sizeField.Width = Math.Max(2, s.ToString().Length) * 22 + 4;
                 extra.Text = "另出 " + string.Join(" / ", image.ExtraSizes);

@@ -26,14 +26,14 @@ internal sealed class CropView : Reactive
     private readonly ProgressRing loading = new() { IsActive = true, Width = 28, Height = 28 };
 
     // 浮在画面上方的一条。
-    private readonly TextBlock backText = Themed.Text("", 12, "BentoPrimary", Themed.Medium);
-    private readonly Border backPill = new() { Height = 28, CornerRadius = new CornerRadius(14), Padding = new Thickness(12, 0, 12, 0) };
+    private readonly TextBlock backText = Themed.Text("", 13, "BentoPrimary");
+    private readonly Border backPill = new() { Height = 40, CornerRadius = new CornerRadius(20), Padding = new Thickness(16, 0, 16, 0) };
     private readonly Button back = new() { Style = (Style)Application.Current.Resources["BentoBareButton"], VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock ratioText = Themed.Text("", 13, "BentoOnInk", Themed.Bold);
+    private readonly TextBlock ratioText = Themed.Text("", 12, "BentoPrimary", Themed.Bold);
     private readonly TextBlock nameText = Themed.Text("", 12);
     private readonly Border namePill = new() { Height = 28, CornerRadius = new CornerRadius(14), Padding = new Thickness(12, 0, 12, 0), HorizontalAlignment = HorizontalAlignment.Left };
-    private readonly TextBlock sizeText = Themed.Text("", 11, "BentoSecondary");
-    private readonly Border sizePill = new() { Height = 26, CornerRadius = new CornerRadius(13), Padding = new Thickness(10, 0, 10, 0) };
+    private readonly TextBlock sizeText = Themed.Text("", 11, "BentoPrimary");
+    private readonly Border sizePill = new() { Height = 28, CornerRadius = new CornerRadius(14), Padding = new Thickness(12, 0, 12, 0) };
 
     // 浮在大图下方的两个按钮。
     private readonly CropButton prev = new("← 上一张", primary: false);
@@ -57,22 +57,38 @@ internal sealed class CropView : Reactive
         RoundClip.Apply(stage, 16);
         stage.Children.Add(canvas);
         stage.Children.Add(Header());
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 14) };
         prev.Click += (_, _) => Go(-1);
         next.Click += (_, _) => Go(1);
-        buttons.Children.Add(prev);
-        buttons.Children.Add(next);
-        stage.Children.Add(buttons);
         loading.HorizontalAlignment = HorizontalAlignment.Center;
         loading.VerticalAlignment = VerticalAlignment.Center;
         stage.Children.Add(loading);
         Themed.OnTheme(stage, () => stage.Background = Palette.Get(stage, "BentoFill"));
 
+        // 设计稿 V2.2：大图下面一行「← 全部 N 张」+ 提示，右边「← 上一张」「下一张 →」；再下面是胶片条。
+        var bar = new Grid { ColumnSpacing = 8 };
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        bar.Children.Add(BackButton());
+        var hint = Themed.Text("拖框就按新的；Ctrl+Z 撤回这一张", 11, "BentoSecondary");
+        hint.TextTrimming = TextTrimming.CharacterEllipsis;
+        hint.Margin = new Thickness(4, 0, 0, 0);
+        Grid.SetColumn(hint, 1);
+        bar.Children.Add(hint);
+        Grid.SetColumn(prev, 2);
+        bar.Children.Add(prev);
+        Grid.SetColumn(next, 3);
+        bar.Children.Add(next);
+
         var root = new Grid { RowSpacing = 12 };
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.Children.Add(stage);
-        Grid.SetRow(strip, 1);
+        Grid.SetRow(bar, 1);
+        root.Children.Add(bar);
+        Grid.SetRow(strip, 2);
         root.Children.Add(strip);
         Content = root;
 
@@ -82,10 +98,10 @@ internal sealed class CropView : Reactive
         WatchList(ws.Files);
     }
 
-    private UIElement Header()
+    private UIElement BackButton()
     {
         var backRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
-        var chevron = new FontIcon { Glyph = "", FontSize = 10 };
+        var chevron = new FontIcon { Glyph = "\uE72B", FontSize = 12 };
         Themed.Fg(chevron, "BentoPrimary");
         backRow.Children.Add(chevron);
         backRow.Children.Add(backText);
@@ -99,29 +115,33 @@ internal sealed class CropView : Reactive
         back.KeyboardAccelerators.Add(esc);
         back.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
 
-        var ratio = Themed.Capsule(ratioText, "BentoInk", 28, 12);
+        return back;
+    }
+
+    private UIElement Header()
+    {
+        // 设计稿 V2.2：左上一个标签「**3:4** 文件名 · 尺寸」，右上「裁出 …」。
+        ratioText.Margin = new Thickness(0, 0, 6, 0);
         nameText.TextTrimming = TextTrimming.CharacterEllipsis;
         nameText.MaxLines = 1;
-        namePill.Child = nameText;
+        var nameRow = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        nameRow.Children.Add(ratioText);
+        nameRow.Children.Add(nameText);
+        namePill.Child = nameRow;
         sizePill.Child = sizeText;
         Themed.OnTheme(this, () =>
         {
             var c = ((SolidColorBrush)Palette.Get(this, "BentoCard")).Color;
             var glass = new SolidColorBrush(Windows.UI.Color.FromArgb(235, c.R, c.G, c.B));
-            backPill.Background = namePill.Background = sizePill.Background = glass;
+            namePill.Background = sizePill.Background = glass;
+            backPill.Background = Palette.Get(this, "BentoFill");
         });
 
-        var row = new Grid { ColumnSpacing = 8, Margin = new Thickness(12), VerticalAlignment = VerticalAlignment.Top };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var row = new Grid { ColumnSpacing = 8, Margin = new Thickness(14), VerticalAlignment = VerticalAlignment.Top };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.Children.Add(back);
-        Grid.SetColumn(ratio, 1);
-        row.Children.Add(ratio);
-        Grid.SetColumn(namePill, 2);
         row.Children.Add(namePill);
-        Grid.SetColumn(sizePill, 3);
+        Grid.SetColumn(sizePill, 1);
         sizePill.VerticalAlignment = VerticalAlignment.Center;
         row.Children.Add(sizePill);
         return row;
@@ -242,10 +262,10 @@ internal sealed class CropCanvas : Grid
 
     private readonly Workspace ws;
     private readonly Image image = new() { Stretch = Stretch.Fill, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
-    private readonly Path dim = new() { Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(128, 0, 0, 0)), IsHitTestVisible = false };
+    private readonly Path dim = new() { Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(150, 0, 0, 0)), IsHitTestVisible = false };
     private readonly Path thirds = new() { Stroke = new SolidColorBrush(Windows.UI.Color.FromArgb(115, 255, 255, 255)), StrokeThickness = 1, IsHitTestVisible = false };
     private readonly Rectangle frame = new() { Stroke = new SolidColorBrush(Microsoft.UI.Colors.White), StrokeThickness = 1, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false };
-    private readonly Path corners = new() { Stroke = new SolidColorBrush(Microsoft.UI.Colors.White), StrokeThickness = 4, StrokeStartLineCap = PenLineCap.Flat, StrokeEndLineCap = PenLineCap.Flat, StrokeLineJoin = PenLineJoin.Miter, IsHitTestVisible = false };
+    private readonly Path corners = new() { Fill = new SolidColorBrush(Microsoft.UI.Colors.White), IsHitTestVisible = false };
     private readonly TextBlock label = new() { FontSize = 11, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White) };
     private readonly Border labelBack = new() { Padding = new Thickness(6, 2, 6, 2), CornerRadius = new CornerRadius(4), Background = new SolidColorBrush(Windows.UI.Color.FromArgb(140, 0, 0, 0)), HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false };
 
@@ -253,7 +273,7 @@ internal sealed class CropCanvas : Grid
     private int index;
     private ImageSource? source;
 
-    // 布局：大图放进画布，四周留白，底部给按钮让位。
+    // 布局：大图放进画布，四周留白（按钮在画布下面的一行）。
     private double scale = 1;
     private Rect display;
 
@@ -282,7 +302,7 @@ internal sealed class CropCanvas : Grid
         Children.Add(thirds);
         Children.Add(frame);
         Children.Add(corners);
-        Children.Add(labelBack);
+        // 框内不标尺寸：裁出尺寸写在右上角的标签里（设计稿）。
         AutomationProperties.SetName(this, "裁切框");
         AutomationProperties.SetHelpText(this, "拖框就按新的取景；回车或右方向键到下一张，Ctrl+Z 撤回这一张");
         SizeChanged += (_, _) => Render(animated: false);
@@ -314,7 +334,7 @@ internal sealed class CropCanvas : Grid
             return;
         }
         double w = Math.Max(1, item.Width), h = Math.Max(1, item.Height);
-        double aw = Math.Max(1, ActualWidth - 48), ah = Math.Max(1, ActualHeight - 24 - 60);
+        double aw = Math.Max(1, ActualWidth - 48), ah = Math.Max(1, ActualHeight - 24 - 24);
         scale = Math.Min(aw / w, ah / h);
         var dw = w * scale;
         var dh = h * scale;
@@ -399,23 +419,15 @@ internal sealed class CropCanvas : Grid
         frame.Width = Math.Max(0, v.Width);
         frame.Height = Math.Max(0, v.Height);
 
-        const double l = 18, o = -2;
-        double x0 = v.X - o, y0 = v.Y - o, x1 = v.X + v.Width + o, y1 = v.Y + v.Height + o;
-        var path = new PathGeometry();
-        void corner(Point a, Point b, Point c)
+        // 设计稿 V2.2：细白边 + 四角 9 px 白色小方块。
+        const double h = 4.5;
+        var path = new GeometryGroup();
+        foreach (var p in new[] { new Point(v.X, v.Y), new Point(v.X + v.Width, v.Y), new Point(v.X, v.Y + v.Height), new Point(v.X + v.Width, v.Y + v.Height) })
         {
-            var fig = new PathFigure { StartPoint = a, IsClosed = false, IsFilled = false };
-            fig.Segments.Add(new LineSegment { Point = b });
-            fig.Segments.Add(new LineSegment { Point = c });
-            path.Figures.Add(fig);
+            path.Children.Add(new RectangleGeometry { Rect = new Rect(p.X - h, p.Y - h, 2 * h, 2 * h) });
         }
-        corner(new Point(x0, y0 + l), new Point(x0, y0), new Point(x0 + l, y0));
-        corner(new Point(x1 - l, y0), new Point(x1, y0), new Point(x1, y0 + l));
-        corner(new Point(x0, y1 - l), new Point(x0, y1), new Point(x0 + l, y1));
-        corner(new Point(x1 - l, y1), new Point(x1, y1), new Point(x1, y1 - l));
         corners.Data = path;
 
-        labelBack.Margin = new Thickness(v.X + 8, v.Y + 8, 0, 0);
     }
 
     // ---------- 拖动 ----------
@@ -555,7 +567,7 @@ internal sealed class CropCanvas : Grid
     }
 }
 
-/// 浮在大图下方的按钮：「← 上一张」白底、「下一张 →」墨黑（深色下反白）。
+/// 大图下面的按钮：「← 上一张」灰底、「下一张 →」墨黑（深色下反白）。
 internal sealed class CropButton : Button
 {
     private readonly bool primary;
@@ -570,8 +582,6 @@ internal sealed class CropButton : Button
         text = new TextBlock { Text = title, FontSize = 13, FontWeight = primary ? Themed.Semibold : Microsoft.UI.Text.FontWeights.Normal, VerticalAlignment = VerticalAlignment.Center };
         back.Padding = new Thickness(primary ? 18 : 16, 0, primary ? 18 : 16, 0);
         back.Child = text;
-        back.Translation = new System.Numerics.Vector3(0, 0, 12);
-        back.Shadow = new ThemeShadow();
         Content = back;
         AutomationProperties.SetName(this, title.Replace("←", "").Replace("→", "").Trim());
         Themed.OnTheme(this, Paint);
@@ -580,7 +590,7 @@ internal sealed class CropButton : Button
 
     private void Paint()
     {
-        back.Background = Palette.Get(this, primary ? "BentoInk" : "BentoCard");
+        back.Background = Palette.Get(this, primary ? "BentoInk" : "BentoFill");
         text.Foreground = Palette.Get(this, primary ? "BentoOnInk" : "BentoPrimary");
         Opacity = IsEnabled ? 1 : 0.45;
     }

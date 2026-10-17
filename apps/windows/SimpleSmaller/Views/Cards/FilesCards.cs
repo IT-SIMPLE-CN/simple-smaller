@@ -145,7 +145,7 @@ internal sealed class FilesCard : Reactive
     private static string view = "grid";
 
     private readonly Workspace ws;
-    private readonly Header header = new() { Glyph = "" };
+    private readonly Header header = new() { Glyph = "\uE81E" };
     private readonly Segments<string> viewSwitch;
     private readonly ContentPresenter body = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private readonly Border more = new() { Height = 40, CornerRadius = new CornerRadius(20), BorderThickness = new Thickness(1.2) };
@@ -264,7 +264,7 @@ internal sealed class FilesCard : Reactive
         get
         {
             if (ws.Running) return "完成一个写出一个 · 按 Ctrl+. 停止";
-            if (ws.IsCropping) return "点一张可以调框";
+            if (ws.IsCropping) return "框是每张会裁出来的样子 · 点一张可以调框";
             return ws.Files.Count > 1 ? $"改动对这一批全部生效 · {Format.Size(ws.TotalBytes)}" : Format.Size(ws.TotalBytes);
         }
     }
@@ -515,7 +515,7 @@ internal sealed class ThumbTile : Reactive
 /// 缩略图上的裁切框：框外压暗，框描白线。缩略图按「填满方块」显示，框按同样的缩放和偏移换算过来。
 internal sealed class CropOverlay : Grid
 {
-    private readonly Path dim = new() { Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(128, 0, 0, 0)) };
+    private readonly Path dim = new() { Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(150, 0, 0, 0)) };
     private readonly Rectangle frame = new() { Stroke = new SolidColorBrush(Windows.UI.Color.FromArgb(242, 255, 255, 255)), StrokeThickness = 1.5, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
     private PixelRect box;
     private double imageW, imageH;

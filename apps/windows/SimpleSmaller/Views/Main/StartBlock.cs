@@ -166,7 +166,8 @@ internal sealed class StartBlock : Reactive
     /// 一行放得下这段副标题吗（按文字区的实际宽度量）。
     private bool Fits(string text)
     {
-        var width = small.ActualWidth > 0 ? small.ActualWidth : (small.Parent as FrameworkElement)?.ActualWidth ?? 0;
+        // 文字区 = 整块宽 − 左右内边距（22 + 14）− 圆钮 56 − 间距 12。
+        var width = back.ActualWidth - 22 - 14 - 56 - 12;
         if (width <= 0)
         {
             return true;
