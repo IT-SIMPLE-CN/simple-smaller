@@ -98,9 +98,8 @@ final class Workspace {
     var finishedCount = 0
     var lastRunRoots: [URL] = []
 
-    // 图片裁切：每张手调过的框（原图像素坐标）、已确认的、当前第几张。
+    // 图片裁切：每张手调过的框（原图像素坐标）、当前第几张。动了就按新框，不用再确认。
     var cropBoxes: [URL: CGRect] = [:]
-    var cropConfirmed: Set<URL> = []
     var cropIndex = 0
     /// 每张框的改动记录，⌘Z 撤回这一张用；nil 表示改之前是默认框。
     var cropHistory: [URL: [CGRect?]] = [:]

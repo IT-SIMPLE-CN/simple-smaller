@@ -157,7 +157,6 @@ final class AppModel {
         ws.files.removeAll()
         ws.selection.removeAll()
         ws.cropBoxes.removeAll()
-        ws.cropConfirmed.removeAll()
         ws.cropIndex = 0
         ws.pageOrder.removeAll()
         ws.finishedCount = 0

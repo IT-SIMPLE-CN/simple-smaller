@@ -55,16 +55,17 @@ extension Workspace {
         } else {
             cropBoxes[item.url] = nil
         }
-        cropConfirmed.remove(item.url)
     }
 
-    /// 换比例后全部回到默认，已确认的也清掉（设计稿 03）。
+    /// 换比例后全部回到默认（设计稿 03）。
     func resetCrop() {
         cropBoxes = [:]
         cropHistory = [:]
-        cropConfirmed = []
         cropIndex = 0
     }
+
+    /// 手调过框的张数（标题栏、开始块写）。
+    var cropAdjustedCount: Int { cropItems.filter { cropBoxes[$0.url] != nil }.count }
 
     /// 交给引擎的框：只传手调过的，其余由引擎按居中取最大处理。
     var cropBoxesForEngine: [URL: CGRect] {

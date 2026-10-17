@@ -82,7 +82,8 @@ struct MainView: View {
         var parts = ["\(ws.files.count) 个文件"]
         if ws.type == .image, ws.imageSegment == .crop {
             let items = ws.cropItems
-            parts.append("已确认 \(items.filter { ws.cropConfirmed.contains($0.url) }.count) / \(items.count)")
+            parts.append(ws.cropTitle)
+            if ws.cropAdjustedCount > 0 { parts.append("调过 \(ws.cropAdjustedCount) / \(items.count) 张") }
             return parts.joined(separator: " · ")
         }
         if ws.type == .pdf, ws.pdfSegment != .fromImages {

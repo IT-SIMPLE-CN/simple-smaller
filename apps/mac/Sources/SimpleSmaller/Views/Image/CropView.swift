@@ -3,7 +3,7 @@ import ImageIO
 import SwiftUI
 
 /// 图片「裁切」（设计稿 03）：上面一条写当前比例与这张图，中间大图拖框，底部胶片条。
-/// 每张默认居中、按比例取最大；拖框移动、拖四角缩放；↩ 确认并到下一张，←/→ 切换，⌘Z 撤回这一张。
+/// 每张默认居中、按比例取最大；拖框移动、拖四角缩放，动了就按新的，不用确认；↩ 或 → 下一张，← 上一张，⌘Z 撤回这一张。
 struct CropView: View {
     @Bindable var ws: Workspace
     @FocusState private var focused: Bool
@@ -33,7 +33,7 @@ struct CropView: View {
         .focusable()
         .focused($focused)
         .focusEffectDisabled()
-        .onKeyPress(.return) { confirmNext(); return .handled }
+        .onKeyPress(.return) { go(1); return .handled }
         .onKeyPress(.leftArrow) { go(-1); return .handled }
         .onKeyPress(.rightArrow) { go(1); return .handled }
         .onKeyPress(characters: ["z"], phases: .down) { press in
@@ -79,8 +79,9 @@ struct CropView: View {
             Button("← 上一张") { go(-1) }
                 .buttonStyle(CropButtonStyle(primary: false))
                 .disabled(index == 0)
-            Button("确认，下一张 ↩") { confirmNext() }
+            Button("下一张 →") { go(1) }
                 .buttonStyle(CropButtonStyle(primary: true))
+                .disabled(index + 1 >= count)
         }
     }
 
@@ -92,16 +93,6 @@ struct CropView: View {
         withAnimation(.smooth(duration: 0.25)) { ws.cropIndex = next }
     }
 
-    /// 确认这张（把当前框记下来），到下一张；最后一张只确认。
-    private func confirmNext() {
-        guard let item = currentItem else { return }
-        let i = ws.cropCurrentIndex
-        if ws.cropBoxes[item.url] == nil { ws.cropBoxes[item.url] = ws.effectiveCropBox(i) }
-        withAnimation(.smooth(duration: 0.25)) {
-            ws.cropConfirmed.insert(item.url)
-            if i + 1 < ws.cropItems.count { ws.cropIndex = i + 1 }
-        }
-    }
 
     private var loadKey: String {
         let items = ws.cropItems
@@ -206,7 +197,7 @@ struct CropCanvas: View {
         .accessibilityAddTraits(.isImage)
         .accessibilityLabel("裁切框")
         .accessibilityValue(Text(verbatim: "\(Int(ws.effectiveCropBox(index).width)) × \(Int(ws.effectiveCropBox(index).height)) 像素"))
-        .accessibilityHint("回车确认并到下一张，左右方向键切换")
+        .accessibilityHint("拖框就按新的取景；回车或右方向键到下一张，⌘Z 撤回这一张")
     }
 
     /// 框线、三分线、四角加粗的角标、左上角的像素尺寸。
@@ -316,8 +307,6 @@ struct CropCanvas: View {
 
     private func end() {
         dragStart = nil
-        // 调过的这张不再算「已确认」，要再按一次确认。
-        ws.cropConfirmed.remove(item.url)
     }
 
     /// 大图放进画布：四周留白，底部给按钮让位。
@@ -364,7 +353,7 @@ struct CropCanvas: View {
     }
 }
 
-/// 设计稿里浮在大图下方的两个按钮：「← 上一张」描边、「确认，下一张 ↩」实心深色（深色模式下反白）。
+/// 浮在大图下方的两个按钮：「← 上一张」白底、「下一张 →」墨黑（深色模式下反白）。框动了就按新的，不用确认。
 struct CropButtonStyle: ButtonStyle {
     let primary: Bool
     @Environment(\.isEnabled) private var isEnabled
@@ -386,7 +375,7 @@ struct CropButtonStyle: ButtonStyle {
     }
 }
 
-/// 底部胶片条：当前这张描红圈，已确认的右下角打勾，还没看过的淡一些。
+/// 底部胶片条：当前这张描红圈，手调过框的右下角带一个小标。
 struct FilmStrip: View {
     @Bindable var ws: Workspace
     let items: [FileItem]
@@ -397,11 +386,11 @@ struct FilmStrip: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                        cell(item, current: i == index, done: ws.cropConfirmed.contains(item.url))
+                        cell(item, current: i == index, done: ws.cropBoxes[item.url] != nil)
                             .id(i)
                             .onTapGesture { withAnimation(.smooth(duration: 0.25)) { ws.cropIndex = i } }
                             .accessibilityElement()
-                            .accessibilityLabel(item.name + (ws.cropConfirmed.contains(item.url) ? "，已裁" : "，未裁"))
+                            .accessibilityLabel(item.name + (ws.cropBoxes[item.url] != nil ? "，调过" : "，居中取最大"))
                             .accessibilityAddTraits(i == index ? [.isButton, .isSelected] : .isButton)
                             .accessibilityAction { ws.cropIndex = i }
                     }
@@ -418,14 +407,13 @@ struct FilmStrip: View {
         Thumb(image: item.thumbnail)
             .frame(width: 72, height: 48)
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .opacity(current || done ? 1 : 0.55)
             .overlay(alignment: .bottomTrailing) {
                 if done {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 7, weight: .heavy))
+                    Image(systemName: "crop")
+                        .font(.system(size: 7, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(width: 14, height: 14)
-                        .background(Circle().fill(Color.saving))
+                        .background(Circle().fill(Bento.ink))
                         .padding(3)
                         .transition(.scale.combined(with: .opacity))
                 }

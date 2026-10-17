@@ -397,7 +397,7 @@ extension Workspace {
         case .image:
             if imageSegment == .crop {
                 let items = cropItems
-                return "已确认 \(items.filter { cropConfirmed.contains($0.url) }.count) / \(items.count)"
+                return "\(items.count) 张 · \(cropTitle) · 宽 \(cropOutputWidth)"
             }
             let b = draft.image
             var parts = ["\(n) 个文件", b.format.title]
