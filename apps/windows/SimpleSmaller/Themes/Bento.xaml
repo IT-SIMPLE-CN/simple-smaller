@@ -25,6 +25,8 @@
             <SolidColorBrush x:Key="BentoOnInk" Color="#FFFFFF" />
             <SolidColorBrush x:Key="BentoPrimary" Color="#111214" />
             <SolidColorBrush x:Key="BentoSecondary" Color="#63676E" />
+            <!-- 小分段没选中的字（设计稿 #3E4248）。 -->
+            <SolidColorBrush x:Key="BentoSoft" Color="#3E4248" />
             <SolidColorBrush x:Key="BentoLine" Color="#D9DCE0" />
             <SolidColorBrush x:Key="BentoAlertFill" Color="#FDE8E4" />
             <SolidColorBrush x:Key="BentoAlertText" Color="#A8240F" />
@@ -57,6 +59,7 @@
             <SolidColorBrush x:Key="BentoOnInk" Color="#111214" />
             <SolidColorBrush x:Key="BentoPrimary" Color="#F2F3F5" />
             <SolidColorBrush x:Key="BentoSecondary" Color="#9DA1A8" />
+            <SolidColorBrush x:Key="BentoSoft" Color="#C4C7CC" />
             <SolidColorBrush x:Key="BentoLine" Color="#45474C" />
             <SolidColorBrush x:Key="BentoAlertFill" Color="#3D201C" />
             <SolidColorBrush x:Key="BentoAlertText" Color="#FF9B8A" />
@@ -79,6 +82,7 @@
             <SolidColorBrush x:Key="BentoOnInk" Color="{ThemeResource SystemColorHighlightTextColor}" />
             <SolidColorBrush x:Key="BentoPrimary" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="BentoSecondary" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="BentoSoft" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="BentoLine" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="BentoAlertFill" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="BentoAlertText" Color="{ThemeResource SystemColorWindowTextColor}" />

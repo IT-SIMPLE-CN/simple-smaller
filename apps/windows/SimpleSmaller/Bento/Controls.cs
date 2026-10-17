@@ -296,14 +296,19 @@ public sealed class Segments<T> : Grid where T : notnull
     {
         track.Background = Palette.Get(this, TrackKey ?? (kind == Kind.Top ? "BentoCard" : "BentoFill"));
         thumb.Background = Palette.Get(this, kind == Kind.Top ? "BentoInk" : "BentoCard");
-        thumb.Shadow = null;
+        // 灰槽里的白色滑块带一道细投影（设计稿）；顶栏分段的墨黑滑块不带。
+        if (kind != Kind.Top && thumb.Shadow is null)
+        {
+            thumb.Shadow = new ThemeShadow();
+            thumb.Translation = new System.Numerics.Vector3(0, 0, 2);
+        }
         foreach (var (value, button, text, icon) in items)
         {
             var on = EqualityComparer<T>.Default.Equals(value, selected);
             AutomationProperties.SetItemStatus(button, on ? "已选" : "");
             Brush fg = kind == Kind.Top
                 ? (on ? Palette.Get(this, "BentoOnInk") : Palette.Get(this, "BentoPrimary"))
-                : (on ? Palette.Get(this, "BentoPrimary") : Palette.Get(this, "BentoSecondary"));
+                : (on ? Palette.Get(this, "BentoPrimary") : Palette.Get(this, kind == Kind.Mini ? "BentoSoft" : "BentoSecondary"));
             if (text is not null)
             {
                 text.Foreground = fg;

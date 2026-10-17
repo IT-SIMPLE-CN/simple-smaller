@@ -96,10 +96,10 @@ internal sealed class FileTable : Reactive
         WatchList(ws.Files);
     }
 
-    /// 列宽按设计稿：尺寸 104（视频 150）、原大小 80、输出 80、变化 64、状态 92；名称列吃掉其余宽度（至少 110）。
-    /// 放不下时各列往最小宽收（图片放在 400 宽的左大卡里也要放得下），再不够就左右滚。
-    private static double[] Ideal(MediaType type) => [type == MediaType.Video ? 150 : 104, 80, 80, 64, 92];
-    private static double[] Least(MediaType type) => [type == MediaType.Video ? 120 : 84, 58, 54, 50, 50];
+    /// 列宽按设计稿 V2.1（列表视图 / 处理中）：尺寸 104（视频 150）、原大小 80、状态 92；名称列吃掉其余宽度。
+    /// 状态列开始处理后才出现，做完写变化（−98%），输出体积看完成页。放不下时各列往最小宽收，再不够就左右滚。
+    private static double[] Ideal(MediaType type) => [type == MediaType.Video ? 150 : 104, 80, 92];
+    private static double[] Least(MediaType type) => [type == MediaType.Video ? 120 : 84, 58, 64];
     private const double NameMin = 90;
 
     public static double[] Widths(MediaType type, double available)
@@ -125,10 +125,18 @@ internal sealed class FileTable : Reactive
     }
 
     private double[] widths = [];
+    private TextBlock? stateHeader;
+
+    /// 状态列开始处理后才有（还没开始时整列不占位，和设计稿一致）。
+    private bool Started => ws.Running || ws.Files.Any(f => f.State.Kind != FileStateKind.Waiting);
+
+    private double lastWidth = 600;
 
     private void Resize(double width)
     {
+        lastWidth = width;
         var w = Widths(ws.Type, width);
+        if (!Started) w[^1] = 0;
         root.MinWidth = 24 + NameMin + w.Sum();
         if (w.SequenceEqual(widths)) return;
         widths = w;
@@ -138,14 +146,17 @@ internal sealed class FileTable : Reactive
 
     private void BuildHeader()
     {
-        var titles = new[] { "名称", ws.Type == MediaType.Pdf ? "页数" : ws.Type == MediaType.Video ? "时长 · 尺寸" : "尺寸", "原大小", "输出", "变化", "状态" };
+        var titles = new[] { "名称", ws.Type == MediaType.Pdf ? "页数" : ws.Type == MediaType.Video ? "时长 · 尺寸" : "尺寸", "原大小", "状态" };
         widths = Widths(ws.Type, 600);
         ApplyColumns(header, widths);
         var i = 0;
         foreach (var _ in titles)
         {
-            var t = Themed.Text(titles[i], 11, "BentoSecondary", Themed.Semibold);
+            var t = Themed.Text(titles[i], 11, "BentoSecondary");
             t.TextTrimming = TextTrimming.CharacterEllipsis;
+            if (i > 0) t.HorizontalAlignment = HorizontalAlignment.Right;
+            if (i == 3) stateHeader = t;
+            if (i == 0) t.Margin = new Thickness(38, 0, 0, 0);
             Grid.SetColumn(t, i++);
             header.Children.Add(t);
         }
@@ -154,6 +165,8 @@ internal sealed class FileTable : Reactive
 
     protected override void Refresh()
     {
+        if (stateHeader is not null) stateHeader.Visibility = Started ? Visibility.Visible : Visibility.Collapsed;
+        Resize(lastWidth);
         var key = string.Join(",", ws.Files.Select(f => f.Id));
         if (key != built)
         {
@@ -228,12 +241,10 @@ internal sealed class FileRow : Reactive
 {
     public FileItem Item { get; }
     private readonly Workspace ws;
-    private readonly Grid grid = new() { Padding = new Thickness(12, 0, 12, 0), MinHeight = 30, CornerRadius = new CornerRadius(6) };
+    private readonly Grid grid = new() { Padding = new Thickness(6, 0, 12, 0), MinHeight = 40, CornerRadius = new CornerRadius(10) };
     private readonly TextBlock name = Themed.Text("", 13);
     private readonly TextBlock detail = Themed.Text("", 12, "BentoSecondary");
     private readonly TextBlock before = Themed.Text("", 12, "BentoSecondary");
-    private readonly TextBlock after = Themed.Text("", 12);
-    private readonly TextBlock change = Themed.Text("", 12);
     private readonly TextBlock state = Themed.Text("", 12);
     private int index;
 
@@ -244,13 +255,14 @@ internal sealed class FileRow : Reactive
         var nameRow = new Grid { ColumnSpacing = 8, Margin = new Thickness(0, 0, 8, 0) };
         nameRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         nameRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        nameRow.Children.Add(new Thumb(item) { Width = 22, Height = 22, VerticalAlignment = VerticalAlignment.Center });
+        nameRow.Children.Add(new Thumb(item) { Width = 26, Height = 26, VerticalAlignment = VerticalAlignment.Center });
         name.TextTrimming = TextTrimming.CharacterEllipsis;
         name.Text = item.Name;
         Grid.SetColumn(name, 1);
         nameRow.Children.Add(name);
         ToolTipService.SetToolTip(nameRow, item.FilePath);
-        var cells = new FrameworkElement[] { nameRow, detail, before, after, change, state };
+        var cells = new FrameworkElement[] { nameRow, detail, before, state };
+        detail.HorizontalAlignment = before.HorizontalAlignment = state.HorizontalAlignment = HorizontalAlignment.Right;
         for (var c = 0; c < cells.Length; c++)
         {
             cells[c].VerticalAlignment = VerticalAlignment.Center;
@@ -275,50 +287,36 @@ internal sealed class FileRow : Reactive
         set { index = value; Paint(); }
     }
 
+    private bool Selected => ws.Selection.Contains(Item.Id);
+
     private void Paint()
     {
-        // 交替底色（与资源管理器详细信息、设计稿一致）；选中的行淡品牌红。
-        grid.Background = ws.Selection.Contains(Item.Id)
-            ? new SolidColorBrush(Windows.UI.Color.FromArgb(ActualTheme == ElementTheme.Dark ? (byte)70 : (byte)36, 0xEF, 0x39, 0x22))
-            : index % 2 == 1 ? Palette.Get(this, "BentoFill") : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        // 交替底色；选中的行品牌红底白字（设计稿 V2.1 列表视图）。
+        grid.Background = Selected ? Palette.Brand
+            : index % 2 == 0 ? Palette.Get(this, "BentoFill") : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
     }
 
     protected override void Refresh()
     {
         Paint();
         var f = Item;
+        var on = Selected;
         detail.Text = f.MetaError ?? ws.Type switch
         {
             MediaType.Image => f.Dimensions,
             MediaType.Video => f.Duration > 0 ? $"{Format.Duration(f.Duration)} · {f.Width} × {f.Height}" : "—",
-            _ => f.Type == MediaType.Image ? f.Dimensions : (f.Pages > 0 ? $"{f.Pages}" : "—"),
+            _ => f.Type == MediaType.Image ? f.Dimensions : (f.Pages > 0 ? $"{f.Pages} 页" : "—"),
         };
-        Themed.Fg(detail, f.MetaError is null ? "BentoSecondary" : "Warning");
+        Themed.Fg(name, on ? "White" : "BentoPrimary");
+        Themed.Fg(detail, on ? "White" : f.MetaError is null ? "BentoPrimary" : "Warning");
         ToolTipService.SetToolTip(detail, string.IsNullOrEmpty(FileTable.Explain(f.MetaError)) ? null : FileTable.Explain(f.MetaError));
         before.Text = Format.Size(f.Bytes);
-
-        // 不做试压：点「开始」写出后才有输出体积。
-        after.Text = f.State.Kind switch { FileStateKind.Done => Format.Size(f.AfterBytes), FileStateKind.Kept => "—", _ => "" };
-        Themed.Fg(after, f.State.Kind == FileStateKind.Kept ? "BentoSecondary" : "BentoPrimary");
-        if (f.State.Kind == FileStateKind.Kept)
-        {
-            change.Text = ws.Type == MediaType.Pdf ? "已很小" : "+0%";
-            Themed.Fg(change, "BentoSecondary");
-        }
-        else if (f.State.Kind == FileStateKind.Done && f.AfterBytes > 0 && f.Bytes > 0)
-        {
-            change.Text = Format.Change(f.Bytes, f.AfterBytes);
-            Themed.Fg(change, f.AfterBytes < f.Bytes ? "Saving" : "Warning");
-        }
-        else
-        {
-            change.Text = "";
-        }
+        Themed.Fg(before, on ? "White" : "BentoPrimary");
         var (text, key, tip) = StateText(f, ws.Running);
         state.Text = text;
-        Themed.Fg(state, key);
+        Themed.Fg(state, on ? "White" : key);
         ToolTipService.SetToolTip(state, tip);
-        AutomationProperties.SetName(this, $"{f.Name}，{detail.Text}，{before.Text}{(after.Text.Length > 0 ? $"，输出 {after.Text}" : "")}{(text.Length > 0 ? $"，{text}" : "")}");
+        AutomationProperties.SetName(this, $"{f.Name}，{detail.Text}，{before.Text}{(text.Length > 0 ? $"，{text}" : "")}");
     }
 
     /// 状态列：处理中排队的行才写「等待」；还没点开始时留空。
@@ -331,7 +329,10 @@ internal sealed class FileRow : Reactive
             FileStateKind.Waiting => (queued ? "等待" : "", "BentoSecondary", null),
             // 图片一张很快，没有中间进度，只标「处理中」；视频与 PDF 带百分比。
             FileStateKind.Running => (item.Type == MediaType.Image || s.Fraction <= 0 ? "处理中" : $"处理中 {(int)(s.Fraction * 100)}%", "Brand", null),
-            FileStateKind.Done => (item.Outputs.Length > 1 ? $"{item.Outputs.Length} 个文件" : "完成", "Saving", null),
+            // 做完写变化（−98%），一张出多个文件时写个数；变大保留原图走 Kept。
+            FileStateKind.Done when item.Outputs.Length > 1 => ($"{item.Outputs.Length} 个文件", "Saving", null),
+            FileStateKind.Done when item.Bytes > 0 && item.AfterBytes > 0 => (Format.Change(item.Bytes, item.AfterBytes), item.AfterBytes < item.Bytes ? "Saving" : "Warning", $"输出 {Format.Size(item.AfterBytes)}"),
+            FileStateKind.Done => ("完成", "Saving", null),
             FileStateKind.Kept => (item.KeptText, "Warning", "不用处理：压完没有变小，或已经符合配方（比如本来就没有声音），原文件保持不动"),
             FileStateKind.Failed => ("失败", "BentoFailed", FileTable.Explain(s.Message)),
             _ => ("已停止", "BentoSecondary", null),

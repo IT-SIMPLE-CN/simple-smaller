@@ -81,6 +81,23 @@ public sealed partial class MainWindow : Window
             model.Add(items.Select(i => i.Path).Where(p => !string.IsNullOrEmpty(p)), model.ShowHome ? null : model.SelectedType);
         };
 
+        // Ctrl+Enter 开始、Ctrl+. 停止：在窗口一级先拦（焦点在文件列表等会自己吃回车的控件上时也要生效）。
+        Root.PreviewKeyDown += (_, e) =>
+        {
+            var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            if (!ctrl || model.ShowHome) return;
+            var ws = model.Current;
+            if (e.Key == Windows.System.VirtualKey.Enter && !ws.Running && ws.Files.Count > 0 && ws.CanStart && !ws.IsUpToDate)
+            {
+                model.Start(ws);
+                e.Handled = true;
+            }
+            else if ((int)e.Key == 190 && ws.Running)
+            {
+                model.Cancel(ws);
+                e.Handled = true;
+            }
+        };
         model.PropertyChanged += OnModelChanged;
         WatchWorkspaces();
         Root.ActualThemeChanged += (_, _) => Paint();
