@@ -51,7 +51,7 @@ internal static class Hud
         row.Children.Add(icon);
         row.Children.Add(text);
         root = new Grid { Children = { row } };
-        Themed.On(root, () => text.Foreground = Palette.Get(root, "BentoPrimary"));
+        FormTheme.On(root, () => text.Foreground = Palette.Get(root, "BentoPrimary"));
         window.Content = new UserControl { FontFamily = (FontFamily)Application.Current.Resources["BentoFont"], Content = root };
         if (window.AppWindow.Presenter is OverlappedPresenter p)
         {

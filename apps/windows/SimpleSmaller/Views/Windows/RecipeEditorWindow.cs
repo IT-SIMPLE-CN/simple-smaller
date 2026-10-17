@@ -65,11 +65,11 @@ internal sealed class RecipeEditorWindow : SubWindow
         circle.Child = new FontIcon { Glyph = "", FontSize = 18, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White) };
         AutomationProperties.SetAccessibilityView(circle, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         var texts = new StackPanel { Spacing = 4 };
-        var t = Themed.Text(IsNew ? "新建配方" : "编辑配方", 22);
+        var t = FormTheme.Text(IsNew ? "新建配方" : "编辑配方", 22);
         t.FontWeight = Microsoft.UI.Text.FontWeights.Bold;
         AutomationProperties.SetHeadingLevel(t, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level1);
         texts.Children.Add(t);
-        texts.Children.Add(Themed.Text("配方会出现在顶部配方条、资源管理器圆环和右键菜单里。", 12, "BentoSecondary"));
+        texts.Children.Add(FormTheme.Text("配方会出现在顶部配方条、资源管理器圆环和右键菜单里。", 12, "BentoSecondary"));
         row.Children.Add(circle);
         row.Children.Add(texts);
         return row;
@@ -85,7 +85,7 @@ internal sealed class RecipeEditorWindow : SubWindow
         var import = new CapsuleButton("从文件导入…", 40);
         import.Click += async (_, _) => await ImportAsync();
         note.Text = "可导出为 .smaller 发给同事";
-        Themed.On(note, PaintNote);
+        FormTheme.On(note, PaintNote);
         var cancel = new CapsuleButton("取消", 44);
         cancel.Click += (_, _) => Close();
         save.Click += (_, _) => Save();
@@ -161,7 +161,7 @@ internal sealed class RecipeEditorWindow : SubWindow
         var s = new StackPanel { Spacing = 2 };
         foreach (var l in lines) s.Children.Add(l);
         var b = new Border { CornerRadius = new CornerRadius(18), Padding = new Thickness(16, 10, 16, 10), Child = s };
-        Themed.On(b, () => b.Background = Palette.Get(b, "BentoFill"));
+        FormTheme.On(b, () => b.Background = Palette.Get(b, "BentoFill"));
         return b;
     }
 
@@ -170,7 +170,7 @@ internal sealed class RecipeEditorWindow : SubWindow
         var g = new Grid { ColumnSpacing = 12, MinHeight = 42 };
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(84) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var t = Themed.Text(label, 12, "BentoSecondary");
+        var t = FormTheme.Text(label, 12, "BentoSecondary");
         t.VerticalAlignment = VerticalAlignment.Center;
         g.Children.Add(t);
         if (content is FrameworkElement fe)
@@ -255,7 +255,7 @@ internal sealed class RecipeEditorWindow : SubWindow
                 slider.Resources[key] = Palette.Brand;
             AutomationProperties.SetName(slider, "质量");
             var value = new TextBlock { Text = $"{img.Quality}", FontSize = 18, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
-            Themed.On(value, () => value.Foreground = Palette.Get(value, "BentoPrimary"));
+            FormTheme.On(value, () => value.Foreground = Palette.Get(value, "BentoPrimary"));
             slider.ValueChanged += (_, e) =>
             {
                 var q = (int)Num.Round(e.NewValue);
@@ -326,7 +326,7 @@ internal sealed class RecipeEditorWindow : SubWindow
                 r = r with { Video = r.Video with { Rate = on ? VideoRateChoice.Size : (initial.Video.Rate == VideoRateChoice.Size ? VideoRateChoice.Medium : initial.Video.Rate) } };
                 mb.IsEnabled = on;
             };
-            var unit = Themed.Text("MB（按时长倒推码率）", 13, "BentoSecondary");
+            var unit = FormTheme.Text("MB（按时长倒推码率）", 13, "BentoSecondary");
             unit.VerticalAlignment = VerticalAlignment.Center;
             row.Children.Add(check);
             row.Children.Add(mb);
@@ -350,14 +350,14 @@ internal sealed class RecipeEditorWindow : SubWindow
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             row.Children.Add(Number(p.TargetMB, "大小上限（MB）", x => r = r with { Pdf = r.Pdf with { TargetMB = x } }));
-            var unit = Themed.Text("MB", 13, "BentoSecondary");
+            var unit = FormTheme.Text("MB", 13, "BentoSecondary");
             unit.VerticalAlignment = VerticalAlignment.Center;
             row.Children.Add(unit);
             lines.Add(Line("大小上限", row));
         }
         else if (p.Level == PdfLevelChoice.Email)
         {
-            lines.Add(Line("大小上限", Themed.Text("10 MB", 13, "BentoSecondary")));
+            lines.Add(Line("大小上限", FormTheme.Text("10 MB", 13, "BentoSecondary")));
         }
         lines.Add(Line("", Toggle("去掉作者与修改记录", r.StripMetadata, on => r = r with { StripMetadata = on })));
         return Group(lines.ToArray());
@@ -380,7 +380,7 @@ internal sealed class RecipeEditorWindow : SubWindow
             };
             tokens.Children.Add(b);
         }
-        Themed.On(example, () => example.Foreground = Palette.Get(example, "BentoSecondary"));
+        FormTheme.On(example, () => example.Foreground = Palette.Get(example, "BentoSecondary"));
         var lines = new List<UIElement>
         {
             Line("文件名", Field(templateBox)),

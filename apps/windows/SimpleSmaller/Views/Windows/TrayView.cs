@@ -124,7 +124,7 @@ internal static class TrayView
         var recipeRow = new Grid { Padding = new Thickness(14, 0, 14, 10) };
         recipeRow.ColumnDefinitions.Add(new ColumnDefinition());
         recipeRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var label = Themed.Text("配方", 12, "BentoSecondary");
+        var label = FormTheme.Text("配方", 12, "BentoSecondary");
         label.VerticalAlignment = VerticalAlignment.Center;
         var picker = RecipePicker.Create(recipeId, r => recipeId = r.Id);
         picker.MaxWidth = 170;
@@ -134,13 +134,13 @@ internal static class TrayView
         body.Children.Add(recipeRow);
         body.Children.Add(Divider());
 
-        var recent = Themed.Text("最近", 11, "BentoSecondary", semibold: true);
+        var recent = FormTheme.Text("最近", 11, "BentoSecondary", semibold: true);
         recent.Margin = new Thickness(14, 10, 14, 4);
         AutomationProperties.SetHeadingLevel(recent, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level2);
         body.Children.Add(recent);
         if (model.Recent.Count == 0)
         {
-            var empty = Themed.Text("还没有处理过文件", 12, "BentoSecondary");
+            var empty = FormTheme.Text("还没有处理过文件", 12, "BentoSecondary");
             empty.Opacity = 0.75;
             empty.Margin = new Thickness(14, 10, 14, 10);
             body.Children.Add(empty);
@@ -167,7 +167,7 @@ internal static class TrayView
     private static Border Divider()
     {
         var b = new Border { Height = 1 };
-        Themed.On(b, () => b.Background = Palette.Get(b, "BentoLine"));
+        FormTheme.On(b, () => b.Background = Palette.Get(b, "BentoLine"));
         return b;
     }
 
@@ -177,9 +177,9 @@ internal static class TrayView
         var frame = new Rectangle { RadiusX = 10, RadiusY = 10, StrokeThickness = 1.2, StrokeDashArray = [4, 3.3] };
         var stack = new StackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         var icon = new FontIcon { Glyph = "", FontSize = 22, HorizontalAlignment = HorizontalAlignment.Center };
-        var title = Themed.Text("拖到这里", 13, semibold: true);
+        var title = FormTheme.Text("拖到这里", 13, semibold: true);
         title.HorizontalAlignment = HorizontalAlignment.Center;
-        var note = Themed.Text("或 Ctrl+Shift+V 处理剪贴板里的图片", 11, "BentoSecondary");
+        var note = FormTheme.Text("或 Ctrl+Shift+V 处理剪贴板里的图片", 11, "BentoSecondary");
         note.HorizontalAlignment = HorizontalAlignment.Center;
         stack.Children.Add(icon);
         stack.Children.Add(title);
@@ -194,9 +194,9 @@ internal static class TrayView
             icon.Foreground = targeted ? Palette.Brand : secondary;
             frame.Stroke = targeted ? Palette.Brand : secondary;
             frame.Opacity = targeted ? 1 : 0.35;
-            frame.Fill = targeted ? Themed.BrandTint(0.06) : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            frame.Fill = targeted ? FormTheme.BrandTint(0.06) : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         }
-        Themed.On(grid, paint);
+        FormTheme.On(grid, paint);
         grid.DragOver += (_, e) =>
         {
             if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return;
@@ -226,12 +226,12 @@ internal static class TrayView
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var thumb = new Border { Width = 32, Height = 32, CornerRadius = new CornerRadius(5), VerticalAlignment = VerticalAlignment.Center };
         var texts = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
-        var t1 = Themed.Text(job.Title, 12);
+        var t1 = FormTheme.Text(job.Title, 12);
         t1.FontWeight = Microsoft.UI.Text.FontWeights.Medium;
-        var t2 = Themed.Text($"{job.Recipe} · {Format.Size(job.Before)} → {Format.Size(job.After)}", 11, "BentoSecondary");
+        var t2 = FormTheme.Text($"{job.Recipe} · {Format.Size(job.Before)} → {Format.Size(job.After)}", 11, "BentoSecondary");
         texts.Children.Add(t1);
         texts.Children.Add(t2);
-        var when = Themed.Text(Relative(job.Date), 11, "BentoSecondary");
+        var when = FormTheme.Text(Relative(job.Date), 11, "BentoSecondary");
         when.Opacity = 0.75;
         when.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(texts, 1);
@@ -247,7 +247,7 @@ internal static class TrayView
             back.Background = hovering ? Palette.Get(b, "BentoFill") : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
             thumb.Background = job.Thumbnail is ImageSource src ? new ImageBrush { ImageSource = src, Stretch = Stretch.UniformToFill } : Palette.Get(b, "BentoFill");
         }
-        Themed.On(b, paint);
+        FormTheme.On(b, paint);
         b.PointerEntered += (_, _) => { hovering = true; paint(); };
         b.PointerExited += (_, _) => { hovering = false; paint(); };
         b.Click += (_, _) => AppModel.Shared.Reveal(job.Outputs);
@@ -261,12 +261,12 @@ internal static class TrayView
         var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], HorizontalAlignment = HorizontalAlignment.Stretch };
         var back = new Border { CornerRadius = new CornerRadius(5), Padding = new Thickness(8, 0, 8, 0), Height = 30 };
         var g = new Grid();
-        var t = Themed.Text(title, 13);
+        var t = FormTheme.Text(title, 13);
         t.VerticalAlignment = VerticalAlignment.Center;
         g.Children.Add(t);
         if (shortcut is not null)
         {
-            var k = Themed.Text(shortcut, 11, "BentoSecondary");
+            var k = FormTheme.Text(shortcut, 11, "BentoSecondary");
             k.HorizontalAlignment = HorizontalAlignment.Right;
             k.VerticalAlignment = VerticalAlignment.Center;
             g.Children.Add(k);
@@ -275,7 +275,7 @@ internal static class TrayView
         b.Content = back;
         var hovering = false;
         void paint() => back.Background = hovering ? Palette.Get(b, "BentoFill") : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        Themed.On(b, paint);
+        FormTheme.On(b, paint);
         b.PointerEntered += (_, _) => { hovering = true; paint(); };
         b.PointerExited += (_, _) => { hovering = false; paint(); };
         b.Click += (_, _) => action();

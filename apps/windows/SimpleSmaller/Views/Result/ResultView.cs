@@ -416,13 +416,13 @@ internal sealed class ResultList : UserControl
         g.Children.Add(more);
         panel.Child = g;
         Content = panel;
-        Themed.On(this, Paint);
+        FormTheme.On(this, Paint);
         Update(initial, summaryText, false);
     }
 
     private TextBlock Caption(string text, Thickness? margin = null)
     {
-        var t = Themed.Text(text, 11, "BentoSecondary");
+        var t = FormTheme.Text(text, 11, "BentoSecondary");
         if (margin is { } m) t.Margin = m;
         return t;
     }

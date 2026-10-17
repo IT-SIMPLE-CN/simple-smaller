@@ -196,7 +196,7 @@ internal sealed class ResultRow : Reactive
     protected override void Refresh()
     {
         var selected = ws.Selection.Contains(item.Id);
-        back.Background = selected ? Themed.BrandTint(0.14) : (striped ? Palette.Get(this, "BentoCard") : new SolidColorBrush(Microsoft.UI.Colors.Transparent));
+        back.Background = selected ? FormTheme.BrandTint(0.14) : (striped ? Palette.Get(this, "BentoCard") : new SolidColorBrush(Microsoft.UI.Colors.Transparent));
         AutomationProperties.SetItemStatus(this, selected ? "已选" : "");
         var secondary = Palette.Get(this, "BentoSecondary");
         name.Foreground = after.Foreground = Palette.Get(this, "BentoPrimary");

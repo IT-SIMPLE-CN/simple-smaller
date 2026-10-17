@@ -197,7 +197,7 @@ internal sealed class RecipeSettings : Reactive
         g.Children.Add(foot);
         card.Child = g;
         Content = card;
-        Themed.On(card, () =>
+        FormTheme.On(card, () =>
         {
             card.Background = Palette.Get(card, "BentoCard");
             title.Foreground = Palette.Get(card, "BentoPrimary");

@@ -17,15 +17,15 @@ internal sealed class AboutWindow : SubWindow
         var icon = new Image { Width = 96, Height = 96, Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon-256.png"))) };
         AutomationProperties.SetAccessibilityView(icon, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         s.Children.Add(icon);
-        s.Children.Add(Center(Themed.Text("简单小一点", 20, semibold: true), 12));
-        var en = Themed.Text("SIMPLE SMALLER", 11, "BentoSecondary");
+        s.Children.Add(Center(FormTheme.Text("简单小一点", 20, semibold: true), 12));
+        var en = FormTheme.Text("SIMPLE SMALLER", 11, "BentoSecondary");
         en.FontWeight = Microsoft.UI.Text.FontWeights.Medium;
         en.CharacterSpacing = 110;
         s.Children.Add(Center(en, 2));
-        var version = Themed.Text(Version, 11, "BentoSecondary");
+        var version = FormTheme.Text(Version, 11, "BentoSecondary");
         version.Opacity = 0.75;
         s.Children.Add(Center(version, 6));
-        var story = Themed.Text("IT-SIMPLE 成立五周年，\n做了这个小工具，送给一路同行的朋友。", 13);
+        var story = FormTheme.Text("IT-SIMPLE 成立五周年，\n做了这个小工具，送给一路同行的朋友。", 13);
         story.TextAlignment = TextAlignment.Center;
         story.TextWrapping = TextWrapping.Wrap;
         story.LineHeight = 21;
@@ -41,12 +41,12 @@ internal sealed class AboutWindow : SubWindow
         AutomationProperties.SetName(licenses, "开源组件与许可证");
         licenses.Click += (_, _) => App.OpenLicenses();
         s.Children.Add(Center(licenses, 4));
-        var font = Themed.Text("界面字体使用 MiSans（小米），按其许可协议使用", 11, "BentoSecondary");
+        var font = FormTheme.Text("界面字体使用 MiSans（小米），按其许可协议使用", 11, "BentoSecondary");
         font.Opacity = 0.75;
         font.TextWrapping = TextWrapping.Wrap;
         font.TextAlignment = TextAlignment.Center;
         s.Children.Add(Center(font, 12));
-        var copyright = Themed.Text("© 2021–2026 IT-SIMPLE", 11, "BentoSecondary");
+        var copyright = FormTheme.Text("© 2021–2026 IT-SIMPLE", 11, "BentoSecondary");
         copyright.Opacity = 0.75;
         s.Children.Add(Center(copyright, 6));
         Body.Children.Add(s);
@@ -87,7 +87,7 @@ internal sealed class LicensesWindow : SubWindow
             TextWrapping = TextWrapping.NoWrap,
             Padding = new Thickness(16),
         };
-        Themed.On(body, () => body.Foreground = Palette.Get(body, "BentoPrimary"));
+        FormTheme.On(body, () => body.Foreground = Palette.Get(body, "BentoPrimary"));
         var scroll = new ScrollViewer { Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollMode = ScrollMode.Auto };
         var done = new BrandButton("完成", 34, 13, 20) { HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12) };
         done.Click += (_, _) => Close();
@@ -96,7 +96,7 @@ internal sealed class LicensesWindow : SubWindow
         g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         g.Children.Add(scroll);
         var line = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Top };
-        Themed.On(line, () => line.Background = Palette.Get(line, "BentoLine"));
+        FormTheme.On(line, () => line.Background = Palette.Get(line, "BentoLine"));
         Grid.SetRow(line, 1);
         Grid.SetRow(done, 1);
         g.Children.Add(line);

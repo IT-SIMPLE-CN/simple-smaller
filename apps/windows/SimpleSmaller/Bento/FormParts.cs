@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml.Media;
 namespace SimpleSmaller.Bento;
 
 /// 代码搭的元素按深浅色上色：加载时和切换深浅色时各调一次。
-public static class Themed
+public static class FormTheme
 {
     public static T On<T>(T element, Action paint) where T : FrameworkElement
     {
@@ -37,7 +37,7 @@ public static class FormCard
         var icon = new FontIcon { Glyph = glyph, FontSize = 14, FontFamily = (FontFamily)Application.Current.Resources["BentoIcons"] };
         var circle = new Border { Width = 34, Height = 34, CornerRadius = new CornerRadius(17), Child = icon };
         AutomationProperties.SetAccessibilityView(circle, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
-        var t = Themed.Text(title, 14, semibold: true);
+        var t = FormTheme.Text(title, 14, semibold: true);
         t.VerticalAlignment = VerticalAlignment.Center;
         AutomationProperties.SetHeadingLevel(t, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level2);
         head.Children.Add(circle);
@@ -46,7 +46,7 @@ public static class FormCard
         foreach (var c in content) stack.Children.Add(c);
         if (note is not null)
         {
-            var n = Themed.Text(note, 11, "BentoSecondary");
+            var n = FormTheme.Text(note, 11, "BentoSecondary");
             n.TextWrapping = TextWrapping.Wrap;
             n.TextTrimming = TextTrimming.None;
             n.LineHeight = 16;
@@ -54,7 +54,7 @@ public static class FormCard
             stack.Children.Add(n);
         }
         var card = new Border { CornerRadius = new CornerRadius(22), Padding = new Thickness(16, 14, 16, 16), Child = stack };
-        Themed.On(card, () =>
+        FormTheme.On(card, () =>
         {
             card.Background = Palette.Get(card, "BentoCard");
             circle.Background = Palette.Get(card, "BentoFill");
@@ -72,7 +72,7 @@ public static class FormRow
         var grid = new Grid { ColumnSpacing = 10 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var t = Themed.Text(label, 13);
+        var t = FormTheme.Text(label, 13);
         t.VerticalAlignment = VerticalAlignment.Center;
         grid.Children.Add(t);
         if (trailing is FrameworkElement fe)
@@ -82,7 +82,7 @@ public static class FormRow
             grid.Children.Add(fe);
         }
         var row = new Border { Height = height, CornerRadius = new CornerRadius(15), Padding = new Thickness(16, 0, 12, 0), Child = grid };
-        Themed.On(row, () => row.Background = Palette.Get(row, "BentoFill"));
+        FormTheme.On(row, () => row.Background = Palette.Get(row, "BentoFill"));
         return row;
     }
 
@@ -98,14 +98,14 @@ public static class FormRow
     }
 
     /// 右侧的灰字说明。
-    public static TextBlock Value(string text) => Themed.Text(text, 12, "BentoSecondary");
+    public static TextBlock Value(string text) => FormTheme.Text(text, 12, "BentoSecondary");
 
     /// 白底等宽小胶囊（快捷键）。
     public static Border Key(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas"), VerticalAlignment = VerticalAlignment.Center };
         var b = new Border { Height = 26, Padding = new Thickness(10, 0, 10, 0), CornerRadius = new CornerRadius(13), Child = t };
-        Themed.On(b, () => { b.Background = Palette.Get(b, "BentoCard"); t.Foreground = Palette.Get(b, "BentoPrimary"); });
+        FormTheme.On(b, () => { b.Background = Palette.Get(b, "BentoCard"); t.Foreground = Palette.Get(b, "BentoPrimary"); });
         return b;
     }
 }
@@ -152,7 +152,7 @@ public sealed class Chip : Button
         Content = back;
         AutomationProperties.SetName(this, title);
         IsOn = on;
-        Themed.On(this, Paint);
+        FormTheme.On(this, Paint);
     }
 
     public bool IsOn
