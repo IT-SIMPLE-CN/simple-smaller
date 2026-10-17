@@ -19,13 +19,13 @@ pub struct RawImage {
 }
 
 /// 平台解码（mac：ImageIO）。不认识时返回 None。
-#[uniffi::export(foreign)]
+#[uniffi::export(with_foreign)]
 pub trait PlatformDecoder: Send + Sync {
     fn decode(&self, path: String) -> Option<RawImage>;
 }
 
 /// 任务回调，可能来自后台线程。
-#[uniffi::export(foreign)]
+#[uniffi::export(with_foreign)]
 pub trait JobListener: Send + Sync {
     /// 单个文件的进度（0–1），视频与 PDF 用。
     fn on_progress(&self, index: u32, fraction: f64);
