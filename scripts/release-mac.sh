@@ -49,7 +49,7 @@ OUT="$ROOT/.local/mac-releases/$VERSION-$BUILD"
 rm -rf "$OUT"; mkdir -p "$OUT"
 APP="$OUT/$NAME.app"
 
-step "构建 $NAME $VERSION（$BUILD），Apple 芯片与 Intel 通用"
+step "构建 $NAME ${VERSION}（${BUILD}），Apple 芯片与 Intel 通用"
 "$ROOT/scripts/build-core-mac.sh" release universal > "$ROOT/.local/build-core.log" 2>&1 || { tail -20 "$ROOT/.local/build-core.log"; exit 1; }
 "$ROOT/scripts/bundle-mac.sh" release universal > /dev/null
 ditto "$ROOT/.local/app/SimpleSmaller.app" "$APP"
@@ -79,8 +79,8 @@ notarize() {
   id="$(printf '%s' "$json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
   status="$(printf '%s' "$json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')"
   xcrun notarytool log "$id" --keychain-profile "$PROFILE" > "$OUT/notary-$(basename "$1").json"
-  [ "$status" = "Accepted" ] || { echo "公证未通过（$status），提交编号 $id，日志 $OUT/notary-$(basename "$1").json"; exit 1; }
-  echo "   提交编号 $id：$status"
+  [ "$status" = "Accepted" ] || { echo "公证未通过（${status}），提交编号 ${id}，日志 $OUT/notary-$(basename "$1").json"; exit 1; }
+  echo "   提交编号 ${id}：$status"
 }
 
 step "公证 App"
