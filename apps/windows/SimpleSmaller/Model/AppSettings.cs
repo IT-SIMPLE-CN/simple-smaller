@@ -26,6 +26,8 @@ internal sealed partial class AppSettings : ObservableObject
     [ObservableProperty] private OutputLocation outputLocation = OutputLocation.Beside;
     [ObservableProperty] private string outputFolder = "";
     [ObservableProperty] private bool ringEnabled = true;
+    /// 圆环的唤出方式：按住 Ctrl + Alt 点文件（默认只按 Alt）。设计稿 RingWin：快捷键可在设置里改为 Ctrl + Alt。
+    [ObservableProperty] private bool ringCtrlAlt;
     [ObservableProperty] private bool menuBarIcon = true;
     /// 复制图片时自动换成压缩版（默认关）。
     [ObservableProperty] private bool clipboardAuto;
@@ -39,6 +41,7 @@ internal sealed partial class AppSettings : ObservableObject
         public OutputLocation OutputLocation { get; set; } = OutputLocation.Beside;
         public string OutputFolder { get; set; } = "";
         public bool RingEnabled { get; set; } = true;
+        public bool RingCtrlAlt { get; set; }
         public bool MenuBarIcon { get; set; } = true;
         public bool ClipboardAuto { get; set; }
         public int ClipboardMaxEdge { get; set; }
@@ -53,6 +56,7 @@ internal sealed partial class AppSettings : ObservableObject
             outputLocation = s.OutputLocation;
             outputFolder = s.OutputFolder ?? "";
             ringEnabled = s.RingEnabled;
+            ringCtrlAlt = s.RingCtrlAlt;
             menuBarIcon = s.MenuBarIcon;
             clipboardAuto = s.ClipboardAuto;
             clipboardMaxEdge = s.ClipboardMaxEdge;
@@ -66,6 +70,7 @@ internal sealed partial class AppSettings : ObservableObject
         OutputLocation = OutputLocation,
         OutputFolder = OutputFolder,
         RingEnabled = RingEnabled,
+        RingCtrlAlt = RingCtrlAlt,
         MenuBarIcon = MenuBarIcon,
         ClipboardAuto = ClipboardAuto,
         ClipboardMaxEdge = ClipboardMaxEdge,

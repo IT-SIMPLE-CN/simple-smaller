@@ -195,8 +195,9 @@ internal sealed class RingHook
         return CallNextHookEx(IntPtr.Zero, code, wParam, lParam);
     }
 
+    /// 唤出键按着：默认只按 Alt（不带 Ctrl / Shift / Win）；设置里改成 Ctrl + Alt 时要两个都按着（不带 Shift / Win）。
     private static bool AltOnly() =>
-        Down(0x12) && !Down(0x11) && !Down(0x10) && !Down(0x5B) && !Down(0x5C); // Alt，且没按 Ctrl / Shift / Win
+        Down(0x12) && Down(0x11) == AppSettings.Shared.RingCtrlAlt && !Down(0x10) && !Down(0x5B) && !Down(0x5C);
 
     private static bool Down(int vk) => (GetAsyncKeyState(vk) & 0x8000) != 0;
 

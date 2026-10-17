@@ -7,7 +7,8 @@ using Windows.Storage.Pickers;
 
 namespace SimpleSmaller.Views.Sub;
 
-/// 设置（设计稿 V2.1 · 10）：便当盒小窗，通用 / 配方 / 自动 三页，顶部是 Top 样式的滑块分段。
+/// 设置（设计稿 V2.1 · 10）：便当盒小窗 860 × 636，通用 / 配方 / 自动 三页。
+/// 标题行 60 高：左边 15 号粗体「设置」，正中是 Top 样式的滑块分段（和设计稿一样放在标题行里）。
 internal sealed class SettingsWindow : SubWindow
 {
     public static readonly string[] Tabs = ["通用", "配方", "自动"];
@@ -15,19 +16,13 @@ internal sealed class SettingsWindow : SubWindow
     private readonly ContentPresenter page = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private string current;
 
-    public SettingsWindow(string? tab) : base("设置", 820, 580)
+    public SettingsWindow(string? tab) : base("设置", 860, 636)
     {
         current = Tabs.Contains(tab) ? tab! : Tabs[0];
-        tabs = new Segments<string>(Segments<string>.Kind.Top, Tabs.Select(t => (t, t, (string?)null)), current, "设置分类")
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
+        tabs = new Segments<string>(Segments<string>.Kind.Top, Tabs.Select(t => (t, t, (string?)null)), current, "设置分类");
         tabs.Changed += t => Show(t);
-        var stack = new Grid { RowSpacing = 14, Padding = new Thickness(14, 0, 14, 14) };
-        stack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        stack.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        stack.Children.Add(tabs);
-        Grid.SetRow(page, 1);
+        UseHeader(60, 15, tabs);
+        var stack = new Grid { Padding = new Thickness(14, 0, 14, 14) };
         stack.Children.Add(page);
         Body.Children.Add(stack);
         Show(current);
@@ -75,30 +70,28 @@ internal static class Columns
 
 // MARK: - 通用
 
+/// 通用（设计稿 V2.1 · 10）：输出 · 隐私 · 入口。
+/// 设计稿里没有对应功能的行（重名时、压缩后变大、去掉位置信息、硬件编码、同时处理张数）不放：
+/// 这些在 Windows 版是固定行为或按配方设，放一个改不了的开关会误导。
 internal sealed class GeneralSettings : Reactive
 {
     private readonly AppSettings settings = AppSettings.Shared;
     private string built = "";
-    private string? updateNote;
 
     public GeneralSettings()
     {
-        Watch(settings, nameof(AppSettings.OutputLocation), nameof(AppSettings.OutputFolder), nameof(AppSettings.RingEnabled), nameof(AppSettings.MenuBarIcon));
+        Watch(settings, nameof(AppSettings.OutputLocation), nameof(AppSettings.OutputFolder), nameof(AppSettings.RingEnabled), nameof(AppSettings.MenuBarIcon), nameof(AppSettings.RingCtrlAlt));
         Watch(Updates.Shared);
     }
 
     protected override void Refresh()
     {
-        var key = $"{settings.OutputLocation}|{settings.OutputFolder}|{settings.RingEnabled}|{settings.MenuBarIcon}|{Updates.Shared.AutomaticallyChecks}|{updateNote}|{ActualTheme}";
+        var key = $"{settings.OutputLocation}|{settings.OutputFolder}|{settings.RingEnabled}|{settings.MenuBarIcon}|{settings.RingCtrlAlt}|{Updates.Shared.AutomaticallyChecks}|{ActualTheme}";
         if (key == built) return;
         built = key;
 
-        var location = new ComboBox { MinWidth = 130 };
-        AutomationProperties.SetName(location, "存到");
-        location.Items.Add("原文件旁边");
-        location.Items.Add("指定文件夹");
-        location.SelectedIndex = settings.OutputLocation == OutputLocation.Folder ? 1 : 0;
-        location.SelectionChanged += (_, _) => settings.OutputLocation = location.SelectedIndex == 1 ? OutputLocation.Folder : OutputLocation.Beside;
+        var location = new MenuCapsule("存到", "");
+        location.Options([(OutputLocation.Beside, "原文件旁边"), (OutputLocation.Folder, "指定文件夹")], settings.OutputLocation, v => settings.OutputLocation = v);
         var output = new List<UIElement> { FormRow.Create("存到", location) };
         if (settings.OutputLocation == OutputLocation.Folder)
         {
@@ -107,7 +100,7 @@ internal sealed class GeneralSettings : Reactive
             path.MaxWidth = 170;
             path.VerticalAlignment = VerticalAlignment.Center;
             ToolTipService.SetToolTip(path, settings.OutputFolder);
-            var choose = new CapsuleButton("选择…", 28, "BentoCard");
+            var choose = new TextCapsule("选择…", 28, 12, 10, "BentoCard");
             choose.Click += async (_, _) =>
             {
                 var picker = new FolderPicker { CommitButtonText = "选择" };
@@ -119,21 +112,21 @@ internal sealed class GeneralSettings : Reactive
             row.Children.Add(choose);
             output.Add(FormRow.Create("文件夹", row));
         }
-        var outputCard = FormCard.Create("", "输出", "原文件从不改动；压完变大时保留原文件。撤销会把新文件移到回收站。", output.ToArray());
+        output.Add(FormRow.Create("默认文件名", FormRow.Mono("{name}-small")));
+        output.Add(FormRow.Create("重名时", FormRow.Value("加序号")));
+        var outputCard = FormCard.Create(SubIcons.Folder, "输出", "原文件从不改动，撤销会把新文件移到回收站。", output.ToArray());
 
-        var check = new CapsuleButton("检查更新…", 28, "BentoCard");
-        check.Click += async (_, _) => { updateNote = await Updates.Shared.CheckAsync(); Refresh(); };
-        var privacy = FormCard.Create("", "隐私与更新", updateNote ?? "文件只在本机处理，不上传。除检查更新外，应用不联网。",
-            FormRow.Toggle("自动检查更新", Updates.Shared.AutomaticallyChecks, on => Updates.Shared.AutomaticallyChecks = on),
-            FormRow.Create("现在检查", check));
+        var privacy = FormCard.Create(SubIcons.Lock, "隐私与更新", "文件只在本机处理。除检查更新外，应用不联网。",
+            FormRow.Toggle("自动检查更新", Updates.Shared.AutomaticallyChecks, on => Updates.Shared.AutomaticallyChecks = on));
 
-        var entry = FormCard.Create("", "入口", "圆环要读出你点的是哪个文件。只读取文件位置，不记录其他操作。",
+        var trigger = new MenuCapsule("唤出方式", "");
+        trigger.Options([(false, "按住 Alt 点文件"), (true, "按住 Ctrl + Alt 点文件")], settings.RingCtrlAlt, v => settings.RingCtrlAlt = v);
+        var entry = FormCard.Create(Icons.Ring, "入口", "圆环要读出你点的是哪个文件。只读取文件位置，不记录其他操作。",
             FormRow.Toggle("资源管理器圆环", settings.RingEnabled, on => settings.RingEnabled = on),
-            FormRow.Create("唤出方式", FormRow.Value("按住 Alt 点文件")),
+            FormRow.Create("唤出方式", trigger),
             FormRow.Toggle("托盘图标", settings.MenuBarIcon, on => settings.MenuBarIcon = on),
-            FormRow.Toggle("资源管理器右键", ExplorerMenu.Enabled, on => ExplorerMenu.Enabled = on),
-            FormRow.Create("右键位置", FormRow.Value("显示更多选项 → 用简单小一点处理")),
-            FormRow.Create("处理剪贴板", FormRow.Key("Ctrl+Shift+V")));
+            FormRow.Toggle("资源管理器右键「显示更多选项」", ExplorerMenu.Enabled, on => ExplorerMenu.Enabled = on),
+            FormRow.Create("处理剪贴板图片", FormRow.Key("Ctrl+Shift+V")));
 
         Content = Columns.Two(Columns.Stack(outputCard, privacy), entry);
     }
@@ -143,57 +136,61 @@ internal sealed class GeneralSettings : Reactive
 
 // MARK: - 配方
 
-/// 配方管理：拖动排序（配方条、圆环按这个顺序），导入导出，新建、编辑、删除我的配方。
+/// 配方管理（设计稿 V2.1 · 10 配方页）：一张白卡，灰底 40 高的行（把手 · 名称 · 类型 · 摘要 · 内置 / 我的），
+/// 选中的行墨黑底白字；拖动排序（配方条、圆环按这个顺序），导入导出，新建、编辑、删除我的配方。
 internal sealed class RecipeSettings : Reactive
 {
     private readonly RecipeStore store = AppModel.Shared.Store;
     private readonly ListView list = new() { SelectionMode = ListViewSelectionMode.Extended, CanReorderItems = true, AllowDrop = true, CanDragItems = true };
     private readonly TextBlock message = new() { FontSize = 11, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
-    private readonly CapsuleButton export = new("导出所选…", 30);
-    private readonly CapsuleButton delete = new("删除所选", 34);
-    private readonly Border card = new() { CornerRadius = new CornerRadius(22), Padding = new Thickness(16) };
+    private readonly TextCapsule export = new("导出所选…", 30, 12, 12);
+    private readonly TextCapsule delete = new("删除所选", 36, 13, 16);
+    private readonly Border card = new() { CornerRadius = new CornerRadius(20), Padding = new Thickness(16, 14, 16, 16) };
     private readonly TextBlock title = new() { Text = "配方", FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+    private readonly Dictionary<ListViewItem, Action> painters = [];
     private string built = "";
     private List<string> dragOrder = [];
+    private static Style? itemStyle;
 
     public RecipeSettings()
     {
         message.Text = "拖动排序，配方条和圆环按这个顺序";
         AutomationProperties.SetName(list, "配方");
-        var head = new Grid { ColumnSpacing = 8 };
+        list.ItemContainerStyle = itemStyle ??= (Style)Microsoft.UI.Xaml.Markup.XamlReader.Load(ItemXaml);
+        var head = new Grid { ColumnSpacing = 10, Margin = new Thickness(0, 0, 0, 4), MinHeight = 30 };
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var import = new CapsuleButton("导入…", 30);
+        var import = new TextCapsule("导入…", 30, 12, 12);
         import.Click += async (_, _) => await ImportAsync();
         export.Click += async (_, _) => await ExportAsync();
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        buttons.Children.Add(import);
+        buttons.Children.Add(export);
+        AutomationProperties.SetHeadingLevel(title, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level2);
         head.Children.Add(title);
         Grid.SetColumn(message, 1);
         head.Children.Add(message);
-        Grid.SetColumn(import, 2);
-        head.Children.Add(import);
-        Grid.SetColumn(export, 3);
-        head.Children.Add(export);
+        Grid.SetColumn(buttons, 2);
+        head.Children.Add(buttons);
 
-        var foot = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
+        var foot = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Padding = new Thickness(0, 6, 0, 0) };
         delete.Click += (_, _) =>
         {
             foreach (var id in SelectedIds().Where(id => store.RecipeById(id) is { BuiltIn: false })) store.Delete(id);
         };
-        var add = new BrandButton("新建配方", 34, 13, 16);
+        var add = new TextCapsule("新建配方", 36, 13, 16, "Brand", "OnBrand", SubIcons.Plus, semibold: true);
         add.Click += (_, _) => App.OpenRecipeEditor(new Recipe { Id = "", Name = "", Type = AppModel.Shared.SelectedType }, _ => { });
-        foot.Children.Add(delete);
         foot.Children.Add(add);
+        foot.Children.Add(delete);
 
-        var listBack = new Border { CornerRadius = new CornerRadius(14), Child = list };
-        var g = new Grid { RowSpacing = 8 };
+        var g = new Grid { RowSpacing = 6 };
         g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         g.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         g.Children.Add(head);
-        Grid.SetRow(listBack, 1);
-        g.Children.Add(listBack);
+        Grid.SetRow(list, 1);
+        g.Children.Add(list);
         Grid.SetRow(foot, 2);
         g.Children.Add(foot);
         card.Child = g;
@@ -203,10 +200,9 @@ internal sealed class RecipeSettings : Reactive
             card.Background = Palette.Get(card, "BentoCard");
             title.Foreground = Palette.Get(card, "BentoPrimary");
             message.Foreground = Palette.Get(card, "BentoSecondary");
-            listBack.Background = Palette.Get(card, "BentoFill");
         });
 
-        list.SelectionChanged += (_, _) => UpdateButtons();
+        list.SelectionChanged += (_, _) => { UpdateButtons(); foreach (var p in painters.Values) p(); };
         list.DragItemsStarting += (_, _) => dragOrder = Ids();
         list.DragItemsCompleted += (_, e) =>
         {
@@ -225,6 +221,33 @@ internal sealed class RecipeSettings : Reactive
         Watch(store);
     }
 
+    // 行容器：去掉系统的选中底色、左侧指示条与悬停底，行自己画（选中墨黑底白字）；行距 6。
+    private const string ItemXaml = """
+<Style xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="ListViewItem">
+  <Setter Property="Padding" Value="0" />
+  <Setter Property="MinHeight" Value="0" />
+  <Setter Property="Margin" Value="0,0,0,6" />
+  <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  <Setter Property="VerticalContentAlignment" Value="Stretch" />
+  <Setter Property="Template">
+    <Setter.Value>
+      <ControlTemplate TargetType="ListViewItem">
+        <ListViewItemPresenter ContentTransitions="{TemplateBinding ContentTransitions}"
+            SelectionCheckMarkVisualEnabled="False" SelectionIndicatorVisualEnabled="False"
+            Background="Transparent" PointerOverBackground="Transparent" PressedBackground="Transparent"
+            SelectedBackground="Transparent" SelectedPointerOverBackground="Transparent" SelectedPressedBackground="Transparent"
+            PointerOverForeground="{TemplateBinding Foreground}" SelectedForeground="{TemplateBinding Foreground}"
+            FocusVisualMargin="0" CornerRadius="13" DragOpacity="0.8"
+            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+            ContentMargin="{TemplateBinding Padding}" />
+      </ControlTemplate>
+    </Setter.Value>
+  </Setter>
+</Style>
+""";
+
     private List<string> Ids() => list.Items.OfType<ListViewItem>().Select(i => (string)i.Tag).ToList();
     private List<string> SelectedIds() => list.SelectedItems.OfType<ListViewItem>().Select(i => (string)i.Tag).ToList();
 
@@ -233,8 +256,6 @@ internal sealed class RecipeSettings : Reactive
         var sel = SelectedIds();
         export.IsEnabled = sel.Count > 0;
         delete.IsEnabled = sel.Any(id => store.RecipeById(id) is { BuiltIn: false });
-        export.Opacity = export.IsEnabled ? 1 : 0.4;
-        delete.Opacity = delete.IsEnabled ? 1 : 0.4;
     }
 
     protected override void Refresh()
@@ -245,6 +266,7 @@ internal sealed class RecipeSettings : Reactive
         built = key;
         var selected = SelectedIds().ToHashSet();
         list.Items.Clear();
+        painters.Clear();
         foreach (var r in all)
         {
             var item = Row(r);
@@ -256,24 +278,43 @@ internal sealed class RecipeSettings : Reactive
 
     private ListViewItem Row(Recipe r)
     {
-        var g = new Grid { ColumnSpacing = 12 };
+        var g = new Grid { ColumnSpacing = 8, Height = 40, Padding = new Thickness(6, 0, 14, 0) };
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(22) });
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
-        var name = new TextBlock { Text = r.Name, FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Palette.Get(this, "BentoPrimary") };
-        var type = new TextBlock { Text = r.Type.Title(), FontSize = 11, Foreground = Palette.Get(this, "BentoSecondary") };
-        var summary = new TextBlock { Text = r.Summary, FontSize = 11, Foreground = Palette.Get(this, "BentoSecondary"), TextTrimming = TextTrimming.CharacterEllipsis };
-        var kind = new TextBlock { Text = r.BuiltIn ? "内置" : "我的", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Right, Foreground = r.BuiltIn ? Palette.Get(this, "BentoSecondary") : Palette.Brand };
-        foreach (var t in new[] { name, type, summary, kind }) t.VerticalAlignment = VerticalAlignment.Center;
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(130) });
+        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+        var back = new Border { CornerRadius = new CornerRadius(13), Child = g };
+        var grip = new LineIcon(SubIcons.Grip, 15, 3, "BentoSecondary") { HorizontalAlignment = HorizontalAlignment.Center };
+        var name = new TextBlock { Text = r.Name, FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis };
+        var type = new TextBlock { Text = r.Type.Title(), FontSize = 12 };
+        var summary = new TextBlock { Text = r.Summary, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis };
+        var kind = new TextBlock { Text = r.BuiltIn ? "内置" : "我的", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Right };
+        foreach (var t in new FrameworkElement[] { grip, name, type, summary, kind }) t.VerticalAlignment = VerticalAlignment.Center;
+        g.Children.Add(grip);
+        Grid.SetColumn(name, 1);
         g.Children.Add(name);
-        Grid.SetColumn(type, 1);
+        Grid.SetColumn(type, 2);
         g.Children.Add(type);
-        Grid.SetColumn(summary, 2);
+        Grid.SetColumn(summary, 3);
         g.Children.Add(summary);
-        Grid.SetColumn(kind, 3);
+        Grid.SetColumn(kind, 4);
         g.Children.Add(kind);
-        var item = new ListViewItem { Content = g, Tag = r.Id, MinHeight = 34, Padding = new Thickness(12, 0, 12, 0), HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        var item = new ListViewItem { Content = back, Tag = r.Id };
+        void paint()
+        {
+            var on = item.IsSelected;
+            var dark = back.ActualTheme == ElementTheme.Dark;
+            back.Background = Palette.Get(back, on ? "BentoInk" : "BentoFill");
+            name.Foreground = Palette.Get(back, on ? "BentoOnInk" : "BentoPrimary");
+            name.FontWeight = on ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
+            // 选中行的次要字：设计稿 #B9BCC2（深色里墨色是浅底，用浅色的次要灰 #63676E）。
+            Brush sub = on ? new SolidColorBrush(dark ? Windows.UI.Color.FromArgb(255, 0x63, 0x67, 0x6E) : Windows.UI.Color.FromArgb(255, 0xB9, 0xBC, 0xC2)) : Palette.Get(back, "BentoSecondary");
+            type.Foreground = summary.Foreground = kind.Foreground = sub;
+            grip.ColorKey = on ? "BentoLine" : "BentoSecondary";
+        }
+        painters[item] = paint;
+        FormTheme.On(back, paint);
         AutomationProperties.SetName(item, $"{r.Name}，{r.Type.Title()}，{r.Summary}，{(r.BuiltIn ? "内置" : "我的")}");
         var menu = new MenuFlyout();
         if (!r.BuiltIn)
@@ -336,7 +377,7 @@ internal sealed class RecipeSettings : Reactive
 
 // MARK: - 自动
 
-/// 自动：剪贴板自动压缩、监视文件夹。
+/// 自动（设计稿 V2.1 · 10 自动页）：剪贴板自动压缩、监视文件夹，两张只有标题的白卡并排。
 internal sealed class AutoSettings : Reactive
 {
     private readonly AppSettings settings = AppSettings.Shared;
@@ -350,42 +391,34 @@ internal sealed class AutoSettings : Reactive
 
     protected override void Refresh()
     {
-        var key = $"{settings.ClipboardAuto}|{settings.ClipboardMaxEdge}|{string.Join(",", settings.WatchFolders.Select(w => w.Path + w.RecipeId))}|{AppModel.Shared.Store.All.Count}|{ActualTheme}";
+        var store = AppModel.Shared.Store;
+        var key = $"{settings.ClipboardAuto}|{settings.ClipboardMaxEdge}|{string.Join(",", settings.WatchFolders.Select(w => w.Path + w.RecipeId))}|{string.Join(",", store.All.Select(r => r.Id + r.Name))}|{ActualTheme}";
         if (key == built) return;
         built = key;
 
-        var clip = new List<UIElement> { FormRow.Toggle("复制的图片自动换成压缩版", settings.ClipboardAuto, on => settings.ClipboardAuto = on) };
-        if (settings.ClipboardAuto)
-        {
-            int[] edges = [0, 2560, 1920, 1280];
-            var box = new ComboBox { MinWidth = 110 };
-            AutomationProperties.SetName(box, "最长边");
-            foreach (var e in edges) box.Items.Add(e == 0 ? "不缩小" : $"{e} px");
-            box.SelectedIndex = Math.Max(0, Array.IndexOf(edges, settings.ClipboardMaxEdge));
-            box.SelectionChanged += (_, _) => settings.ClipboardMaxEdge = edges[Math.Max(0, box.SelectedIndex)];
-            clip.Add(FormRow.Create("最长边", box));
-        }
-        var clipCard = FormCard.Create("", "剪贴板",
-            "截图或从网页复制的图片会自动换成压缩版，粘贴到公众号、飞书、微信就是小图。复制的文件、文字不动。", clip.ToArray());
+        int[] edges = [0, 2560, 1920, 1280];
+        var edge = new MenuCapsule("最长边", "", arrowSuffix: true);
+        edge.Options(edges.Select(e => (e, e == 0 ? "不缩小" : $"{e} px")), edges.Contains(settings.ClipboardMaxEdge) ? settings.ClipboardMaxEdge : 0, v => settings.ClipboardMaxEdge = v);
+        var clipCard = FormCard.Create(null, "剪贴板", "复制截图或网页里的图片后，粘贴出去就是小图。复制的文件、文字不动。",
+            FormRow.Toggle("复制的图片自动换成压缩版", settings.ClipboardAuto, on => settings.ClipboardAuto = on),
+            FormRow.Create("最长边", edge));
 
         var rows = new List<UIElement>();
         foreach (var watch in settings.WatchFolders)
         {
             var id = watch.Id;
-            var trailing = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-            var picker = RecipePicker.Create(watch.RecipeId, r =>
-                settings.WatchFolders = settings.WatchFolders.Select(w => w.Id == id ? w with { RecipeId = r.Id } : w).ToList());
-            var remove = new CircleIconButton("", "不再监视", 28, "BentoCard");
-            remove.Click += (_, _) => settings.WatchFolders = settings.WatchFolders.Where(w => w.Id != id).ToList();
-            trailing.Children.Add(picker);
-            trailing.Children.Add(remove);
             var name = Path.GetFileName(watch.Path.TrimEnd('\\'));
-            var row = FormRow.Create(string.IsNullOrEmpty(name) ? watch.Path : name, trailing, 44);
+            if (string.IsNullOrEmpty(name)) name = watch.Path;
+            var picker = new MenuCapsule($"{name} 的配方", "", arrowSuffix: true);
+            picker.Options(store.All.Select(r => (r.Id, r.Name)), watch.RecipeId,
+                v => settings.WatchFolders = settings.WatchFolders.Select(w => w.Id == id ? w with { RecipeId = v } : w).ToList(),
+                ("不再监视", () => settings.WatchFolders = settings.WatchFolders.Where(w => w.Id != id).ToList()));
+            if (store.RecipeById(watch.RecipeId) is null) picker.Value = "选择配方";
+            var row = FormRow.Create(name, picker);
             ToolTipService.SetToolTip(row, watch.Path);
             rows.Add(row);
         }
-        var add = new CapsuleButton("添加文件夹…", 34);
-        add.HorizontalAlignment = HorizontalAlignment.Left;
+        var add = new TextCapsule("添加文件夹…", 30, 12, 12);
         add.Click += async (_, _) =>
         {
             var picker = new FolderPicker { CommitButtonText = "监视" };
@@ -395,9 +428,8 @@ internal sealed class AutoSettings : Reactive
             if (settings.WatchFolders.Any(w => string.Equals(w.Path, f.Path, StringComparison.OrdinalIgnoreCase))) return;
             settings.WatchFolders = settings.WatchFolders.Append(new WatchFolder { Path = f.Path, RecipeId = "img.web" }).ToList();
         };
-        rows.Add(add);
-        var watchCard = FormCard.Create("", "监视文件夹",
-            "放进这些文件夹的新文件按配方自动处理，结果放在旁边，处理完发通知。只处理之后放进来的文件。", rows.ToArray());
+        var watchCard = FormCard.Create(null, "监视文件夹", add,
+            "放进这些文件夹的新文件按配方自动处理，结果放在旁边，处理完发通知。", rows.ToArray());
 
         Content = Columns.Two(clipCard, watchCard);
     }
