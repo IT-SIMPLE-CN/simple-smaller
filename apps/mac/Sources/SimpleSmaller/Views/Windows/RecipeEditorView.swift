@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 新建 / 编辑配方（设计稿 08）。配方会出现在边栏和访达圆环的「自定义」里。
+/// 新建 / 编辑配方（设计稿 V2 · 09）：浮层，灰底分组；配方会出现在顶部配方条、访达圆环和右键菜单里。
 struct RecipeEditorView: View {
     let initial: Recipe
     let onSave: (Recipe) -> Void
@@ -20,82 +20,164 @@ struct RecipeEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(isNew ? "新建配方" : "编辑配方").font(.system(size: 15, weight: .semibold))
-                Text("配方会出现在边栏和访达圆环的「自定义」里。").font(.system(size: 12)).foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.brand))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(isNew ? "新建配方" : "编辑配方").font(.system(size: 22, weight: .bold))
+                    Text("配方会出现在顶部配方条、访达圆环和右键菜单里。").font(.system(size: 12)).foregroundStyle(Bento.secondary)
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 18)
-            .padding(.bottom, 6)
+            .padding(.horizontal, 28)
+            .padding(.top, 24)
+            .padding(.bottom, 12)
 
-            Form {
-                Section {
-                    TextField("名称", text: $r.name, prompt: Text("比如：官网三档 srcset"))
-                    LabeledContent("用于") {
-                        SlidingSegmented(selection: $r.type, options: MediaType.allCases.map { ($0, $0.title) }, size: .small)
-                            .frame(width: 180)
-                            .disabled(!isNew)
+            ScrollView {
+                VStack(spacing: 12) {
+                    group {
+                        line("名称") {
+                            TextField("", text: $r.name, prompt: Text("比如：官网三档 srcset"))
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 15, weight: .semibold))
+                                .padding(.horizontal, 12)
+                                .frame(height: 38)
+                                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Bento.card))
+                        }
+                        line("用于") {
+                            MiniSegmented(selection: $r.type, options: MediaType.allCases.map { ($0, $0.title) }, label: "用于")
+                                .disabled(!isNew)
+                        }
                     }
+                    switch r.type {
+                    case .image: imageSection
+                    case .video: videoSection
+                    case .pdf: pdfSection
+                    }
+                    namingSection
                 }
-                switch r.type {
-                case .image: imageSection
-                case .video: videoSection
-                case .pdf: pdfSection
-                }
-                namingSection
+                .padding(.horizontal, 28)
+                .padding(.vertical, 8)
             }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
 
-            Divider()
             HStack(spacing: 10) {
-                Button("从文件导入…") { importFile() }
+                CapsuleButton(title: "从文件导入…", height: 40) { importFile() }
                 Text(importError ?? "可导出为 .smaller 发给同事")
                     .font(.system(size: 11))
-                    .foregroundStyle(importError == nil ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.warning))
+                    .foregroundStyle(importError == nil ? Bento.secondary : Color.warning)
                 Spacer()
                 Button("取消") { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 20).frame(height: 44)
+                    .background(Capsule().fill(Bento.fill))
                 Button("存储") { save() }
                     .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 26).frame(height: 44)
+                    .background(Capsule().fill(Color.brand))
+                    .opacity(r.name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1)
                     .disabled(r.name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 28)
+            .padding(.top, 14)
+            .padding(.bottom, 22)
         }
-        .frame(width: 520, height: 600)
+        .frame(width: 720, height: 640)
+        .background(Bento.card)
+    }
+
+    /// 灰底分组（设计稿：圆角 20 的浅灰块，左列 96 宽的小标签）。
+    private func group<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 2) { content() }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Bento.fill))
+    }
+
+    private func line<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text(label).font(.system(size: 12)).foregroundStyle(Bento.secondary).frame(width: 84, alignment: .leading)
+            content().frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(minHeight: 42)
+    }
+
+    /// 白底胶囊多选（尺寸档、命名选项）。
+    private func chip(_ title: String, on: Binding<Bool>) -> some View {
+        Button { on.wrappedValue.toggle() } label: {
+            HStack(spacing: 6) {
+                if on.wrappedValue { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)) }
+                Text(title)
+            }
+            .font(.system(size: 12, weight: on.wrappedValue ? .semibold : .regular))
+            .foregroundStyle(on.wrappedValue ? Bento.onInk : Color.primary)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(Capsule().fill(on.wrappedValue ? Bento.ink : Bento.card))
+            .overlay(Capsule().strokeBorder(on.wrappedValue ? .clear : Bento.line, lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(BentoPressStyle())
+        .accessibilityAddTraits(on.wrappedValue ? .isSelected : [])
+    }
+
+    private func whitePills<V: Hashable>(_ selection: Binding<V>, _ options: [(V, String)]) -> some View {
+        FlowLayout(spacing: 6) {
+            ForEach(options, id: \.0) { v, t in
+                let on = selection.wrappedValue == v
+                Button { selection.wrappedValue = v } label: {
+                    Text(t).font(.system(size: 13, weight: on ? .semibold : .regular))
+                        .foregroundStyle(on ? Bento.onInk : Color.primary)
+                        .padding(.horizontal, 16).frame(height: 34)
+                        .background(Capsule().fill(on ? Bento.ink : Bento.card))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(BentoPressStyle())
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
     }
 
     // MARK: 各类型
 
     @ViewBuilder private var imageSection: some View {
-        Section {
-            LabeledContent("格式") {
-                Picker("格式", selection: $r.image.format) {
-                    ForEach(ImageFormatChoice.allCases) { Text($0.title).tag($0) }
-                }
-                .labelsHidden().fixedSize()
-            }
+        group {
+            line("格式") { whitePills($r.image.format, ImageFormatChoice.allCases.map { ($0, $0.title) }) }
             if !r.image.lossless, r.image.format != .png {
-                QualitySlider(value: $r.image.quality)
-            }
-            LabeledContent("尺寸") {
-                Picker("按", selection: $r.image.sizeAxis) {
-                    ForEach(SizeAxis.allCases) { Text($0.title).tag($0) }
-                }
-                .labelsHidden().fixedSize()
-            }
-            // 勾几档就出几个文件（同一张图出多档，适合网站 srcset）。
-            HStack(spacing: 12) {
-                Toggle("原尺寸", isOn: Binding(get: { r.image.size == nil }, set: { on in
-                    if on { r.image.size = nil; r.image.extraSizes = [] } else { r.image.size = 2560 }
-                }))
-                ForEach([3840, 2560, 1920, 1280, 640], id: \.self) { w in
-                    Toggle(isOn: sizeBinding(w)) { Text(verbatim: "\(w)") }
+                line("质量") {
+                    HStack(spacing: 12) {
+                        BrandSlider(value: Binding(get: { Double(r.image.quality) }, set: { r.image.quality = Int($0.rounded()) }), range: 30...100)
+                            .frame(height: 24)
+                            .accessibilityLabel("质量")
+                        Text("\(r.image.quality)").font(Bento.number(18)).frame(width: 32, alignment: .trailing)
+                    }
                 }
             }
-            .toggleStyle(.checkbox)
-            LabeledContent("比例") {
+            line("尺寸 · 按\(r.image.sizeAxis.title)") {
+                // 勾几档就出几个文件（同一张图出多档，适合网站 srcset）。
+                FlowLayout(spacing: 6) {
+                    chip("原尺寸", on: Binding(get: { r.image.size == nil }, set: { on in
+                        if on { r.image.size = nil; r.image.extraSizes = [] } else { r.image.size = 2560 }
+                    }))
+                    ForEach([3840, 2560, 1920, 1280, 640], id: \.self) { w in chip("\(w)", on: sizeBinding(w)) }
+                    Menu {
+                        Picker("按", selection: $r.image.sizeAxis) {
+                            ForEach(SizeAxis.allCases) { Text("按\($0.title)").tag($0) }
+                        }
+                        .pickerStyle(.inline)
+                    } label: { Text("按\(r.image.sizeAxis.title)") }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                }
+            }
+            line("比例") {
                 Picker("比例", selection: Binding(get: { r.image.crop?.id ?? "" }, set: { id in
                     r.image.crop = CropPreset.imagePresets.first { $0.id == id }
                 })) {
@@ -121,8 +203,8 @@ struct RecipeEditorView: View {
     }
 
     @ViewBuilder private var videoSection: some View {
-        Section {
-            LabeledContent("编码") {
+        group {
+            line("编码") {
                 Picker("编码", selection: $r.video.codec) {
                     Text("H.264 · MP4").tag(VideoBody.Codec.h264)
                     Text("HEVC · MP4").tag(VideoBody.Codec.hevc)
@@ -131,7 +213,7 @@ struct RecipeEditorView: View {
                 .labelsHidden().fixedSize()
             }
             if r.video.codec != .gif {
-                LabeledContent("分辨率") {
+                line("分辨率") {
                     Picker("分辨率", selection: $r.video.shortEdge) {
                         Text("1080p").tag(Int?.some(1080))
                         Text("720p").tag(Int?.some(720))
@@ -140,7 +222,7 @@ struct RecipeEditorView: View {
                     }
                     .labelsHidden().fixedSize()
                 }
-                LabeledContent("大小上限") {
+                line("大小上限") {
                     HStack(spacing: 6) {
                         Toggle("", isOn: Binding(get: { r.video.rate == .size }, set: { r.video.rate = $0 ? .size : .medium }))
                             .labelsHidden().toggleStyle(.checkbox)
@@ -150,14 +232,14 @@ struct RecipeEditorView: View {
                         Text("MB（按时长倒推码率）").foregroundStyle(.secondary)
                     }
                 }
-                Toggle("保留声音", isOn: $r.video.keepAudio)
+                line("声音") { chip("保留声音", on: $r.video.keepAudio) }
             }
         }
     }
 
     @ViewBuilder private var pdfSection: some View {
-        Section {
-            LabeledContent("图片分辨率") {
+        group {
+            line("图片分辨率") {
                 Picker("图片分辨率", selection: $r.pdf.level) {
                     Text("110 dpi · 屏幕阅读").tag(PdfBody.Level.screen)
                     Text("150 dpi · 邮件附件").tag(PdfBody.Level.email)
@@ -167,30 +249,33 @@ struct RecipeEditorView: View {
                 .labelsHidden().fixedSize()
             }
             if r.pdf.level == .size {
-                LabeledContent("大小上限") {
+                line("大小上限") {
                     HStack(spacing: 6) {
                         TextField("", value: $r.pdf.targetMB, format: .number.grouping(.never)).frame(width: 52).multilineTextAlignment(.trailing)
                         Text("MB").foregroundStyle(.secondary)
                     }
                 }
             } else if r.pdf.level == .email {
-                LabeledContent("大小上限", value: "10 MB")
+                line("大小上限") { Text("10 MB").foregroundStyle(Bento.secondary) }
             }
-            Toggle("去掉作者与修改记录", isOn: $r.stripMetadata)
+            line("") { chip("去掉作者与修改记录", on: $r.stripMetadata) }
         }
     }
 
     // MARK: 命名
 
     @ViewBuilder private var namingSection: some View {
-        Section {
-            LabeledContent("文件名") {
+        group {
+            line("文件名") {
                 TextField("", text: $r.naming.template)
-                    .font(.system(.body, design: .monospaced))
-                    .multilineTextAlignment(.trailing)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12, design: .monospaced))
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Bento.card))
                     .accessibilityLabel("文件名规则")
             }
-            HStack(spacing: 6) {
+            line("") { HStack(spacing: 4) {
                 ForEach(["{name}", "{w}", "{h}", "{ratio}", "{date}", "{n}"], id: \.self) { token in
                     Button(token) { r.naming.template += token }
                         .buttonStyle(.bordered)
@@ -198,17 +283,21 @@ struct RecipeEditorView: View {
                         .font(.system(size: 11, design: .monospaced))
                         .help(tokenHelp(token))
                 }
-            }
-            LabeledContent("示例") {
+            } }
+            line("示例") {
                 Text(verbatim: example).font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.middle)
             }
-            HStack(spacing: 16) {
-                Toggle("小写", isOn: $r.naming.lowercase)
-                Toggle("中文转拼音", isOn: $r.naming.pinyin)
-                Toggle("空格换连字符", isOn: $r.naming.hyphenate)
+            line("") {
+                HStack(spacing: 6) {
+                    chip("小写", on: $r.naming.lowercase)
+                    chip("中文转拼音", on: $r.naming.pinyin)
+                    chip("空格换连字符", on: $r.naming.hyphenate)
+                }
             }
-            .toggleStyle(.checkbox)
+            if r.type != .pdf {
+                line("") { chip("去掉位置与设备信息", on: $r.stripMetadata) }
+            }
         }
     }
 
