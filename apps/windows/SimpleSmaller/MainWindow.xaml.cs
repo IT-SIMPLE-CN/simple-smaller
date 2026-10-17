@@ -254,11 +254,8 @@ public sealed partial class MainWindow : Window
         UpdateDragRegions();
     }
 
-    private CancellationTokenSource? toastHide;
-
     private void ShowToast()
     {
-        toastHide?.Cancel();
         if (model.Toast is { } text)
         {
             toastText.Text = text;
