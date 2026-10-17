@@ -251,6 +251,9 @@ public sealed class Segments<T> : Grid where T : notnull
 
     public T Selected { get => selected; set => Select(value, notify: false); }
 
+    /// 槽的色板键（默认 Top 用卡片白、其余用灰底）；首页左上的分段放在窗口底上，槽要比窗口底深一档。
+    public string? TrackKey { get; set; }
+
     private void Select(T value, bool notify)
     {
         if (EqualityComparer<T>.Default.Equals(value, selected) && placed)
@@ -291,7 +294,7 @@ public sealed class Segments<T> : Grid where T : notnull
 
     private void Paint()
     {
-        track.Background = Palette.Get(this, kind == Kind.Top ? "BentoCard" : "BentoFill");
+        track.Background = Palette.Get(this, TrackKey ?? (kind == Kind.Top ? "BentoCard" : "BentoFill"));
         thumb.Background = Palette.Get(this, kind == Kind.Top ? "BentoInk" : "BentoCard");
         thumb.Shadow = null;
         foreach (var (value, button, text, icon) in items)

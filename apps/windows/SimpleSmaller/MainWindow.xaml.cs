@@ -29,6 +29,7 @@ public sealed partial class MainWindow : Window
     private readonly TextBlock toastText = new() { FontSize = 13 };
     private readonly TextBlock title = new() { FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock subtitle = new() { FontSize = 11 };
+    private readonly Segments<string> homeTabs = new(Segments<string>.Kind.Mini, new[] { ("首页", "首页", (string?)null), ("设置", "设置", (string?)null) }, "首页", "首页与设置") { TrackKey = "BentoLine" };
     private readonly CircleIconButton back = new("", "回首页", 34, "BentoCard");
     private UIElement? page;
     private string pageKey = "";
@@ -180,8 +181,16 @@ public sealed partial class MainWindow : Window
         var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         texts.Children.Add(title);
         texts.Children.Add(subtitle);
+        leading.Children.Add(homeTabs);
         leading.Children.Add(back);
         leading.Children.Add(texts);
+        // 首页左上「首页 | 设置」：点设置打开设置窗口，分段回到首页。
+        homeTabs.Changed += v =>
+        {
+            if (v != "设置") return;
+            App.OpenSettings();
+            Root.DispatcherQueue.TryEnqueue(() => homeTabs.Selected = "首页");
+        };
         titleBar.Children.Add(leading);
         Grid.SetColumn(center, 1);
         titleBar.Children.Add(center);
@@ -215,6 +224,7 @@ public sealed partial class MainWindow : Window
     private IEnumerable<FrameworkElement> Interactive()
     {
         yield return back;
+        yield return homeTabs;
         if (center.Content is FrameworkElement c)
         {
             yield return c;
@@ -291,6 +301,59 @@ public sealed partial class MainWindow : Window
         UpdateTitle();
     }
 
+    /// 首页右上：白底胶囊「粘贴剪贴板」+ 快捷键（设计稿 V2.1 · 01）。
+    private Button PasteButton()
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+        var label = new TextBlock { Text = "粘贴剪贴板", FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
+        var keys = new TextBlock { Text = "Ctrl+Shift+V", FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(label);
+        row.Children.Add(keys);
+        var pill = new Border { Height = 36, Padding = new Thickness(16, 0, 14, 0), Child = row };
+        Capsule.Apply(pill);
+        var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = pill, VerticalAlignment = VerticalAlignment.Center };
+        Motion.SetPress(b, true);
+        AutomationProperties.SetName(b, "粘贴剪贴板");
+        ToolTipService.SetToolTip(b, "处理剪贴板里的图片或文件（Ctrl+Shift+V）");
+        b.Click += async (_, _) => await model.PasteFromClipboardAsync();
+        void paint()
+        {
+            pill.Background = Palette.Get(b, "BentoCard");
+            label.Foreground = Palette.Get(b, "BentoPrimary");
+            keys.Foreground = Palette.Get(b, "BentoSecondary");
+        }
+        b.Loaded += (_, _) => paint();
+        b.ActualThemeChanged += (_, _) => paint();
+        return b;
+    }
+
+    /// 首页右上的菜单按钮：设置、关于、检查更新、退出。
+    private Button MenuButton()
+    {
+        var icon = new LineIcon(Icons.Menu, 18);
+        var circle = new Border { Width = 36, Height = 36, CornerRadius = new CornerRadius(18), Child = icon };
+        var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = circle, VerticalAlignment = VerticalAlignment.Center };
+        Motion.SetPress(b, true);
+        AutomationProperties.SetName(b, "更多");
+        ToolTipService.SetToolTip(b, "更多");
+        var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight };
+        void item(string text, Action act)
+        {
+            var i = new MenuFlyoutItem { Text = text };
+            i.Click += (_, _) => act();
+            menu.Items.Add(i);
+        }
+        item("设置…", () => App.OpenSettings());
+        item("关于简单小一点", App.OpenAbout);
+        item("检查更新…", async () => AppModel.Shared.Flash(await Updates.Shared.CheckAsync()));
+        menu.Items.Add(new MenuFlyoutSeparator());
+        item("退出", App.Quit);
+        b.Flyout = menu;
+        b.Loaded += (_, _) => circle.Background = Palette.Get(b, "BentoCard");
+        b.ActualThemeChanged += (_, _) => circle.Background = Palette.Get(b, "BentoCard");
+        return b;
+    }
+
     private bool titleQueued;
     private string segmentKey = "";
 
@@ -306,6 +369,7 @@ public sealed partial class MainWindow : Window
     {
         var home = model.ShowHome;
         back.Visibility = home ? Visibility.Collapsed : Visibility.Visible;
+        homeTabs.Visibility = home ? Visibility.Visible : Visibility.Collapsed;
         trailing.Children.Clear();
         if (home)
         {
@@ -313,12 +377,9 @@ public sealed partial class MainWindow : Window
             segmentKey = "";
             title.Text = "";
             subtitle.Text = "";
-            var paste = new CircleIconButton("", "处理剪贴板里的图片或文件（Ctrl+Shift+V）", 34, "BentoCard");
-            paste.Click += async (_, _) => await model.PasteFromClipboardAsync();
-            var settings = new CircleIconButton("", "设置（Ctrl+,）", 34, "BentoCard");
-            settings.Click += (_, _) => App.OpenSettings();
-            trailing.Children.Add(paste);
-            trailing.Children.Add(settings);
+            // 设计稿 V2.1 · 01：右边「粘贴剪贴板 ⌘⇧V」胶囊 + 菜单按钮。
+            trailing.Children.Add(PasteButton());
+            trailing.Children.Add(MenuButton());
         }
         else
         {

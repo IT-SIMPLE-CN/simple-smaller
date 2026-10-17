@@ -15,19 +15,20 @@ internal sealed class HomeView : UserControl
 {
     private readonly Grid root = new() { Padding = new Thickness(40, 0, 40, 0) };
     private readonly TextBlock headline = new() { Text = "拖进来，选一下", FontSize = 46, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, CharacterSpacing = -20 };
-    private readonly FontIcon headlineArrow = new() { Glyph = "", FontSize = 30 };
+    private readonly LineIcon headlineArrow = new(Icons.TurnDownRight, 34, 2);
     private readonly StackPanel cards = new() { Orientation = Orientation.Horizontal, Spacing = 16 };
     private readonly List<HomeCard> cardViews = new();
     private readonly TextBlock note = new() { Text = "把文件拖到卡片上就进对应的功能；拖到窗口别处按类型自动分流。", FontSize = 12, Margin = new Thickness(176, 28, 0, 0) };
     private readonly TextBlock local = new() { Text = "图片、视频、PDF\n都在本机处理，不上传。", FontSize = 12, LineHeight = 18 };
     private readonly StackPanel column = new();
+    private readonly Microsoft.UI.Xaml.Shapes.Path dots = new() { Width = 444, Height = 444, Data = DotGrid() };
 
     public HomeView()
     {
         var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14 };
         head.Children.Add(headline);
-        headlineArrow.RenderTransform = new RotateTransform { Angle = 45, CenterX = 15, CenterY = 15 };
-        AutomationProperties.SetAccessibilityView(headlineArrow, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+        headlineArrow.VerticalAlignment = VerticalAlignment.Center;
+        headlineArrow.Margin = new Thickness(0, 8, 0, 0);
         head.Children.Add(headlineArrow);
         AutomationProperties.SetHeadingLevel(headline, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level1);
 
@@ -53,6 +54,13 @@ internal sealed class HomeView : UserControl
         column.Children.Add(head);
         column.Children.Add(cards);
         column.Children.Add(note);
+        // 右上角渐隐点阵（设计稿 V2.1 · 01），装饰，不响应点击、旁白不读。
+        dots.HorizontalAlignment = HorizontalAlignment.Right;
+        dots.VerticalAlignment = VerticalAlignment.Top;
+        dots.Margin = new Thickness(0, 27, -31, 0);
+        dots.IsHitTestVisible = false;
+        AutomationProperties.SetAccessibilityView(dots, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+        root.Children.Add(dots);
         root.Children.Add(column);
         Content = root;
         SizeChanged += (_, _) => Layout();
@@ -64,7 +72,7 @@ internal sealed class HomeView : UserControl
     {
         var text = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(new TextBlock { Text = "关于", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
-        text.Children.Add(new FontIcon { Glyph = "", FontSize = 11 });
+        text.Children.Add(new LineIcon(Icons.ArrowUpRight, 15, 2) { VerticalAlignment = VerticalAlignment.Center });
         var border = new Border { Height = 38, Padding = new Thickness(16, 0, 12, 0), CornerRadius = new CornerRadius(19), BorderThickness = new Thickness(1.2), Child = text };
         var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = border, HorizontalAlignment = HorizontalAlignment.Left };
         Motion.SetPress(b, true);
@@ -73,6 +81,23 @@ internal sealed class HomeView : UserControl
         b.Loaded += (_, _) => border.BorderBrush = Palette.Get(b, "BentoPrimary");
         b.ActualThemeChanged += (_, _) => border.BorderBrush = Palette.Get(b, "BentoPrimary");
         return b;
+    }
+
+    /// 设计稿右上角的点阵：41 × 41 格、间距 11，圆点半径从中心向外线性变小（照画布 SVG 拟合），小于 0.5 不画。
+    private static Geometry DotGrid()
+    {
+        var group = new GeometryGroup();
+        for (var i = 0; i < 41; i++)
+        {
+            for (var j = 0; j < 41; j++)
+            {
+                double x = 2 + i * 11, y = 2 + j * 11;
+                var d = Math.Sqrt((x - 222) * (x - 222) + (y - 222) * (y - 222));
+                var r = Math.Round((2.745 - 0.0105 * d) * 10) / 10;
+                if (r >= 0.5) group.Children.Add(new EllipseGeometry { Center = new Windows.Foundation.Point(x, y), RadiusX = r, RadiusY = r });
+            }
+        }
+        return group;
     }
 
     private void Layout()
@@ -96,7 +121,7 @@ internal sealed class HomeView : UserControl
     private void Paint()
     {
         headline.Foreground = Palette.Get(this, "BentoPrimary");
-        headlineArrow.Foreground = Palette.Get(this, "BentoPrimary");
+        dots.Fill = new SolidColorBrush(ActualTheme == ElementTheme.Dark ? Windows.UI.Color.FromArgb(255, 0x2C, 0x2E, 0x33) : Windows.UI.Color.FromArgb(255, 0xD5, 0xD8, 0xDC));
         note.Foreground = Palette.Get(this, "BentoSecondary");
         local.Foreground = Palette.Get(this, "BentoSecondary");
     }
@@ -131,13 +156,13 @@ internal sealed class HomeCard : Button
     private readonly Border back = new() { CornerRadius = new CornerRadius(20), Padding = new Thickness(14) };
     private readonly Border notch = new() { Padding = new Thickness(6, 0, 0, 6), CornerRadius = new CornerRadius(0, 0, 0, 16), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
     private readonly Border notchIcon = new() { Width = 34, Height = 34, CornerRadius = new CornerRadius(17) };
-    private readonly FontIcon glyph = new() { FontSize = 14 };
+    private readonly LineIcon glyph;
     private readonly TextBlock title = new() { FontSize = 24, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 18, 0, 0) };
     private readonly TextBlock subtitle = new() { FontSize = 13, Margin = new Thickness(0, 4, 0, 0) };
     private readonly Rectangle rule = new() { Width = 18, Height = 1.5, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 16, 0, 0) };
     private readonly TextBlock text = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, LineHeight = 18, Margin = new Thickness(0, 12, 0, 0) };
     private readonly Border arrow = new() { Width = 36, Height = 36, CornerRadius = new CornerRadius(18) };
-    private readonly FontIcon arrowIcon = new() { Glyph = "", FontSize = 15 };
+    private readonly LineIcon arrowIcon = new(Icons.ArrowUpRight, 16, 2);
     private readonly TextBlock formats = new() { FontSize = 10, CharacterSpacing = 40, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
     private bool targeted;
     private bool hovering;
@@ -157,7 +182,7 @@ internal sealed class HomeCard : Button
             _ => "在资源管理器里按住 Alt 点文件，圆环里点一下就好。第一次用要在设置里开启。",
         };
         formats.Text = kind switch { Kind.Image => "JPG · PNG · HEIC", Kind.Video => "MP4 · MOV · GIF", Kind.Pdf => "PDF", _ => "Windows" };
-        glyph.Glyph = kind switch { Kind.Image => "", Kind.Video => "", Kind.Pdf => "", _ => "" };
+        glyph = new LineIcon(kind switch { Kind.Image => Icons.Image, Kind.Video => Icons.Video, Kind.Pdf => Icons.Pdf, _ => Icons.Ring }, 16);
         var art = kind switch { Kind.Image => "home-image", Kind.Video => "home-video", Kind.Pdf => "home-pdf", _ => "home-ring" };
 
         var picture = new Grid();
@@ -255,7 +280,6 @@ internal sealed class HomeCard : Button
         back.BorderThickness = new Thickness(targeted ? 2.5 : 0);
         notch.Background = Palette.Get(this, "BentoCard");
         notchIcon.Background = Palette.Get(this, "BentoFill");
-        glyph.Foreground = Palette.Get(this, "BentoPrimary");
         title.Foreground = Palette.Get(this, "BentoPrimary");
         subtitle.Foreground = Palette.Get(this, "BentoSecondary");
         rule.Fill = Palette.Get(this, "BentoPrimary");
@@ -264,7 +288,7 @@ internal sealed class HomeCard : Button
         formats.Foreground = Palette.Get(this, "BentoSecondary");
         var red = kind == Kind.Image || targeted;
         arrow.Background = red ? Palette.Brand : Palette.Get(this, "BentoFill");
-        arrowIcon.Foreground = red ? (Brush)Application.Current.Resources["OnBrand"] : Palette.Get(this, "BentoPrimary");
+        arrowIcon.ColorKey = red ? "OnBrand" : "BentoPrimary";
         back.Translation = new System.Numerics.Vector3(0, hovering ? -2 : 0, hovering ? 16 : 2);
         back.Shadow ??= new ThemeShadow();
     }
