@@ -282,21 +282,14 @@ struct ImageInspector: View {
                     Button("不裁切") { ws.draft.image.crop = nil; ws.draft.image.cropWidth = nil; ws.resetCrop() }
                 }
             }
-            InspectorToggle(label: extraLabel, isOn: Binding(get: { !ws.draft.image.extraSizes.isEmpty }, set: { on in
-                ws.draft.image.extraSizes = on ? extraSizes : []
-            }))
+            // 多档尺寸（网站 srcset）在配方里设；用了这类配方时只写明会多出哪几档。
+            if !ws.draft.image.extraSizes.isEmpty {
+                InspectorRow(label: "另出") {
+                    Text(verbatim: ws.draft.image.extraSizes.map { "\($0)" }.joined(separator: " / ") + " px").foregroundStyle(.secondary).monospacedDigit()
+                }
+                .help("这个配方每张图还会多出这几档小图，给网站按屏幕大小加载用；在配方里改")
+            }
         }
-    }
-
-    private var extraSizes: [Int] {
-        let base = ws.draft.image.size ?? 2560
-        return [base / 2, base / 4].filter { $0 >= 64 }
-    }
-
-    /// 已经开着时写实际的档位（配方里可能只勾了一档），没开时写打开后会出的两档。
-    private var extraLabel: String {
-        let list = ws.draft.image.extraSizes.isEmpty ? extraSizes : ws.draft.image.extraSizes
-        return "同时出 " + list.map(String.init).joined(separator: " / ")
     }
 }
 
