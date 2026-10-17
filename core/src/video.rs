@@ -69,6 +69,19 @@ impl Tools {
     }
 }
 
+/// 起 ffmpeg / ffprobe。Windows 上不开控制台窗口（应用是窗口程序，否则每次都会闪一个黑框）。
+fn tool(path: &Path) -> Command {
+    #[allow(unused_mut)]
+    let mut c = Command::new(path);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        c.creation_flags(CREATE_NO_WINDOW);
+    }
+    c
+}
+
 // ---------- 探测 ----------
 
 #[derive(Debug, Clone)]
@@ -117,7 +130,7 @@ fn parse_rate(s: &str) -> Option<f64> {
 }
 
 pub fn probe(tools: &Tools, path: &Path) -> Result<VideoInfo> {
-    let out = Command::new(&tools.ffprobe)
+    let out = tool(&tools.ffprobe)
         .args(["-v", "error", "-print_format", "json", "-show_format", "-show_streams"])
         .arg(path)
         .output()?;
@@ -149,7 +162,7 @@ pub fn probe(tools: &Tools, path: &Path) -> Result<VideoInfo> {
     let mut duration: f64 = parsed.format.duration.as_deref().and_then(|d| d.parse().ok()).unwrap_or(0.0);
     // 动图 WebP 这类容器不写时长：数一遍帧，按帧率算。
     if duration <= 0.0 {
-        let frames = Command::new(&tools.ffprobe)
+        let frames = tool(&tools.ffprobe)
             .args(["-v", "error", "-count_frames", "-select_streams", "v:0", "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0"])
             .arg(path)
             .output()
@@ -280,7 +293,7 @@ fn run_ffmpeg(
     progress: &mut dyn FnMut(f64),
     cancel: &AtomicBool,
 ) -> Result<()> {
-    let mut child: Child = Command::new(&tools.ffmpeg)
+    let mut child: Child = tool(&tools.ffmpeg)
         .args(args)
         .args(["-progress", "pipe:1", "-nostats", "-loglevel", "error"])
         .stdout(Stdio::piped())
@@ -594,7 +607,7 @@ pub fn extract_frames(
     let mut args = input_args(input, options.trim);
     args.extend(["-map".into(), "0:v:0".into(), "-vf".into(), vf, "-f".into(), "rawvideo".into(), "-pix_fmt".into(), "rgba".into()]);
     args.extend(["-loglevel".into(), "error".into(), "pipe:1".into()]);
-    let mut child = Command::new(&tools.ffmpeg).args(&args).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let mut child = tool(&tools.ffmpeg).args(&args).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
     let mut stdout = child.stdout.take().unwrap();
     let frame_len = w as usize * h as usize * 4;
     let mut index = 0usize;
@@ -678,7 +691,7 @@ mod tests {
     /// 用 ffmpeg 自带的测试信号生成一段带声音的视频。
     fn sample(tools: &Tools, dir: &Path, seconds: u32) -> PathBuf {
         let path = dir.join("sample.mp4");
-        let status = Command::new(&tools.ffmpeg)
+        let status = tool(&tools.ffmpeg)
             .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i"])
             .arg(format!("testsrc2=size=1280x720:rate=30:duration={seconds}"))
             .args(["-f", "lavfi", "-i"])
