@@ -30,6 +30,10 @@ enum Bento {
     static let ink = dynamic(0x111214, 0xF2F3F5)
     /// 选中胶囊上的字（与墨黑相反）。
     static let onInk = dynamic(0xFFFFFF, 0x111214)
+    /// 墨黑底上的次要文字 #B9BCC2（设置里选中的常用行）。
+    static let onInkSecondary = dynamic(0xB9BCC2, 0x5A5E66)
+    /// 更淡的说明字 #8A8E95（分隔线上的小字）。
+    static let tertiary = dynamic(0x8A8E95, 0x80848B)
     /// 次要文字 #63676E。
     static let secondary = dynamic(0x63676E, 0x9DA1A8)
     /// 未选开关、描边 #D9DCE0。
@@ -140,6 +144,25 @@ struct BentoToggleRow: View {
     var body: some View {
         BentoRow(label: label, height: height) {
             Toggle(label, isOn: $isOn).labelsHidden().toggleStyle(.switch).tint(.brand).controlSize(.small)
+        }
+    }
+}
+
+/// 一条横向虚线（#D9DCE0，1 px）。
+struct DashedLine: View {
+    var body: some View {
+        Line()
+            .stroke(Bento.line, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+            .frame(height: 1)
+            .accessibilityHidden(true)
+    }
+
+    private struct Line: Shape {
+        func path(in rect: CGRect) -> Path {
+            Path { p in
+                p.move(to: CGPoint(x: rect.minX, y: rect.midY))
+                p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+            }
         }
     }
 }

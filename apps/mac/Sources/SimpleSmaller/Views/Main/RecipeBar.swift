@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 顶部配方条（设计稿 V2.1）：只放这个分段能用的配方；选中变黑，改过参数带红点；
+/// 顶部常用条（设计稿 V2.1）：只放这个分段能用的常用，顺序同设置 › 常用；选中变黑，改过参数带红点；
 /// 文件可以直接拖到某个配方上；「＋」新建，「管理」进设置。
 struct RecipeBar: View {
     @Environment(AppModel.self) private var model
@@ -9,15 +9,16 @@ struct RecipeBar: View {
     let ws: Workspace
     @State private var editing: Recipe?
 
-    private var recipes: (builtIn: [Recipe], mine: [Recipe]) {
+    /// 这一段能用的常用，按设置 › 常用 里这一类的顺序（内置与我的混排）。
+    private var recipes: [Recipe] {
         let fits: (Recipe) -> Bool = { r in
             switch ws.type {
-            case .image: return true   // 图片只有一页，全部配方都在这里（带比例的就是裁切）
+            case .image: return true   // 图片只有一页，全部常用都在这里（带比例的就是裁切）
             case .video: return r.video.outputFrames == (ws.videoSegment == .frames)
             case .pdf: return r.pdf.longImage == (ws.pdfSegment == .toImages)
             }
         }
-        return (model.store.builtIns(for: ws.type).filter(fits), model.store.mine(for: ws.type).filter(fits))
+        return model.store.ordered(ws.type).filter(fits)
     }
 
     var body: some View {
@@ -27,10 +28,10 @@ struct RecipeBar: View {
                 Text("常用").font(.system(size: 13, weight: .semibold))
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
-                        ForEach(list.builtIn) { pill($0) }
-                        if !list.mine.isEmpty {
-                            Rectangle().fill(Bento.line).frame(width: 1, height: 20).padding(.horizontal, 4)
-                            ForEach(list.mine) { r in
+                        ForEach(list) { r in
+                            if r.builtIn {
+                                pill(r)
+                            } else {
                                 pill(r).contextMenu {
                                     Button("编辑…") { editing = r }
                                     Button("导出…") { export(r) }

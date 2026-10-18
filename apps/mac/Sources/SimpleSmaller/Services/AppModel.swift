@@ -36,7 +36,8 @@ final class AppModel {
 
     init() {
         for type in MediaType.allCases {
-            let first = store.builtIns(for: type).first!
+            // 按设置里的顺序取第一个（序列帧、转长图属于另一个分段，跳过）。
+            let first = store.ordered(type).first { !$0.video.outputFrames && !$0.pdf.longImage } ?? store.builtIns(for: type).first!
             workspaces[type] = Workspace(type: type, recipe: first)
         }
     }

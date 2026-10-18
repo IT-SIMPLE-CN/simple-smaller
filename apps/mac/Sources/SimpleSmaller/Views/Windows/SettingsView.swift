@@ -148,70 +148,230 @@ private struct DotLabel: LabelStyle {
     }
 }
 
-// MARK: - 配方
+// MARK: - 常用
 
-/// 配方管理：拖动排序（配方条、圆环按这个顺序），导入导出，新建、编辑、删除我的配方。
+/// 常用（设计稿 V2.1 · 10 → 常用）：左边按类型分开，右边只列这一类。
+/// 这一类的顺序就是功能页常用条的顺序，前 5 个也在访达圆环外圈；拖动排序，导入导出，新建、编辑、删除我的常用。
 private struct RecipeSettings: View {
     @Environment(AppModel.self) private var model
+    @State private var kind: MediaType = AppModel.shared.selectedType
     @State private var selection: Set<String> = []
     @State private var editing: Recipe?
     @State private var message: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text("常用").font(.system(size: 14, weight: .semibold))
-                Text(message ?? "拖动排序，常用条和圆环按这个顺序").font(.system(size: 11)).foregroundStyle(Bento.secondary)
-                Spacer()
-                CapsuleButton(title: "导入…", height: 30) { importFile() }
-                CapsuleButton(title: "导出所选…", height: 30) { exportSelected() }
+        HStack(alignment: .top, spacing: 12) {
+            kinds
+                .frame(width: 200)
+                .frame(maxHeight: .infinity)
+                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Bento.card))
+            list
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Bento.card))
+        }
+        .sheet(item: $editing) { r in RecipeEditorView(initial: r) { _ in } }
+        .onChange(of: kind) { _, _ in selection = []; message = nil }
+    }
+
+    // MARK: 左栏：类型
+
+    private var kinds: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("按类型分开管")
+                .font(.system(size: 12))
+                .foregroundStyle(Bento.secondary)
+                .padding(.horizontal, 6)
+                .padding(.top, 4)
+                .padding(.bottom, 6)
+            ForEach(MediaType.allCases) { t in kindRow(t) }
+            Spacer(minLength: 0)
+            Text("每一类的顺序，就是那个功能页「常用」条的顺序；前 5 个也出现在访达圆环外圈。")
+                .font(.system(size: 11))
+                .foregroundStyle(Bento.secondary)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Bento.fill))
+        }
+        .padding(12)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("常用的类型")
+    }
+
+    private func kindRow(_ t: MediaType) -> some View {
+        let on = t == kind
+        let count = model.store.ordered(t).count
+        return Button { withAnimation(.smooth(duration: 0.2)) { kind = t } } label: {
+            HStack(spacing: 10) {
+                LineIcon(glyph: t.kindGlyph, size: 17, weight: 1.9)
+                    .foregroundStyle(on ? Color.white : Color.primary)
+                    .frame(width: 34, height: 34)
+                    .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(on ? Color.brand : Bento.card))
+                Text(t.title)
+                    .font(.system(size: 14, weight: on ? .semibold : .regular))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: "\(count)")
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(on ? Bento.onInk : Bento.secondary)
+                    .padding(.horizontal, 6)
+                    .frame(minWidth: 22, minHeight: 20)
+                    .background(Capsule().fill(on ? Bento.onInk.opacity(0.16) : Bento.card))
+            }
+            .foregroundStyle(on ? Bento.onInk : Color.primary)
+            .padding(.leading, 8)
+            .padding(.trailing, 12)
+            .frame(height: 52)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(on ? Bento.ink : Bento.fill))
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(BentoPressStyle())
+        .accessibilityLabel("\(t.title)，\(count) 个")
+        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
+    }
+
+    // MARK: 右边：这一类的常用
+
+    private var list: some View {
+        let recipes = model.store.ordered(kind)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Text("\(kind.title)的常用").font(.system(size: 14, weight: .semibold)).accessibilityAddTraits(.isHeader)
+                Text(message ?? "拖动排序").font(.system(size: 11)).foregroundStyle(Bento.secondary).lineLimit(1)
+                Spacer(minLength: 6)
+                smallButton("导入…") { importFile() }
+                smallButton("导出所选…") { exportSelected() }
                     .disabled(selection.isEmpty)
             }
-            List(selection: $selection) {
-                ForEach(model.store.all) { r in
-                    HStack(spacing: 12) {
-                        Text(r.name).lineLimit(1)
-                        Spacer(minLength: 8)
-                        Text(r.type.title).font(.system(size: 11)).foregroundStyle(Bento.secondary).frame(width: 40, alignment: .leading)
-                        Text(r.summary).font(.system(size: 11).monospacedDigit()).foregroundStyle(Bento.secondary).frame(width: 110, alignment: .leading)
-                        Text(r.builtIn ? "内置" : "我的")
-                            .font(.system(size: 11))
-                            .foregroundStyle(r.builtIn ? Bento.secondary : Color.brand)
-                            .frame(width: 34, alignment: .trailing)
+            .padding(.bottom, 4)
+            List {
+                ForEach(Array(recipes.enumerated()), id: \.element.id) { i, r in
+                    VStack(spacing: 6) {
+                        row(r, ring: i < 5)
+                        if i == 4, recipes.count > 5 { ringDivider }
                     }
-                    .frame(height: 26)
-                    .tag(r.id)
-                    .contextMenu {
-                        if !r.builtIn {
-                            Button("编辑…") { editing = r }
-                            Button("删除", role: .destructive) { model.store.delete(id: r.id) }
-                        } else {
-                            Button("复制为我的常用…") { var c = r; c.id = ""; c.name = "\(r.name) 改"; c.builtIn = false; editing = c }
-                        }
-                    }
+                    .padding(.vertical, 3)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                 }
-                .onMove { model.store.move(fromOffsets: $0, toOffset: $1) }
+                .onMove { model.store.move(kind, fromOffsets: $0, toOffset: $1) }
             }
-            .listStyle(.inset)
-            .alternatingRowBackgrounds(.enabled)
+            .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            HStack(spacing: 8) {
-                Spacer()
-                CapsuleButton(title: "删除所选", height: 34) {
+            .environment(\.defaultMinListRowHeight, 0)
+            .modifier(NoTopScrollEdge())
+            .padding(.vertical, -3)
+            .accessibilityLabel("\(kind.title)的常用")
+            HStack(spacing: 6) {
+                Button { editing = Recipe(id: "", name: "", type: kind) } label: {
+                    HStack(spacing: 6) {
+                        LineIcon(glyph: .plus, size: 14, weight: 2.4)
+                        Text("新建\(kind.title)常用").font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .frame(height: 36)
+                    .background(Capsule().fill(Color.brand))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(BentoPressStyle())
+                CapsuleButton(title: "删除所选", height: 36) {
                     for id in selection where !(model.store.recipe(id: id)?.builtIn ?? true) { model.store.delete(id: id) }
                     selection = []
                 }
                 .disabled(!selection.contains { !(model.store.recipe(id: $0)?.builtIn ?? true) })
-                CapsuleButton(title: "新建常用", height: 34, fill: .brand, foreground: .white) {
-                    editing = Recipe(id: "", name: "", type: model.selectedType)
-                }
+                Spacer()
+                Text("内置的不能删").font(.system(size: 11)).foregroundStyle(Bento.secondary)
+            }
+            .padding(.top, 6)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 16)
+    }
+
+    /// 一行：拖动把手、名称、摘要、「圆环外圈」小标、内置 / 我的。点一下选中（⌘ 点多选）。
+    private func row(_ r: Recipe, ring: Bool) -> some View {
+        let on = selection.contains(r.id)
+        let sub = on ? Bento.onInkSecondary : Bento.secondary
+        return HStack(spacing: 8) {
+            LineIcon(glyph: .grip, size: 15, weight: 3)
+                .foregroundStyle(sub)
+                .frame(width: 22)
+            Text(r.name)
+                .font(.system(size: 13, weight: on ? .semibold : .regular))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(r.summary)
+                .font(.system(size: 12).monospacedDigit())
+                .foregroundStyle(sub)
+                .lineLimit(1)
+                .frame(width: 170, alignment: .leading)
+            Text("圆环外圈")
+                .font(.system(size: 10))
+                .foregroundStyle(on ? Bento.onInk : Bento.alertText)
+                .padding(.horizontal, 8)
+                .frame(height: 20)
+                .background(Capsule().fill(on ? Bento.onInk.opacity(0.14) : Bento.alertFill))
+                .frame(width: 70, alignment: .leading)
+                .opacity(ring ? 1 : 0)
+                .accessibilityHidden(!ring)
+            Text(r.builtIn ? "内置" : "我的")
+                .font(.system(size: 11, weight: r.builtIn ? .regular : .semibold))
+                .foregroundStyle(r.builtIn ? sub : (on ? Bento.onInk : Color.brand))
+                .frame(width: 40, alignment: .trailing)
+        }
+        .foregroundStyle(on ? Bento.onInk : Color.primary)
+        .padding(.leading, 6)
+        .padding(.trailing, 14)
+        .frame(height: 40)
+        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(on ? Bento.ink : Bento.fill))
+        .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .onTapGesture { toggle(r.id) }
+        .contextMenu {
+            if !r.builtIn {
+                Button("编辑…") { editing = r }
+                Button("删除", role: .destructive) { model.store.delete(id: r.id); selection.remove(r.id) }
+            } else {
+                Button("复制为我的常用…") { var c = r; c.id = ""; c.name = "\(r.name) 改"; c.builtIn = false; editing = c }
             }
         }
-        .padding(16)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(RoundedRectangle(cornerRadius: Bento.cardRadius, style: .continuous).fill(Bento.card))
-        .sheet(item: $editing) { r in RecipeEditorView(initial: r) { _ in } }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { toggle(r.id) }
+    }
+
+    private var ringDivider: some View {
+        HStack(spacing: 10) {
+            DashedLine()
+            Text("以上 5 个出现在圆环外圈").font(.system(size: 10)).foregroundStyle(Bento.tertiary).fixedSize()
+            DashedLine()
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func toggle(_ id: String) {
+        if NSEvent.modifierFlags.contains(.command) {
+            if selection.contains(id) { selection.remove(id) } else { selection.insert(id) }
+        } else {
+            selection = selection == [id] ? [] : [id]
+        }
+    }
+
+    private func smallButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12))
+                .padding(.horizontal, 12)
+                .frame(height: 30)
+                .background(Capsule().fill(Bento.fill))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(BentoPressStyle())
     }
 
     private func importFile() {
@@ -228,7 +388,7 @@ private struct RecipeSettings: View {
 
     private func exportSelected() {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = selection.count == 1 ? "\(model.store.recipe(id: selection.first!)?.name ?? "常用").smaller" : "常用.smaller"
+        panel.nameFieldStringValue = selection.count == 1 ? "\(model.store.recipe(id: selection.first!)?.name ?? "常用").smaller" : "\(kind.title)常用.smaller"
         panel.allowedContentTypes = [.init(filenameExtension: "smaller") ?? .json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {

@@ -7,7 +7,7 @@ import Observation
 @MainActor
 final class RecipeStore {
     private(set) var mine: [Recipe] = []
-    /// 设置里拖动排序后的顺序（含内置），前 5 个显示在圆环外圈。
+    /// 设置里拖动排序后的顺序（含内置）。每一类按这个顺序排：功能页常用条照这个顺序，前 5 个进圆环外圈。
     private(set) var order: [String] = []
 
     private let fileURL: URL
@@ -50,6 +50,8 @@ final class RecipeStore {
         return combined.sorted { (order.firstIndex(of: $0.id) ?? Int.max) < (order.firstIndex(of: $1.id) ?? Int.max) }
     }
 
+    /// 这一类的全部常用（内置与我的混排），按设置里的顺序。
+    func ordered(_ type: MediaType) -> [Recipe] { all.filter { $0.type == type } }
     func builtIns(for type: MediaType) -> [Recipe] { all.filter { $0.type == type && $0.builtIn } }
     func mine(for type: MediaType) -> [Recipe] { all.filter { $0.type == type && !$0.builtIn } }
     func recipe(id: String) -> Recipe? { all.first { $0.id == id } }
@@ -77,10 +79,13 @@ final class RecipeStore {
         save()
     }
 
-    func move(fromOffsets: IndexSet, toOffset: Int) {
-        var ids = all.map(\.id)
-        ids.move(fromOffsets: fromOffsets, toOffset: toOffset)
-        order = ids
+    /// 在一类里拖动排序（偏移是这一类列表里的位置），别的类不动。
+    func move(_ type: MediaType, fromOffsets: IndexSet, toOffset: Int) {
+        var typed = ordered(type).map(\.id)
+        typed.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        let inType = Set(typed)
+        var next = typed.makeIterator()
+        order = all.map { inType.contains($0.id) ? next.next()! : $0.id }
         save()
     }
 

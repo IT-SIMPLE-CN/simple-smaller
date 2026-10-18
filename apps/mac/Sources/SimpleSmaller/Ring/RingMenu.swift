@@ -20,6 +20,11 @@ struct RingChoice: Identifiable {
 
 @MainActor
 enum RingMenu {
+    /// 第一格「压缩」的外圈：这一类在设置 › 常用 里排在前 5 个的常用（顺序照设置）。
+    static func favorites(_ store: RecipeStore, _ type: MediaType) -> [RingChoice] {
+        store.ordered(type).prefix(5).map { RingChoice(label: $0.name, sub: $0.summary, action: .run($0)) }
+    }
+
     static func slots(for type: MediaType, store: RecipeStore) -> [RingSlot] {
         switch type {
         case .image: image(store)
@@ -49,7 +54,7 @@ enum RingMenu {
             let r = tweak("\(p.name) \(p.ratioLabel)") { $0.format = .jpeg; $0.quality = 90; $0.crop = p; $0.size = nil }
             return RingChoice(label: label, sub: p.ratioLabel, action: .run(r))
         }
-        let compress = ["img.web", "img.chat", "img.lossless", "img.500k"].compactMap { store.recipe(id: $0) }.map { run($0) }
+        let compress = favorites(store, .image)
         let quality: [(String, Int)] = [("高", 90), ("均衡", 78), ("小", 60)]
         func format(_ f: ImageFormatChoice) -> [RingChoice] {
             quality.map { q in run(tweak("\(f.title) \(q.0)") { $0.format = f; $0.quality = q.1; $0.lossless = false }, q.0, "质量 \(q.1)") }
@@ -83,7 +88,7 @@ enum RingMenu {
         func run(_ r: Recipe, _ label: String? = nil, _ sub: String? = nil) -> RingChoice {
             RingChoice(label: label ?? r.name, sub: sub ?? r.summary, action: .run(r))
         }
-        let compress = ["vid.chat", "vid.web", "vid.mute"].compactMap { store.recipe(id: $0) }.map { run($0) }
+        let compress = favorites(store, .video)
         let ratios = CropPreset.videoPresets.filter { ["v916", "v34", "v11", "v169"].contains($0.id) }.map { p in
             run(tweak("比例 \(p.name)") { $0.crop = p; $0.rate = .high; $0.shortEdge = 1080; $0.codec = .h264 }, p.name, "1080p")
         }
@@ -103,7 +108,7 @@ enum RingMenu {
     // MARK: PDF：压缩 · 转长图 · 自定义
 
     private static func pdf(_ store: RecipeStore) -> [RingSlot] {
-        let compress = ["pdf.email", "pdf.screen", "pdf.print"].compactMap { store.recipe(id: $0) }.map { RingChoice(label: $0.name, sub: $0.summary, action: .run($0)) }
+        let compress = favorites(store, .pdf)
         let long = ["pdf.long"].compactMap { store.recipe(id: $0) }.map { r in
             [1080, 750].map { w -> RingChoice in
                 var x = r
