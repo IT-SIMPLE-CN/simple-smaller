@@ -72,6 +72,11 @@ internal sealed class WorkView : Reactive
         upper = Region(Slots.Upper(ws), "设置");
         lowerLeft = Region(Slots.LowerLeft(ws), "设置");
         lowerRight = Region(Slots.LowerRight(ws), "开始");
+        // 小教学按名字找要框的格子。
+        Guide.GuideTargets.Register(Guide.GuideTargets.Main, main);
+        Guide.GuideTargets.Register(Guide.GuideTargets.Recipes, bar);
+        Guide.GuideTargets.Register(Guide.GuideTargets.Upper, upper);
+        Guide.GuideTargets.Register(Guide.GuideTargets.Start, lowerRight);
         Arrange(appear: true);
         if (wasResult)
         {

@@ -33,6 +33,8 @@ public sealed partial class MainWindow : Window
     private readonly CircleIconButton back = new("", "回首页", 34, "BentoCard");
     private UIElement? page;
     private string pageKey = "";
+    /// 圆环教学与各功能小教学（盖在最上层）。
+    private readonly Views.Guide.GuideHost guides;
 
     public MainWindow()
     {
@@ -61,6 +63,7 @@ public sealed partial class MainWindow : Window
         Grid.SetRow(toast, 1);
         Root.Children.Add(toast);
         SetTitleBar(titleBar);
+        guides = new Views.Guide.GuideHost(Root, center);
 
         Root.AllowDrop = true;
         Root.DragOver += (_, e) =>
@@ -85,7 +88,7 @@ public sealed partial class MainWindow : Window
         Root.PreviewKeyDown += (_, e) =>
         {
             var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-            if (!ctrl || model.ShowHome) return;
+            if (!ctrl || model.ShowHome || guides.IsOpen) return;
             var ws = model.Current;
             if (e.Key == Windows.System.VirtualKey.Enter && !ws.Running && ws.Files.Count > 0 && ws.CanStart && !ws.IsUpToDate)
             {
@@ -411,6 +414,11 @@ public sealed partial class MainWindow : Window
             WorkView.SyncSegments(center.Content as UIElement, ws);
             title.Text = Titles.Title(ws);
             subtitle.Text = Titles.Subtitle(ws);
+            // 设计稿 V2.2 · E：有文件时右上角常驻「? 再看一遍教学」（完成页不放）。
+            if (ws.Files.Count > 0 && !(ws.ShowResult && !ws.Running))
+            {
+                trailing.Children.Add(guides.ReplayButton());
+            }
             if (ws.ShowResult && !ws.Running)
             {
                 var undo = new CapsuleButton("撤销这一批", 34, "BentoCard");
