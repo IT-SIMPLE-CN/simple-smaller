@@ -395,8 +395,14 @@ internal sealed class HomeCard : UserControl
         }
         else
         {
-            // 功能卡：标签和右下箭头可点（箭头进第一个功能），卡本身是一组。
+            // 功能卡：整张卡可点（同右下箭头，进这一类）；标签和箭头是卡里的按钮，点它们时由按钮自己处理。
             root.Children.Add(back);
+            back.Tapped += (_, e) =>
+            {
+                if (e.Handled) return;
+                e.Handled = true;
+                AppModel.Shared.SelectedType = Type!.Value;
+            };
             var go = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = arrow, HorizontalAlignment = HorizontalAlignment.Left };
             Motion.SetPress(go, true);
             AutomationProperties.SetName(go, $"进入{title.Text}");
