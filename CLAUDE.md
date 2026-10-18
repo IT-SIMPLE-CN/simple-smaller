@@ -35,6 +35,7 @@
 | `Views/Preview/` | 左大卡里的预览（裁切、剪辑、序列帧、PDF 页面、胶片条、前后对比） |
 | `Views/Common/` | 文件表、缩略图、文件交互（拖出、快速查看）、密码、窗口外观、品牌标 |
 | `Views/Windows/` | 设置、新建配方、菜单栏小窗、关于 |
+| `Views/Guide/` | 教学：功能小教学（聚光灯）、访达圆环教学弹窗、插图；`GuideCenter` 管出现时机与「看过」记录（测试用启动参数 `--reset-guides` 清空） |
 
 引擎 `core/src/api/` 按类型与设置、任务、引擎入口、视频、PDF 分文件；对外接口改动后要重新生成绑定（mac：`scripts/build-core-mac.sh`；Windows：VM 里 `scripts\build-core-windows.ps1`）。
 

@@ -23,6 +23,9 @@ final class AppSettings {
     var clipboardMaxEdge: Int { didSet { d.set(clipboardMaxEdge, forKey: "clipboardMaxEdge") } }
     /// 图片上次用过的裁切比例（CropPreset 的 id）。首页「裁切」标签、拖到「裁切」格时用它，没用过是小红书 3:4。
     var lastImageRatio: String { didSet { d.set(lastImageRatio, forKey: "lastImageRatio") } }
+    /// 看过的教学：图片 / 视频 / PDF 的小教学（MediaType 的 rawValue）与访达圆环教学（"ring"）。
+    /// 跳过、知道了、关掉都记为看过，之后不再自动出现；测试时用启动参数 `--reset-guides` 清空。
+    var guidesSeen: Set<String> { didSet { d.set(Array(guidesSeen).sorted(), forKey: "guidesSeen") } }
     /// 监视的文件夹与各自的配方。
     var watchFolders: [WatchFolder] {
         didSet {
@@ -53,7 +56,17 @@ final class AppSettings {
         clipboardAuto = d.bool(forKey: "clipboardAuto")
         clipboardMaxEdge = d.integer(forKey: "clipboardMaxEdge")
         lastImageRatio = d.string(forKey: "lastImageRatio") ?? "xhs"
+        guidesSeen = Set(d.stringArray(forKey: "guidesSeen") ?? [])
         watchFolders = d.data(forKey: "watchFolders").flatMap { try? JSONDecoder().decode([WatchFolder].self, from: $0) } ?? []
+    }
+
+    func guideSeen(_ key: String) -> Bool { guidesSeen.contains(key) }
+    func markGuideSeen(_ key: String) { if !guidesSeen.contains(key) { guidesSeen.insert(key) } }
+
+    /// 启动参数 `--reset-guides`：清掉「看过」记录，教学重新按第一次的规则出现（验证用）。
+    func resetGuides() {
+        guidesSeen = []
+        d.removeObject(forKey: "guidesSeen")
     }
 
     var place: Place {

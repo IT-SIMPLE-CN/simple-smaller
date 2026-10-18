@@ -13,6 +13,9 @@ struct RingView: View {
     let badge: String
     let onChoose: (RingChoice) -> Void
     let onDismiss: () -> Void
+    /// 静态显示（教学里的示例）：不播出现动画、不接交互，外圈停在 `initialHover` 那一格。
+    var still = false
+    var initialHover: Int? = nil
 
     @State private var selected = 0
     @State private var hoverOuter: Int?
@@ -70,6 +73,12 @@ struct RingView: View {
             .onChanged { v in pressing = true; hover(v.location) }
             .onEnded { v in pressing = false; release(at: v.location) })
         .onAppear {
+            if still {
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) { revealed = true; outerShown = true; hoverOuter = initialHover }
+                return
+            }
             if reduceMotion { revealed = true; outerShown = true; return }
             revealed = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { outerShown = true }

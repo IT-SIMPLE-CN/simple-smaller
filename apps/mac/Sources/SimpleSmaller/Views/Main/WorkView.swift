@@ -45,18 +45,18 @@ struct WorkGrid: View {
                 // 窄：左大卡占一半；右边配方条 + 可滚动的参数卡 + 固定在底的开始卡。
                 let right = max(300, w * 0.46)
                 HStack(spacing: gap) {
-                    main.matchedGeometryEffect(id: "main", in: slots).bentoRegion(5).bentoAppear(0, trigger: appearKey)
+                    main.guideTarget(.main).matchedGeometryEffect(id: "main", in: slots).bentoRegion(5).bentoAppear(0, trigger: appearKey)
                     VStack(spacing: gap) {
-                        topBar.frame(height: Self.barHeight).matchedGeometryEffect(id: "bar", in: slots).bentoRegion(4).bentoAppear(1, trigger: appearKey)
+                        topBar.frame(height: Self.barHeight).guideTarget(.bar).matchedGeometryEffect(id: "bar", in: slots).bentoRegion(4).bentoAppear(1, trigger: appearKey)
                         ScrollView {
                             VStack(spacing: gap) {
-                                upper.frame(minHeight: 240).bentoRegion(3)
+                                upper.frame(minHeight: 240).guideTarget(.upper).bentoRegion(3)
                                 lowerLeft.frame(minHeight: 220).bentoRegion(2)
                             }
                         }
                         .scrollIndicators(.automatic)
                         .bentoAppear(2, trigger: appearKey)
-                        lowerRight.frame(height: min(280, h * 0.42)).matchedGeometryEffect(id: "start", in: slots).bentoRegion(1).bentoAppear(3, trigger: appearKey)
+                        lowerRight.frame(height: min(280, h * 0.42)).guideTarget(.start).matchedGeometryEffect(id: "start", in: slots).bentoRegion(1).bentoAppear(3, trigger: appearKey)
                     }
                     .frame(width: right)
                 }
@@ -65,13 +65,13 @@ struct WorkGrid: View {
                 let col = min(Self.maxColumn, unit)
                 let rowH = (h - Self.barHeight - 2 * gap) / 2
                 HStack(spacing: gap) {
-                    main.matchedGeometryEffect(id: "main", in: slots).bentoRegion(5).bentoAppear(0, trigger: appearKey)
+                    main.guideTarget(.main).matchedGeometryEffect(id: "main", in: slots).bentoRegion(5).bentoAppear(0, trigger: appearKey)
                     VStack(spacing: gap) {
-                        topBar.frame(height: Self.barHeight).matchedGeometryEffect(id: "bar", in: slots).bentoRegion(4).bentoAppear(1, trigger: appearKey)
-                            upper.frame(height: rowH).bentoRegion(3).bentoAppear(2, trigger: appearKey)
+                        topBar.frame(height: Self.barHeight).guideTarget(.bar).matchedGeometryEffect(id: "bar", in: slots).bentoRegion(4).bentoAppear(1, trigger: appearKey)
+                            upper.frame(height: rowH).guideTarget(.upper).bentoRegion(3).bentoAppear(2, trigger: appearKey)
                             HStack(spacing: gap) {
                                 lowerLeft.frame(width: col).bentoRegion(2).bentoAppear(3, trigger: appearKey)
-                                lowerRight.frame(width: col).matchedGeometryEffect(id: "start", in: slots).bentoRegion(1).bentoAppear(4, trigger: appearKey)
+                                lowerRight.frame(width: col).guideTarget(.start).matchedGeometryEffect(id: "start", in: slots).bentoRegion(1).bentoAppear(4, trigger: appearKey)
                             }
                             .frame(height: rowH)
                     }

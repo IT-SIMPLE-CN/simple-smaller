@@ -105,6 +105,10 @@ private struct GeneralSettings: View {
                          note: "圆环要读出你点的是哪个文件，所以需要辅助功能权限。只读取文件位置，不记录其他操作。") {
                 BentoToggleRow(label: "访达圆环", isOn: $settings.ringEnabled, height: 40)
                 BentoRow(label: "唤出方式", height: 40) { Text("按住 ⌥ 点文件").foregroundStyle(Bento.secondary) }
+                BentoRow(label: "圆环怎么用", height: 40) {
+                    Button("再看一遍") { GuideCenter.shared.showRing() }
+                        .help("在主窗口里打开访达圆环教学")
+                }
                 BentoRow(label: "辅助功能权限", height: 40) {
                     if trusted {
                         Label("已授权", systemImage: "circle.fill").labelStyle(DotLabel()).foregroundStyle(Color.saving)

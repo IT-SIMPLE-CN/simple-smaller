@@ -45,6 +45,9 @@ struct MainView: View {
         }
         .animation(.smooth(duration: 0.3), value: model.toast)
         .background(NoInitialFocus())
+        .background(GuideWindowProbe())
+        // 每类第一次拖进文件后，小教学自动出现一次（GuideCenter 判断条件）。
+        .onChange(of: guideState) { _, _ in GuideCenter.shared.considerAuto() }
         // 拖到窗口任何地方：按类型自动分到图片、视频、PDF。
         .dropDestination(for: URL.self) { urls, _ in
             model.add(urls, preferred: model.showHome ? nil : model.selectedType)
@@ -60,9 +63,17 @@ struct MainView: View {
         func width(_ text: String, _ font: NSFont) -> CGFloat { (text as NSString).size(withAttributes: [.font: font]).width }
         // 红绿灯与返回按钮约 150；标题 15 粗、副标题 11；右边「撤销这一批」约 110。
         let titleEnd = 150 + max(width(title(ws), .systemFont(ofSize: 15, weight: .bold)), width(subtitle(ws), .systemFont(ofSize: 11))) + 16
-        let right: CGFloat = ws.showResult && !ws.running ? 130 : 20
+        // 右边：「撤销这一批」约 110；「? 再看一遍教学」胶囊（有文件的功能页）另算。
+        var right: CGFloat = ws.showResult && !ws.running ? 130 : 20
+        if GuideChip.visible(ws) { right += GuideChip.width + 16 }
         let left = windowWidth / 2 - tabs / 2, rightEdge = windowWidth / 2 + tabs / 2
         return left < titleEnd || rightEdge > windowWidth - right
+    }
+
+    /// 小教学自动出现要看的页面状态。
+    private var guideState: [AnyHashable] {
+        let ws = model.current
+        return [model.showHome, model.selectedType, ws.files.count, ws.showResult, ws.running]
     }
 
     /// 视频剪辑、序列帧一次看一段：标题写这段的文件名。

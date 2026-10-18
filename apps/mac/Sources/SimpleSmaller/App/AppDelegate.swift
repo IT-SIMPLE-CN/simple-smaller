@@ -9,6 +9,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         super.init()
     }
 
+    /// `--reset-guides`：清掉「看过教学」的记录（验证用），要在主窗口出来、教学判断之前做。
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        if CommandLine.arguments.contains("--reset-guides") {
+            MainActor.assumeIsolated { AppSettings.shared.resetGuides() }
+        }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         AppModel.clearUnlocked()
     }
