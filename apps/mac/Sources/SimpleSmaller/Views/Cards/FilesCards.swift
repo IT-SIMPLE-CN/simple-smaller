@@ -3,49 +3,79 @@ import SwiftUI
 
 // MARK: - 左大卡：拖放 / 文件
 
-/// 没有文件时的左大卡：整张卡就是拖放区，也可以选取或粘贴（设计稿 02）。
+/// 没有文件时的左大卡（设计稿 V3 · 11）：整块虚线区就是一个「选取文件」按钮，点哪都打开选取面板，也能拖进来、粘贴。
+/// 悬停或拖着文件经过时整块变红框浅红底。
 struct DropCard: View {
     @Environment(AppModel.self) private var model
     let ws: Workspace
     @State private var targeted = false
+    @State private var hovering = false
+
+    private var hot: Bool { targeted || hovering }
+    private static let hotFill = Bento.dynamic(0xFFF5F2, 0x3D201C)
 
     var body: some View {
         BentoCard {
-            VStack(spacing: 14) {
-                Spacer(minLength: 0)
-                Image(systemName: "arrow.down.to.line")
-                    .font(.system(size: 30, weight: .light))
-                    .foregroundStyle(targeted ? Color.white : Color.primary)
-                    .frame(width: 76, height: 76)
-                    .background(Circle().fill(targeted ? Color.brand : Bento.fill))
-                    .symbolEffect(.bounce, value: targeted)
-                Text(title).font(.system(size: 18, weight: .semibold))
-                if let formats {
-                    Text(formats).font(.system(size: 12)).foregroundStyle(Bento.secondary)
+            let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+            ZStack {
+                // 整块是一个按钮：说明文字、图标、空白处点了都走这里。
+                Button { FilePicker.pick(into: model) } label: {
+                    shape.fill(hot ? Self.hotFill : Color.clear).contentShape(shape)
                 }
-                HStack(spacing: 8) {
-                    CapsuleButton(title: "选取文件…", height: 40, fill: Bento.ink, foreground: Bento.onInk) { FilePicker.pick(into: model) }
-                    if ws.type == .image {
-                        CapsuleButton(title: "粘贴 ⌘⇧V", height: 40) { model.pasteFromClipboard() }
+                .buttonStyle(.plain)
+                .accessibilityLabel("选取文件")
+                .accessibilityHint(title)
+                VStack(spacing: 14) {
+                    Spacer(minLength: 0)
+                    Group {
+                        Image(systemName: "arrow.down.to.line")
+                            .font(.system(size: 30, weight: .light))
+                            .foregroundStyle(targeted ? Color.white : Color.primary)
+                            .frame(width: 76, height: 76)
+                            .background(Circle().fill(targeted ? Color.brand : Bento.fill))
+                            .symbolEffect(.bounce, value: targeted)
+                        Text(title)
+                            .font(.system(size: 20, weight: .bold))
+                            .multilineTextAlignment(.center)
+                            .minimumScaleFactor(0.8)
+                        if let formats {
+                            Text(formats).font(.system(size: 12)).tracking(0.5).foregroundStyle(Bento.secondary)
+                        }
                     }
-                }
-                .padding(.top, 6)
-                Spacer(minLength: 0)
-                if ws.type == .image {
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    HStack(spacing: 8) {
+                        // 不是另一个按钮，只是提示：点它和点空白处一样（落到下面的整块按钮）。
+                        Text("点任意位置选取")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(hovering ? Color.white : Bento.onInk)
+                            .padding(.horizontal, 18)
+                            .frame(height: 40)
+                            .background(Capsule().fill(hovering ? Color.brand : Bento.ink))
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                        CapsuleButton(title: "粘贴 ⌘⇧V", height: 40, fill: Bento.card) { model.pasteFromClipboard() }
+                            .overlay(Capsule().strokeBorder(Bento.line, lineWidth: 1).allowsHitTesting(false))
+                            .accessibilityLabel("粘贴剪贴板")
+                    }
+                    .padding(.top, 6)
+                    Spacer(minLength: 0)
                     Text("也可以在访达里按住 ⌥ 点文件，不用开这个窗口")
                         .font(.system(size: 12))
                         .foregroundStyle(Bento.secondary)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                 }
+                .padding(.horizontal, 12)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
-                    .foregroundStyle(targeted ? Color.brand : Bento.line)
-                    .background(targeted ? Color.brand.opacity(0.05) : .clear, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                shape.strokeBorder(hot ? Color.brand : Bento.line, style: hot ? StrokeStyle(lineWidth: 2) : StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
+                    .allowsHitTesting(false)
             }
+            .onHover { hovering = $0 }
         }
-        .animation(.smooth(duration: 0.2), value: targeted)
+        .animation(.easeOut(duration: 0.2), value: hot)
         .dropDestination(for: URL.self) { urls, _ in
             model.add(urls, preferred: ws.type)
             return true
@@ -54,9 +84,9 @@ struct DropCard: View {
 
     private var title: String {
         switch ws.type {
-        case .image: "把图片或文件夹拖到这里"
-        case .video: "把视频或文件夹拖到这里"
-        case .pdf: ws.pdfSegment == .fromImages ? "把图片拖到这里" : "把 PDF 或文件夹拖到这里"
+        case .image: "点这里，或把图片 / 文件夹拖进来"
+        case .video: "点这里，或把视频拖进来"
+        case .pdf: ws.pdfSegment == .fromImages ? "点这里，或把图片拖进来" : "点这里，或把 PDF 拖进来"
         }
     }
 
