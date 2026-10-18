@@ -3,8 +3,8 @@ import SwiftUI
 
 // MARK: - 左大卡：拖放 / 文件
 
-/// 没有文件时的左大卡（设计稿 V3 · 11）：整块虚线区就是一个「选取文件」按钮，点哪都打开选取面板，也能拖进来、粘贴。
-/// 悬停或拖着文件经过时整块变红框浅红底。
+/// 没有文件时的左大卡（设计稿 V3 · 11）：斜纹底上放首页同款大插图，整块就是一个「选取文件」按钮，
+/// 点哪都打开选取面板，也能拖进来、粘贴。悬停或拖着文件经过时整块变红框浅红底。
 struct DropCard: View {
     @Environment(AppModel.self) private var model
     let ws: Workspace
@@ -13,33 +13,40 @@ struct DropCard: View {
 
     private var hot: Bool { targeted || hovering }
     private static let hotFill = Bento.dynamic(0xFFF5F2, 0x3D201C)
+    /// 斜纹两色（设计稿 #FAFAFB / #F4F5F7，135° 每 14 一条）。
+    private static let stripeLight = Bento.dynamic(0xFAFAFB, 0x2A2B2E)
+    private static let stripeDark = Bento.dynamic(0xF4F5F7, 0x26272A)
+    private static let edge = Bento.dynamic(0xD5D8DC, 0x45474C)
 
     var body: some View {
-        BentoCard {
+        BentoCard(padding: EdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 14)) {
             let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
             ZStack {
-                // 整块是一个按钮：说明文字、图标、空白处点了都走这里。
+                // 整块是一个按钮：插图、说明文字、空白处点了都走这里。
                 Button { FilePicker.pick(into: model) } label: {
-                    shape.fill(hot ? Self.hotFill : Color.clear).contentShape(shape)
+                    ZStack {
+                        if hot { shape.fill(Self.hotFill) } else { Stripes(light: Self.stripeLight, dark: Self.stripeDark).clipShape(shape) }
+                    }
+                    .contentShape(shape)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("选取文件")
                 .accessibilityHint(title)
-                VStack(spacing: 14) {
-                    Spacer(minLength: 0)
+                VStack(spacing: 18) {
                     Group {
-                        Image(systemName: "arrow.down.to.line")
-                            .font(.system(size: 30, weight: .light))
-                            .foregroundStyle(targeted ? Color.white : Color.primary)
-                            .frame(width: 76, height: 76)
-                            .background(Circle().fill(targeted ? Color.brand : Bento.fill))
-                            .symbolEffect(.bounce, value: targeted)
-                        Text(title)
-                            .font(.system(size: 20, weight: .bold))
-                            .multilineTextAlignment(.center)
-                            .minimumScaleFactor(0.8)
-                        if let formats {
-                            Text(formats).font(.system(size: 12)).tracking(0.5).foregroundStyle(Bento.secondary)
+                        art
+                            .frame(width: 224, height: 168)
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .shadow(color: Color.brand.opacity(0.18), radius: 20, y: 16)
+                            .scaleEffect(targeted ? 1.04 : 1)
+                        VStack(spacing: 6) {
+                            Text(title)
+                                .font(.system(size: 22, weight: .bold))
+                                .multilineTextAlignment(.center)
+                                .minimumScaleFactor(0.75)
+                            if let formats {
+                                Text(formats).font(.system(size: 12)).tracking(0.5).foregroundStyle(Bento.secondary)
+                            }
                         }
                     }
                     .allowsHitTesting(false)
@@ -54,14 +61,24 @@ struct DropCard: View {
                             .background(Capsule().fill(hovering ? Color.brand : Bento.ink))
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
-                        CapsuleButton(title: "粘贴 ⌘⇧V", height: 40, fill: Bento.card) { model.pasteFromClipboard() }
-                            .overlay(Capsule().strokeBorder(Bento.line, lineWidth: 1).allowsHitTesting(false))
-                            .accessibilityLabel("粘贴剪贴板")
+                        Button { model.pasteFromClipboard() } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "clipboard").font(.system(size: 13))
+                                Text("粘贴").font(.system(size: 13))
+                                Text("⌘⇧V").font(.system(size: 11)).foregroundStyle(Bento.secondary)
+                            }
+                            .foregroundStyle(Color.primary)
+                            .padding(.horizontal, 18)
+                            .frame(height: 40)
+                            .background(Capsule().fill(Bento.card))
+                            .overlay(Capsule().strokeBorder(Self.edge, lineWidth: 1))
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(BentoPressStyle())
+                        .accessibilityLabel("粘贴剪贴板")
                     }
-                    .padding(.top, 6)
-                    Spacer(minLength: 0)
                     Text("也可以在访达里按住 ⌥ 点文件，不用开这个窗口")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundStyle(Bento.secondary)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -70,8 +87,7 @@ struct DropCard: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay {
-                shape.strokeBorder(hot ? Color.brand : Bento.line, style: hot ? StrokeStyle(lineWidth: 2) : StrokeStyle(lineWidth: 1.5, dash: [6, 6]))
-                    .allowsHitTesting(false)
+                shape.strokeBorder(hot ? Color.brand : Self.edge, lineWidth: 2).allowsHitTesting(false)
             }
             .onHover { hovering = $0 }
         }
@@ -80,6 +96,16 @@ struct DropCard: View {
             model.add(urls, preferred: ws.type)
             return true
         } isTargeted: { targeted = $0 }
+    }
+
+    /// 首页同一类卡片的插图（PDF「图片转 PDF」收图片，用图片那张）。
+    @ViewBuilder private var art: some View {
+        let name = ws.type == .video ? "home-video" : ws.type == .pdf && ws.pdfSegment != .fromImages ? "home-pdf" : "home-image"
+        if let image = BundledImage.svg(name) {
+            Image(nsImage: image).resizable().scaledToFill()
+        } else {
+            Rectangle().fill(Color.brand)
+        }
     }
 
     private var title: String {
@@ -302,6 +328,31 @@ struct CropOverlay: View {
             }
         }
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// 斜纹底：135° 方向每 28 一组（浅 14、深 14），和设计稿的 repeating-linear-gradient 一样。
+struct Stripes: View {
+    let light: Color
+    let dark: Color
+
+    var body: some View {
+        Canvas { ctx, size in
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(dark))
+            let band = 14 * 2.0.squareRoot()
+            var c: CGFloat = 0
+            var path = Path()
+            while c < size.width + size.height {
+                path.move(to: CGPoint(x: c, y: 0))
+                path.addLine(to: CGPoint(x: c + band, y: 0))
+                path.addLine(to: CGPoint(x: c + band - size.height, y: size.height))
+                path.addLine(to: CGPoint(x: c - size.height, y: size.height))
+                path.closeSubpath()
+                c += band * 2
+            }
+            ctx.fill(path, with: .color(light))
+        }
         .accessibilityHidden(true)
     }
 }
