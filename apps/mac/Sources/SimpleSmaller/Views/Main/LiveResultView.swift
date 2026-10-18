@@ -65,7 +65,9 @@ struct LiveResultView: View {
     private var subtitle: String {
         var parts = ["\(done.count) 个实况"]
         if !failed.isEmpty { parts.append("\(failed.count) 个失败") }
-        parts.append(ws.draft.name)
+        // 按这次实际做成的种类写，不用常用名（改过「做成」时常用名会对不上）。
+        let kind = switch ws.draft.video.liveKind { case .apple: "苹果实况"; case .android: "安卓动态照片"; case .both: "两种都要" }
+        parts.append(kind)
         parts.append(model.settings.outputLocation == .beside ? "存在原视频旁边" : "存在「\((model.settings.outputFolder as NSString).lastPathComponent)」")
         return parts.joined(separator: " · ")
     }

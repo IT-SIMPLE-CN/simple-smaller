@@ -13,7 +13,7 @@ enum FeatureGuides {
     static func pages(_ type: MediaType, videoSegment: Workspace.VideoSegment) -> [GuidePage] {
         switch type {
         case .image: [imageFiles, imageRecipes, imageRatio, start("按 ⌘↩ 也行。结果存在原文件旁边，原文件不改动；做完可以一键撤销。")]
-        case .video: [videoTabs, videoSecond(videoSegment), videoRecipes, videoStart]
+        case .video: [videoTabs(videoSegment), videoSecond(videoSegment), videoRecipes, videoStart]
         case .pdf: [pdfTabs, pdfFiles, pdfLevels, start("按 ⌘↩ 也行。压完反而变大的文件会自动保留原件。")]
         }
     }
@@ -70,10 +70,14 @@ enum FeatureGuides {
     }
 
     /// 顶部大标签的缩略：白底胶囊，选中墨黑 + 红点。
-    private static func tabsSketch(_ items: [(String, CGFloat)], selected: Int, box: (CGFloat, CGFloat), pill: (CGFloat, CGFloat), caption: (CGFloat, String)) -> Sketch {
+    private static func tabsSketch(_ items: [(String, CGFloat)], selected: Int, box: (CGFloat, CGFloat), pill pillTop: CGFloat, caption: (CGFloat, String)) -> Sketch {
+        // 墨黑胶囊跟着选中项走，宽度随字数：红点在字左边。两个字时与设计稿的取值一致（左缘 = 字中心 − 32.5，宽 52）。
+        let n = CGFloat(items[selected].0.count)
+        let pill = (items[selected].1 - 5.5 * n - 21.5, pillTop)
+        let pillWidth = n <= 2 ? 52 : 11 * n + 31.5
         let svg = """
         <rect x="\(box.0)" y="\(box.1)" width="\(308 - 2 * box.0)" height="\(box.1 == 28 ? 36 : 34)" rx="\(box.1 == 28 ? 18 : 17)" fill="{card}"/>
-        <rect x="\(pill.0)" y="\(pill.1)" width="52" height="\(box.1 == 28 ? 28 : 26)" rx="\(box.1 == 28 ? 14 : 13)" fill="{ink}"/>
+        <rect x="\(pill.0)" y="\(pill.1)" width="\(pillWidth)" height="\(box.1 == 28 ? 28 : 26)" rx="\(box.1 == 28 ? 14 : 13)" fill="{ink}"/>
         <circle cx="\(pill.0 + 13)" cy="\(pill.1 + (box.1 == 28 ? 14 : 13))" r="5" fill="#EF3922"/>
         """
         let cy = box.1 + (box.1 == 28 ? 18 : 17)
@@ -130,9 +134,9 @@ enum FeatureGuides {
 
     // MARK: 视频
 
-    private static var videoTabs: GuidePage {
+    private static func videoTabs(_ segment: Workspace.VideoSegment) -> GuidePage {
         GuidePage(title: "一个视频，四件事", text: "顶部切换压缩、剪辑、序列帧、实况。切过去文件还在，不用重新拖。",
-                  sketch: tabsSketch([("压缩", 76), ("剪辑", 132.5), ("序列帧", 182), ("实况", 232)], selected: 1, box: (50, 28), pill: (100, 32), caption: (82, "文件留着，换个做法")))
+                  sketch: tabsSketch([("压缩", 76), ("剪辑", 132.5), ("序列帧", 182), ("实况", 232)], selected: Workspace.VideoSegment.allCases.firstIndex(of: segment) ?? 1, box: (50, 28), pill: 32, caption: (82, "文件留着，换个做法")))
     }
 
     /// 第 2 步：剪辑照稿框预览 + 时间线；压缩、序列帧框左边文件卡。
@@ -197,7 +201,7 @@ enum FeatureGuides {
     private static var pdfTabs: GuidePage {
         GuidePage(title: "PDF 能做五件事", text: "压缩、合并、拆分、转图片、图片转 PDF 都在顶部切换。文件留着，换个做法不用重新拖。",
                   sketch: tabsSketch([("压缩", 52), ("合并", 95.5), ("拆分", 139.5), ("转图片", 189), ("图片转PDF", 253.5)], selected: 0,
-                                     box: (15.5, 30), pill: (19.5, 34), caption: (80, "文件留着，换个做法不用重拖")))
+                                     box: (15.5, 30), pill: 34, caption: (80, "文件留着，换个做法不用重拖")))
     }
 
     private static var pdfFiles: GuidePage {
