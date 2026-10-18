@@ -335,6 +335,8 @@ struct CapsuleButton: View {
             Text(title)
                 .font(.system(size: 13))
                 .foregroundStyle(foreground)
+                .lineLimit(1)
+                .fixedSize()
                 .padding(.horizontal, 14)
                 .frame(height: height)
                 .background(Capsule().fill(fill))

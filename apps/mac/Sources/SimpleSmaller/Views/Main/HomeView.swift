@@ -12,7 +12,9 @@ struct HomeView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let cardW = min(260, max(200, (geo.size.width - 40 - 176 - 3 * 16 - 40) / 4))
+            // 窄档（窗口 < 1180，设计稿 V3 · 3）：左边「关于」那一栏收起，「关于」挪到大标题右边，四张卡才放得下。
+            let narrow = geo.size.width < 1180
+            let cardW = min(260, max(200, (geo.size.width - 80 - (narrow ? 0 : 176) - 3 * 16) / 4))
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 14) {
                     Text("拖进来，选一下")
@@ -21,45 +23,40 @@ struct HomeView: View {
                     Image(systemName: "arrow.turn.down.right")
                         .font(.system(size: 30, weight: .medium))
                         .accessibilityHidden(true)
+                    if narrow {
+                        Spacer()
+                        aboutButton
+                    }
                 }
                 .padding(.top, max(20, (geo.size.height - 640) / 2))
                 Spacer(minLength: 24).frame(maxHeight: 56)
                 HStack(alignment: .top, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Button { openWindow(id: "about") } label: {
-                            HStack(spacing: 12) {
-                                Text("关于")
-                                Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
-                            }
-                            .font(.system(size: 12))
-                            .padding(.leading, 16)
-                            .padding(.trailing, 12)
-                            .frame(height: 38)
-                            .overlay(Capsule().strokeBorder(Color.primary, lineWidth: 1.2))
-                            .contentShape(Capsule())
+                    if !narrow {
+                        VStack(alignment: .leading, spacing: 0) {
+                            aboutButton
+                            Spacer()
+                            Text("图片、视频、PDF\n都在本机处理，不上传。")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Bento.secondary)
+                                .lineSpacing(4)
                         }
-                        .buttonStyle(BentoPressStyle())
-                        Spacer()
-                        Text("图片、视频、PDF\n都在本机处理，不上传。")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Bento.secondary)
-                            .lineSpacing(4)
+                        .frame(width: 160, height: 410, alignment: .leading)
                     }
-                    .frame(width: 160, height: 392, alignment: .leading)
                     ForEach(Array(HomeCard.Kind.allCases.enumerated()), id: \.element) { i, kind in
                         let hot = hotCard == kind
                         HomeCard(kind: kind, split: hot, hotCell: hot ? hotCell : nil,
                                  blocked: hot && drag != nil ? drag!.blockedCells(kind) : [])
-                            .frame(width: cardW, height: 392)
+                            .frame(width: cardW, height: 410)
                             .background(frameReader(.card(kind)))
                             .zIndex(hot ? 1 : 0)
                             .bentoAppear(i)
                     }
                 }
-                Text("点标签直接进；拖文件到卡片上，卡片会分成几格，放到哪格进哪个。")
+                Text(narrow ? "点标签直接进；拖文件到卡片上，卡片会分成几格，放到哪格进哪个。图片、视频、PDF 都在本机处理，不上传。"
+                            : "点标签直接进；拖文件到卡片上，卡片会分成几格，放到哪格进哪个。")
                     .font(.system(size: 12))
                     .foregroundStyle(Bento.secondary)
-                    .padding(.leading, 176)
+                    .padding(.leading, narrow ? 0 : 176)
                     .padding(.top, 28)
                 Spacer(minLength: 0)
             }
@@ -69,6 +66,22 @@ struct HomeView: View {
             .onPreferenceChange(HomeFrames.self) { frames = $0 }
             .onDrop(of: [.fileURL], delegate: HomeDropDelegate(model: model, drag: $drag, frames: frames))
         }
+    }
+
+    private var aboutButton: some View {
+        Button { openWindow(id: "about") } label: {
+            HStack(spacing: 12) {
+                Text("关于")
+                Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+            }
+            .font(.system(size: 12))
+            .padding(.leading, 16)
+            .padding(.trailing, 12)
+            .frame(height: 38)
+            .overlay(Capsule().strokeBorder(Color.primary, lineWidth: 1.2))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(BentoPressStyle())
     }
 
     // MARK: 拖放落点
@@ -304,6 +317,8 @@ struct HomeCard: View {
         VStack(alignment: .leading, spacing: 0) {
             art
                 .aspectRatio(4 / 3, contentMode: .fit)
+                // 插图先占满 4:3：视频卡标签折两行时不被压矮，四张卡标题对齐。
+                .layoutPriority(1)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(alignment: .topTrailing) {
                     // 右上角挖出一个白色缺口放图标（设计稿）；圆环卡在辅助功能没开时，图标旁加「未开启」。

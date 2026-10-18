@@ -6,7 +6,6 @@ struct FrameCard: View {
     @Bindable var ws: Workspace
     @State private var saving: Recipe?
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 9)
 
     var body: some View {
         BentoCard {
@@ -15,13 +14,10 @@ struct FrameCard: View {
                     SaveRecipeAccessory(ws: ws, saving: $saving)
                 }
                 Text("比例").font(.system(size: 11)).foregroundStyle(Bento.secondary)
-                LazyVGrid(columns: columns, spacing: 6) {
-                    RatioTile(ratio: "原比例", name: "只压缩", on: ws.draft.image.crop == nil) { choose(nil) }
-                    ForEach(CropPreset.imagePresets) { preset in
-                        RatioTile(ratio: preset.ratioLabel.isEmpty ? "—" : preset.ratioLabel,
-                                  name: preset.ratioLabel.isEmpty ? "自由" : Self.shortName(preset),
-                                  on: ws.draft.image.crop?.id == preset.id) { choose(preset) }
-                    }
+                // 放得下排一行（设计稿）；窄窗口（1000–1180 档）放不下就折成两行，不挤成省略号。
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) { ratioTiles.frame(minWidth: 68) }
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5), spacing: 6) { ratioTiles }
                 }
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("比例")
@@ -57,6 +53,15 @@ struct FrameCard: View {
 
     private var subtitle: String {
         ws.isCropping ? "每张默认居中取最大；在左边点一张可以调框" : "比例和尺寸一起定；选「原比例」就是只压缩"
+    }
+
+    @ViewBuilder private var ratioTiles: some View {
+        RatioTile(ratio: "原比例", name: "只压缩", on: ws.draft.image.crop == nil) { choose(nil) }
+        ForEach(CropPreset.imagePresets) { preset in
+            RatioTile(ratio: preset.ratioLabel.isEmpty ? "—" : preset.ratioLabel,
+                      name: preset.ratioLabel.isEmpty ? "自由" : Self.shortName(preset),
+                      on: ws.draft.image.crop?.id == preset.id) { choose(preset) }
+        }
     }
 
     private func choose(_ preset: CropPreset?) {
