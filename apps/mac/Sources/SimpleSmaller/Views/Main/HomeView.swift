@@ -48,7 +48,8 @@ struct HomeView: View {
                     .frame(width: 160, height: 392, alignment: .leading)
                     ForEach(Array(HomeCard.Kind.allCases.enumerated()), id: \.element) { i, kind in
                         let hot = hotCard == kind
-                        HomeCard(kind: kind, split: hot, hotCell: hot ? hotCell : nil)
+                        HomeCard(kind: kind, split: hot, hotCell: hot ? hotCell : nil,
+                                 blocked: hot && drag != nil ? drag!.blockedCells(kind) : [])
                             .frame(width: cardW, height: 392)
                             .background(frameReader(.card(kind)))
                             .zIndex(hot ? 1 : 0)
@@ -80,7 +81,7 @@ struct HomeView: View {
 
     private var hotCell: Int? {
         guard let drag, let card = hotCard else { return nil }
-        return HomeDropDelegate.cell(at: drag.location, in: card, frames: frames)
+        return HomeDropDelegate.cell(at: drag.location, in: card, frames: frames, drag: drag)
     }
 
     private func frameReader(_ slot: HomeSlot) -> some View {
@@ -126,9 +127,22 @@ struct HomeDrag: Equatable {
     }
 
     /// 这张卡能接：拖的文件里至少有一个是它的类型（文件夹按卡片的类型展开，都能接）。
+    /// PDF 卡的「图片转 PDF」格接图片，所以拖的文件里有图片时 PDF 卡也分格。
     func fits(_ kind: HomeCard.Kind) -> Bool {
-        guard let t = kind.type else { return false }
-        return hasFolder || types.contains(t)
+        kind.features.indices.contains { accepts(kind, cell: $0) }
+    }
+
+    /// 某一格接不接这批文件：PDF 卡「图片转 PDF」接图片，其余 4 格接 PDF；别的卡按卡片类型。
+    func accepts(_ kind: HomeCard.Kind, cell: Int) -> Bool {
+        guard let t = kind.type, kind.features.indices.contains(cell) else { return false }
+        if hasFolder { return true }
+        if kind == .pdf, kind.features[cell].title == Workspace.PdfSegment.fromImages.rawValue { return types.contains(.image) }
+        return types.contains(t)
+    }
+
+    /// 分格时不能放的格子（变淡、不高亮），如只拖图片时 PDF 卡除「图片转 PDF」外的 4 格。
+    func blockedCells(_ kind: HomeCard.Kind) -> Set<Int> {
+        Set(kind.features.indices.filter { !accepts(kind, cell: $0) })
     }
 }
 
@@ -142,11 +156,12 @@ struct HomeDropDelegate: DropDelegate {
         HomeCard.Kind.allCases.first { frames[.card($0)]?.contains(p) == true && drag.fits($0) }
     }
 
-    /// 指针在哪一格；在卡片里但不在格子上（标题、间隙）时取最近的一格。
-    static func cell(at p: CGPoint, in card: HomeCard.Kind, frames: [HomeSlot: CGRect]) -> Int? {
+    /// 指针在哪一格；在卡片里但不在格子上（标题、间隙）时取最近的一格能放的。
+    /// 指在不能放的格子上时为 nil（松手按类型分流）。
+    static func cell(at p: CGPoint, in card: HomeCard.Kind, frames: [HomeSlot: CGRect], drag: HomeDrag) -> Int? {
         let cells = card.features.indices.compactMap { i in frames[.cell(card, i)].map { (i, $0) } }
-        if let hit = cells.first(where: { $0.1.contains(p) }) { return hit.0 }
-        return cells.min { abs($0.1.midY - p.y) < abs($1.1.midY - p.y) }?.0
+        if let hit = cells.first(where: { $0.1.contains(p) }) { return drag.accepts(card, cell: hit.0) ? hit.0 : nil }
+        return cells.filter { drag.accepts(card, cell: $0.0) }.min { abs($0.1.midY - p.y) < abs($1.1.midY - p.y) }?.0
     }
 
     func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.fileURL]) }
@@ -194,8 +209,9 @@ struct HomeDropDelegate: DropDelegate {
     /// 落在能接的卡片上：这类文件进那一格的功能，其余按类型分；否则整批按类型分流（同 V2.1）。
     @MainActor func route(_ d: HomeDrag) {
         guard !d.urls.isEmpty else { return }
-        if let card = Self.card(at: d.location, frames: frames, accepting: d), let type = card.type {
-            let i = Self.cell(at: d.location, in: card, frames: frames) ?? 0
+        if let card = Self.card(at: d.location, frames: frames, accepting: d), let type = card.type,
+           let i = Self.cell(at: d.location, in: card, frames: frames, drag: d) {
+            // 放进 PDF 卡「图片转 PDF」：图片进 PDF 的「图片转 PDF」（add 在这个分段下把图片收进 PDF 工作区）。
             model.enter(type, feature: card.features[i].title, with: d.urls)
         } else {
             model.add(d.urls)
@@ -279,6 +295,8 @@ struct HomeCard: View {
     /// 拖进来、指针在这张卡上：分成几格。
     var split = false
     var hotCell: Int?
+    /// 这批文件放不进去的格子：变淡、不高亮。
+    var blocked: Set<Int> = []
     @State private var hovering = false
 
     var body: some View {
@@ -381,7 +399,7 @@ struct HomeCard: View {
                 .padding(.horizontal, 4)
                 .padding(.vertical, 2)
             ForEach(Array(kind.features.enumerated()), id: \.offset) { i, f in
-                let hot = hotCell == i
+                let hot = hotCell == i && !blocked.contains(i)
                 HStack(spacing: 8) {
                     LineIcon(glyph: f.glyph, size: many ? 16 : 18)
                     VStack(alignment: .leading, spacing: 1) {
@@ -399,6 +417,7 @@ struct HomeCard: View {
                         shape.fill(Bento.card).overlay(shape.strokeBorder(Bento.dash, style: StrokeStyle(lineWidth: 2, dash: [5, 4])))
                     }
                 }
+                .opacity(blocked.contains(i) ? 0.35 : 1)
                 .background(GeometryReader { g in
                     Color.clear.preference(key: HomeFrames.self, value: [.cell(kind, i): g.frame(in: .named(HomeSlot.space))])
                 })
