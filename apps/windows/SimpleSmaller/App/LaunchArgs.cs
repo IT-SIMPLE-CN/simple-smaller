@@ -2,7 +2,7 @@ namespace SimpleSmaller;
 
 /// 启动参数（验证用，也给资源管理器右键菜单用）：
 /// --open <路径…>  加文件；--type 图片|视频|PDF；--segment <分段名>；--start 直接开始；
-/// --appearance dark|light 强制深浅色（验证用）。
+/// --appearance dark|light 强制深浅色（验证用）；--reset-guides 忘掉看过的教学（在 App.OnLaunched 里最先处理）。
 internal static class LaunchArgs
 {
     public static void Apply(string[] args)

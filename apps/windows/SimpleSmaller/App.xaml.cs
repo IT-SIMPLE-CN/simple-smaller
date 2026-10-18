@@ -41,6 +41,8 @@ public partial class App : Application
             Exit();
             return;
         }
+        // 测试用：--reset-guides 忘掉「看过」的教学（圆环教学、各功能小教学都会再出现一次）。
+        if (argv.Contains("--reset-guides")) GuideStore.Shared.Reset();
         var queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         // 通知先挂好点按事件再注册，之后才能读到「由通知启动」的参数。
         notifier = new AppNotifier();

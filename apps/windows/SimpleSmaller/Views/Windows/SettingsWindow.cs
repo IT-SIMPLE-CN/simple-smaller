@@ -123,6 +123,7 @@ internal sealed class GeneralSettings : Reactive
         trigger.Options([(false, "按住 Alt 点文件"), (true, "按住 Ctrl + Alt 点文件")], settings.RingCtrlAlt, v => settings.RingCtrlAlt = v);
         var entry = FormCard.Create(Icons.Ring, "入口", "圆环要读出你点的是哪个文件。只读取文件位置，不记录其他操作。",
             FormRow.Toggle("资源管理器圆环", settings.RingEnabled, on => settings.RingEnabled = on),
+            FormRow.Create("圆环怎么用", RingGuideButton()),
             FormRow.Create("唤出方式", trigger),
             FormRow.Toggle("托盘图标", settings.MenuBarIcon, on => settings.MenuBarIcon = on),
             FormRow.Toggle("资源管理器右键「显示更多选项」", ExplorerMenu.Enabled, on => ExplorerMenu.Enabled = on),
@@ -132,6 +133,19 @@ internal sealed class GeneralSettings : Reactive
     }
 
     private IntPtr WindowHwnd() => App.SettingsHwnd;
+
+    /// 「再看一遍」：把主窗口拿出来，打开圆环教学（设计稿 V2.2 · D）。
+    private static TextCapsule RingGuideButton()
+    {
+        var b = new TextCapsule("再看一遍", 28, 12, 10, "BentoCard");
+        AutomationProperties.SetName(b, "再看一遍圆环教学");
+        b.Click += (_, _) =>
+        {
+            App.ShowMain();
+            Views.Guide.GuideHost.Shared?.ShowRing();
+        };
+        return b;
+    }
 }
 
 // MARK: - 自动
