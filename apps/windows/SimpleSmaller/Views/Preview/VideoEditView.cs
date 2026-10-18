@@ -63,8 +63,9 @@ internal sealed class VideoEditView : Reactive
                 p.Changed -= PlaybackChanged;
                 stage.Playback = trim.Playback = null;
                 stage.Detach();
-                p.Dispose();
                 playback = null;
+                // 画面元素还在卸载流程里时释放 MediaPlayer 会让 XAML 崩（E_ABORT）：断开后等这一轮走完再释放。
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, p.Dispose);
             }
         };
         // 空格播放 / 暂停（焦点在预览里时）。
@@ -191,6 +192,7 @@ internal sealed class VideoStage : UserControl
     {
         if (player != null)
         {
+            player.SetMediaPlayer(null);
             canvas.Children.Remove(player);
             player = null;
         }
