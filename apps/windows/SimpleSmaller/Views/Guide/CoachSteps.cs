@@ -18,12 +18,27 @@ internal static class CoachSteps
 {
     public const double ArtWidth = 308, ArtHeight = 92;
 
-    public static (string Name, CoachStep[] Steps) For(MediaType type) => type switch
+    /// 视频第 2 步按进教学时的分段定：剪辑框预览与时间线，压缩 / 序列帧框文件卡（翻页过程中分段不会变）。
+    public static (string Name, CoachStep[] Steps) For(MediaType type, VideoSegment segment = VideoSegment.Compress) => type switch
     {
         MediaType.Image => ("图片怎么用", Image),
-        MediaType.Video => ("视频怎么用", Video),
+        MediaType.Video => ("视频怎么用", VideoFor(segment)),
         _ => ("PDF 怎么用", Pdf),
     };
+
+    private static CoachStep[] VideoFor(VideoSegment segment)
+    {
+        var steps = (CoachStep[])Video.Clone();
+        steps[1] = segment switch
+        {
+            VideoSegment.Edit => steps[1],
+            VideoSegment.Compress => new(GuideTargets.Main, CoachSide.Right, "这一批都在这",
+                "把视频拖进来，随时还能往里加。要截一段、裁画面，切到顶部的「剪辑」。", VideoBatchArt),
+            _ => new(GuideTargets.Main, CoachSide.Right, "这一批都在这",
+                "把视频拖进来，随时还能往里加。", VideoBatchArt),
+        };
+        return steps;
+    }
 
     private static readonly FontWeight Semi = FontWeights.SemiBold;
     private static readonly FontWeight Bold = FontWeights.Bold;
@@ -189,6 +204,27 @@ internal static class CoachSteps
         s.Rect(88, 30, 158, 54, 9, (string?)null, "line", 1, dash: 4);
         var flying = s.Rect(40, 6, 40, 30, 5, Sketch.Gradient("#D6D6E2", "#5E5E7A"));
         flying.RenderTransform = new RotateTransform { Angle = -8, CenterX = 20, CenterY = 16 };
+        var curve = s.Path("M84 24 C 100 20, 110 26, 116 40", null, "brand", 2, round: false);
+        curve.StrokeDashArray = new DoubleCollection { 1.5, 1.5 };
+        Pointer(s, "M70 26l0 19.2l4.8 -4.8l4.0 8.8l3.2 -1.6l-4.0 -8.8l6.4 0z", 1.4);
+        s.Text(254, 57, "+1", 12, "brand", Bold, 's');
+    }
+
+    /// 视频的「这一批都在这」：同图片那张的构图，缩略图换成视频（深色画面 + 播放三角 + 时长条）。
+    private static void VideoBatchArt(Sketch s)
+    {
+        (string From, string To, string Time)[] clips = [("#3A4A5C", "#141A22", "02:14"), ("#5A4E44", "#1E1915", "00:45"), ("#2F4A40", "#101A16", "01:03")];
+        for (var i = 0; i < clips.Length; i++)
+        {
+            var x = 92 + 52 * i;
+            s.Rect(x, 34, 46, 34, 5, Sketch.Gradient(clips[i].From, clips[i].To));
+            s.Path($"M{x + 19} 44l9 7-9 7z", "white", round: false);
+            s.Text(x + 42, 63, clips[i].Time, 6.5, "white", Semi, 'e');
+        }
+        s.Rect(88, 30, 158, 54, 9, (string?)null, "line", 1, dash: 4);
+        var flying = s.Rect(40, 6, 40, 30, 5, Sketch.Gradient("#4A4560", "#16141F"));
+        flying.RenderTransform = new RotateTransform { Angle = -8, CenterX = 20, CenterY = 16 };
+        s.Path("M56 15l8 6-8 6z", "white", round: false).RenderTransform = new RotateTransform { Angle = -8, CenterX = 60, CenterY = 22 };
         var curve = s.Path("M84 24 C 100 20, 110 26, 116 40", null, "brand", 2, round: false);
         curve.StrokeDashArray = new DoubleCollection { 1.5, 1.5 };
         Pointer(s, "M70 26l0 19.2l4.8 -4.8l4.0 8.8l3.2 -1.6l-4.0 -8.8l6.4 0z", 1.4);

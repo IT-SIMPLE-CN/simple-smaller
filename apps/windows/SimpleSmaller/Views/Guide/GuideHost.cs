@@ -91,7 +91,7 @@ internal sealed class GuideHost
     {
         if (IsOpen) return;
         var key = GuideStore.KeyOf(type);
-        var (name, steps) = CoachSteps.For(type);
+        var (name, steps) = CoachSteps.For(type, model.Workspace(type).VideoSegment);
         var c = new Coach(name, steps);
         coach = c;
         c.Closed += () =>

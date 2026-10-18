@@ -407,7 +407,7 @@ internal sealed class RingGuide : Grid
         rows.Children.Add(KeyRow(["点内圈"], "用带 ● 的默认项"));
         rows.Children.Add(KeyRow(["按住", "→", "划到外圈松手"], "直接执行这一项"));
         rows.Children.Add(KeyRow(["Esc"], "收起，什么都不做"));
-        rows.Children.Add(KeyRow(["Ctrl", "Shift", "V"], "处理剪贴板里的图片（不用圆环）"));
+        rows.Children.Add(KeyRow(["Ctrl", "Shift", "V"], "在主窗口里处理剪贴板图片"));
         grid.Children.Add(rows);
 
         var menu = MenuCard();
