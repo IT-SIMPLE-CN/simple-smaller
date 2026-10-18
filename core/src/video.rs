@@ -473,7 +473,7 @@ pub fn transcode(
     })();
     match result {
         Ok(()) => {
-            std::fs::rename(&tmp, output)?;
+            crate::fsx::rename(&tmp, output)?;
             progress(1.0);
             Ok(())
         }
@@ -557,7 +557,7 @@ pub fn strip_audio(tools: &Tools, input: &Path, output: &Path, info: &VideoInfo,
     args.push(tmp.to_string_lossy().into_owned());
     match run_ffmpeg(tools, &args, info.duration, (0.0, 1.0), progress, cancel) {
         Ok(()) => {
-            std::fs::rename(&tmp, output)?;
+            crate::fsx::rename(&tmp, output)?;
             progress(1.0);
             Ok(())
         }
@@ -711,7 +711,7 @@ pub fn make_gif(
     let written = write_thread.join().unwrap_or_else(|_| Err("GIF 写入线程异常".into()));
     match (collect, written) {
         (Ok(_), Ok(())) => {
-            std::fs::rename(&tmp, output)?;
+            crate::fsx::rename(&tmp, output)?;
             Ok(())
         }
         (Err(e), _) => {
@@ -802,7 +802,7 @@ mod tests {
     #[test]
     fn 中途停止马上结束进程() {
         let Some(tools) = tools_or_skip() else { return };
-        let dir = scratch("cancel");
+        let dir = scratch("stop");
         let input = sample(&tools, &dir, 20);
         let info = probe(&tools, &input).unwrap();
         let output = dir.join("cancel.mp4");

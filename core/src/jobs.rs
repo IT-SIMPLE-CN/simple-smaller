@@ -282,7 +282,7 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
         std::fs::create_dir_all(dir)?;
     }
     let tmp = temp_sibling(path, "");
-    let result = std::fs::write(&tmp, bytes).and_then(|_| std::fs::rename(&tmp, path));
+    let result = std::fs::write(&tmp, bytes).and_then(|_| crate::fsx::rename(&tmp, path));
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
@@ -304,7 +304,7 @@ pub fn write_zip(files: &[PathBuf], base: &Path, zip_path: &Path) -> Result<(), 
             zip.write_all(&std::fs::read(f).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
         }
         zip.finish().map_err(|e| e.to_string())?;
-        std::fs::rename(&tmp, zip_path).map_err(|e| e.to_string())
+        crate::fsx::rename(&tmp, zip_path).map_err(|e| e.to_string())
     })();
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);

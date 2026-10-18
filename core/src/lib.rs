@@ -10,6 +10,7 @@ pub mod video;
 pub mod live;
 pub mod pdf;
 pub mod naming;
+pub mod fsx;
 pub mod jobs;
 pub mod api;
 

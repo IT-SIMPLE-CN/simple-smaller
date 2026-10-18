@@ -107,7 +107,7 @@ pub fn encrypt_in_place(path: &Path, password: &str) -> Result<()> {
         let _ = std::fs::remove_file(&tmp);
         return r;
     }
-    std::fs::rename(&tmp, path)?;
+    crate::fsx::rename(&tmp, path)?;
     Ok(())
 }
 
@@ -221,7 +221,7 @@ pub fn compress(input: &Path, output: &Path, recipe: &PdfRecipe) -> Result<Compr
             let plain = temp_path(&output.with_extension("plain.pdf"));
             match compress_once(input, &plain, None, recipe) {
                 Ok(plain_size) if plain_size < size => {
-                    std::fs::rename(&plain, &tmp)?;
+                    crate::fsx::rename(&plain, &tmp)?;
                     size = plain_size;
                 }
                 _ => {
@@ -234,7 +234,7 @@ pub fn compress(input: &Path, output: &Path, recipe: &PdfRecipe) -> Result<Compr
             let _ = std::fs::remove_file(&tmp);
             return Ok(CompressOutcome::KeptOriginal);
         }
-        std::fs::rename(&tmp, output)?;
+        crate::fsx::rename(&tmp, output)?;
         Ok(CompressOutcome::Written { bytes: size, level })
     })();
     if result.is_err() {
@@ -269,7 +269,7 @@ pub fn assemble(inputs: &[PathBuf], pages: &[PageRef], output: &Path, strip_meta
         if got != pages.len() {
             return Err(PdfError::Mupdf(format!("页数不一致：应为 {}，实际 {got}", pages.len())));
         }
-        Ok(std::fs::rename(&tmp, output)?)
+        Ok(crate::fsx::rename(&tmp, output)?)
     });
     if r.is_err() {
         let _ = std::fs::remove_file(&tmp);
@@ -358,7 +358,7 @@ pub fn images_to_pdf(
     let r = call(|e, n| unsafe {
         smaller_pdf_from_images(ptrs.as_ptr(), lens.as_ptr(), ptrs.len() as c_int, mode, 150.0, o.as_ptr(), e, n)
     })
-    .and_then(|_| Ok(std::fs::rename(&tmp, output)?));
+    .and_then(|_| Ok(crate::fsx::rename(&tmp, output)?));
     if r.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
