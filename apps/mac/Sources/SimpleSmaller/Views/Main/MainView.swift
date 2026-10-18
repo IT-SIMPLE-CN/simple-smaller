@@ -44,14 +44,6 @@ struct MainView: View {
             }
         }
         .animation(.smooth(duration: 0.3), value: model.toast)
-        .overlay(alignment: .bottom) {
-            if let bar = model.visibleUndoBar {
-                UndoBarView(bar: bar)
-                    .padding(.bottom, 28)
-                    .transition(reduceMotion ? .opacity : .scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
-            }
-        }
-        .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.35, dampingFraction: 0.82), value: model.visibleUndoBar?.id)
         .background(NoInitialFocus())
         .background(GuideWindowProbe())
         // 每类第一次拖进文件后，小教学自动出现一次（GuideCenter 判断条件）。
@@ -128,7 +120,7 @@ struct MainView: View {
     }
 }
 
-/// 清空 / 移除后窗口底部居中的提示条（设计稿 V3 · 11）：墨黑胶囊「已清空 12 个文件」+ 浅色内胶囊「撤销 ⌘Z」，停 5 秒。
+/// 清空 / 移除后左大卡底部居中的提示条（设计稿 V3 · 11）：墨黑胶囊「已清空 12 个文件」+ 浅色内胶囊「撤销 ⌘Z」，停 5 秒。
 struct UndoBarView: View {
     @Environment(AppModel.self) private var model
     let bar: UndoBar

@@ -115,7 +115,7 @@ struct FilesCard: View {
                         .disabled(ws.running)
                         .opacity(ws.running ? 0.4 : 1)
                         .help("清空这一批（⌘⇧⌫），5 秒内可撤销")
-                        .accessibilityLabel("清空")
+                        .accessibilityLabel("清空这一批")
                     if ws.type == .image {
                         CircleIconButton(symbol: "doc.on.clipboard", label: "粘贴剪贴板（⌘⇧V）") { model.pasteFromClipboard() }
                     }

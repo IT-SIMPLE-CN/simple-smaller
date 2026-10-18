@@ -29,6 +29,7 @@ struct WorkView: View {
 /// 宽（≥ 1080）三列；窄时右侧合成一列可滚动、「开始」固定在底；很宽时右侧两列不再拉宽。
 struct WorkGrid: View {
     let ws: Workspace
+    @Environment(AppModel.self) private var model
     @Namespace private var slots
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -47,7 +48,7 @@ struct WorkGrid: View {
                 // 窄：左大卡占一半；右边配方条 + 可滚动的参数卡 + 固定在底的开始卡。
                 let right = max(300, w * 0.46)
                 HStack(spacing: gap) {
-                    main.guideTarget(.main).matchedGeometryEffect(id: "main", in: slots).bentoRegion(5).bentoAppear(0, trigger: appearKey)
+                    main.overlay(alignment: .bottom) { undoBar }.guideTarget(.main).matchedGeometryEffect(id: "main", in: slots).bentoRegion(5).bentoAppear(0, trigger: appearKey)
                     VStack(spacing: gap) {
                         topBar.frame(height: Self.barHeight).guideTarget(.bar).matchedGeometryEffect(id: "bar", in: slots).bentoRegion(4).bentoAppear(1, trigger: appearKey)
                         ScrollView {
@@ -67,7 +68,7 @@ struct WorkGrid: View {
                 let col = min(Self.maxColumn, unit)
                 let rowH = (h - Self.barHeight - 2 * gap) / 2
                 HStack(spacing: gap) {
-                    main.guideTarget(.main).matchedGeometryEffect(id: "main", in: slots).bentoRegion(5).bentoAppear(0, trigger: appearKey)
+                    main.overlay(alignment: .bottom) { undoBar }.guideTarget(.main).matchedGeometryEffect(id: "main", in: slots).bentoRegion(5).bentoAppear(0, trigger: appearKey)
                     VStack(spacing: gap) {
                         topBar.frame(height: Self.barHeight).guideTarget(.bar).matchedGeometryEffect(id: "bar", in: slots).bentoRegion(4).bentoAppear(1, trigger: appearKey)
                             upper.frame(height: rowH).guideTarget(.upper).bentoRegion(3).bentoAppear(2, trigger: appearKey)
@@ -95,6 +96,18 @@ struct WorkGrid: View {
     private var isImageCrop: Bool { ws.isCropping && ws.cropEditing }
 
     // MARK: 左大卡
+
+    /// 清空 / 移除后的「撤销 ⌘Z」提示条：照设计稿 11 放在左大卡底部居中，离卡片底边 102。
+    @ViewBuilder private var undoBar: some View {
+        ZStack {
+            if let bar = model.visibleUndoBar, bar.type == ws.type {
+                UndoBarView(bar: bar)
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
+            }
+        }
+        .padding(.bottom, 102)
+        .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.35, dampingFraction: 0.82), value: model.visibleUndoBar?.id)
+    }
 
     @ViewBuilder private var main: some View {
         if ws.files.isEmpty {
