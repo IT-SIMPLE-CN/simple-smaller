@@ -133,7 +133,8 @@ internal sealed class VideoPictureCard : VideoCardBase
         sizeRow.Children.Add(post);
         sizeBox = Paint(new Border { Height = 36, CornerRadius = new CornerRadius(18), Padding = new Thickness(14, 0, 14, 0), Child = sizeRow, VerticalAlignment = VerticalAlignment.Center },
                         b => b.Background = Palette.Get(b, "BentoFill"));
-        var rateGroup = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        // 「按大小」的体积框跟在画质后面；窄时放不下就折到下一行。
+        var rateGroup = new WrapPanel { Spacing = 6 };
         rateGroup.Children.Add(rate);
         rateGroup.Children.Add(sizeBox);
         rateRow = LabeledRow("画质", rateGroup, outputLine);
@@ -148,7 +149,7 @@ internal sealed class VideoPictureCard : VideoCardBase
         top.Children.Add(header);
         top.Children.Add(muteNote);
         lockable = Lockable(Rows((top, false), (body, true)));
-        Content = Card.Create(lockable);
+        Content = Card.Create(CardBody.Fit(lockable));
     }
 
     private static string Mb(double x) => x.ToString("0.#", CultureInfo.InvariantCulture);
@@ -244,7 +245,7 @@ internal sealed class VideoFormatCard : VideoCardBase
         top.Children.Add(header);
         top.Children.Add(codec);
         lockable = Lockable(Rows((top, false), (new Border(), true), (hdrRow, false)));
-        Content = Card.Create(lockable);
+        Content = Card.Create(CardBody.Fit(lockable));
     }
 
     protected override void Refresh()
@@ -355,7 +356,7 @@ internal sealed class FramesCard : VideoCardBase
         top.Children.Add(header);
         top.Children.Add(mode);
         lockable = Lockable(Rows((top, false), (row, true), (warning, false)));
-        Content = Card.Create(lockable);
+        Content = Card.Create(CardBody.Fit(lockable));
     }
 
     /// 灰底圆钮，中间是「−」「+」文字（设计稿 40 × 40，18 号字）。
@@ -483,7 +484,7 @@ internal sealed class FrameEachCard : VideoCardBase
         rows.Children.Add(widthRow);
         rows.Children.Add(Row("文件名", name));
         lockable = Lockable(Rows((Header(Icons.Image, "每一帧", "比例裁切沿用「剪辑」里的设置"), false), (new Border(), true), (rows, false)));
-        Content = Card.Create(lockable);
+        Content = Card.Create(CardBody.Fit(lockable));
     }
 
     protected override void Refresh()

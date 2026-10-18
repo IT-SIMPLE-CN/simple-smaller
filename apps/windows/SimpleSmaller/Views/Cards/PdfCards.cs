@@ -23,7 +23,7 @@ internal sealed class PdfMainCard : Reactive
         this.ws = ws;
         segment = ws.PdfSegment;
         var body = new Grid { RowSpacing = segment == PdfSegment.Compress ? 14 : 12 };
-        card = Card.Create(body);
+        card = Card.Create(CardBody.Fit(body));
         Content = card;
         switch (segment)
         {
@@ -211,6 +211,26 @@ internal sealed class PdfMainCard : Reactive
             e.VerticalAlignment = VerticalAlignment.Center;
             row.Children.Add(e);
         }
+        // 窄窗口（1000–1180 档）一行放不下时「共拆出 N 个」挪到下一行靠右，不截成省略号。
+        row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        void fit()
+        {
+            if (row.ActualWidth <= 0) return;
+            double need = 0;
+            foreach (var e in new FrameworkElement[] { each, minus, number, plus, unit, total })
+            {
+                e.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+                need += e.DesiredSize.Width;
+            }
+            var below = need + 5 * row.ColumnSpacing > row.ActualWidth;
+            if (below == (Grid.GetRow(total) == 1)) return;
+            Grid.SetRow(total, below ? 1 : 0);
+            Grid.SetColumn(total, below ? 0 : 5);
+            Grid.SetColumnSpan(total, below ? 6 : 1);
+        }
+        row.SizeChanged += (_, _) => fit();
+        total.SizeChanged += (_, _) => fit();
         var panel = PdfUi.Panel(row, new Thickness(16, 12, 16, 12));
         updates.Add(() =>
         {
@@ -359,7 +379,7 @@ internal sealed class PdfOptionsCard : Reactive
     {
         this.ws = ws;
         var body = new Grid { RowSpacing = 8 };
-        card = Card.Create(body);
+        card = Card.Create(CardBody.Fit(body));
         Content = card;
         if (ws.PdfSegment == PdfSegment.ToImages) BuildQuality(body); else BuildOptions(body);
         Watch(ws, nameof(Workspace.Draft), nameof(Workspace.Running), nameof(Workspace.OutputPasswordOn), nameof(Workspace.OutputPassword));

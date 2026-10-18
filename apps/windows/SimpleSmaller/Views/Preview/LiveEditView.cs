@@ -150,7 +150,7 @@ internal sealed class LiveTimeline : UserControl
     private readonly TextBlock time = new() { FontSize = 20, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock range = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
     private readonly Border rangeBack = new() { Height = 28, Padding = new Thickness(12, 0, 12, 0), CornerRadius = new CornerRadius(14), VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock hint = new() { Text = "拖红框选一段（最长 3 秒）· 单击选封面", FontSize = 11, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Right, MaxLines = 1 };
+    private readonly TextBlock hint = new() { Text = "拖红框选一段（最长 3 秒）· 单击选封面", FontSize = 11, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, HorizontalAlignment = HorizontalAlignment.Right, TextAlignment = TextAlignment.Right, TextWrapping = TextWrapping.Wrap, MaxLines = 2 };
     private readonly Grid timeline = new() { Height = BarHeight, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), Margin = new Thickness(0, 18, 0, 0) };
     private readonly Grid thumbs = new() { ColumnSpacing = 2 };
     private readonly Border[] cells = new Border[Count];

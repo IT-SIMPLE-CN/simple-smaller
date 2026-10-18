@@ -17,7 +17,7 @@ internal sealed class StartBlock : Reactive
     private static readonly SolidColorBrush White = new(Microsoft.UI.Colors.White);
     private readonly Workspace ws;
     private readonly Button button = new() { Style = (Style)Application.Current.Resources["BentoBareButton"] };
-    private readonly Border back = new() { CornerRadius = new CornerRadius(18), Padding = new Thickness(22, 0, 14, 0), MinHeight = 64 };
+    private readonly Border back = new() { CornerRadius = new CornerRadius(18), Padding = new Thickness(22, 0, 14, 0), MinHeight = 80 };
     private readonly ColorShadow glow = new(Windows.UI.Color.FromArgb(77, 0xEF, 0x39, 0x22), 24, 10, 18);
     private readonly StackPanel texts = new() { VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock big = new() { FontSize = 30, FontWeight = Microsoft.UI.Text.FontWeights.Bold, CharacterSpacing = 40, LineHeight = 34, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };

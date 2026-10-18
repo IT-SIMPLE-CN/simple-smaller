@@ -37,8 +37,9 @@ public static class Card
 /// 卡片头：圆形图标 + 标题 + 副标题，右边放操作。
 public sealed class Header : Grid
 {
-    private readonly TextBlock title = new() { Style = (Style)Application.Current.Resources["BentoTitle"] };
-    private readonly TextBlock subtitle = new() { Style = (Style)Application.Current.Resources["BentoCaption"] };
+    // 窄窗口（1000–1180 档）标题、副标题一行放不下时折成两行，不截成省略号。
+    private readonly TextBlock title = new() { Style = (Style)Application.Current.Resources["BentoTitle"], TextWrapping = TextWrapping.Wrap, MaxLines = 2 };
+    private readonly TextBlock subtitle = new() { Style = (Style)Application.Current.Resources["BentoCaption"], TextWrapping = TextWrapping.Wrap, MaxLines = 2 };
     private readonly FontIcon icon = new() { FontSize = 14 };
     private readonly Border iconBack = new() { Width = 34, Height = 34, CornerRadius = new CornerRadius(17) };
     private readonly ContentPresenter trailing = new() { VerticalAlignment = VerticalAlignment.Center };

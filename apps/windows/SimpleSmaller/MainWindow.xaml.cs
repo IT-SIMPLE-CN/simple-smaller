@@ -49,7 +49,7 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new SizeInt32((int)(1280 * scale), (int)(820 * scale)));
         if (AppWindow.Presenter is OverlappedPresenter p)
         {
-            p.PreferredMinimumWidth = (int)(960 * scale);
+            p.PreferredMinimumWidth = (int)(1000 * scale);
             p.PreferredMinimumHeight = (int)(640 * scale);
         }
 
@@ -474,6 +474,13 @@ public sealed partial class MainWindow : Window
             tabs.Compact = tabs.FullWidth > w - 2 * side;
             var half = (w - (tabs.Compact ? tabs.CompactWidth : tabs.FullWidth)) / 2;
             titleTexts.MaxWidth = Math.Max(60, half - lead - gap);
+        }
+        else if (center.Content is StackPanel { Children.Count: 3 } brand && brand.Children[2] is TextBlock en)
+        {
+            // 首页正中的品牌：窄窗口（1000 档）时英文名会贴到右边「粘贴剪贴板」上，放不下就只留中文名。
+            en.Visibility = Visibility.Visible;
+            brand.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            if ((w - brand.DesiredSize.Width) / 2 < right + gap) en.Visibility = Visibility.Collapsed;
         }
         else
         {

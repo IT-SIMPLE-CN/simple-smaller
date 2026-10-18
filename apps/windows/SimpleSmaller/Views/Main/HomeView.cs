@@ -21,21 +21,33 @@ internal sealed class HomeView : UserControl
     private readonly LineIcon headlineArrow = new(Icons.TurnDownRight, 34, 2);
     private readonly StackPanel cards = new() { Orientation = Orientation.Horizontal, Spacing = 16 };
     private readonly List<HomeCard> cardViews = new();
-    private readonly TextBlock note = new() { Text = "点标签直接进；拖文件到卡片上，卡片会分成几格，放到哪格进哪个。", FontSize = 12, Margin = new Thickness(176, 28, 0, 0) };
+    private readonly TextBlock note = new() { Text = NoteText, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(176, 28, 0, 0) };
     private readonly TextBlock local = new() { Text = "图片、视频、PDF\n都在本机处理，不上传。", FontSize = 12, LineHeight = 18 };
     private readonly StackPanel column = new();
+    /// 左栏（「关于」+「都在本机处理」）；窄档（窗口 < 1180，设计稿 V3 · 3）收起，「关于」挪到大标题右边。
+    private readonly Grid side = new() { Width = 160, Height = 410 };
+    private readonly Button aboutTop;
+    private const string NoteText = "点标签直接进；拖文件到卡片上，卡片会分成几格，放到哪格进哪个。";
     private readonly Microsoft.UI.Xaml.Shapes.Path dots = new() { Width = 444, Height = 444, Data = DotGrid() };
 
     public HomeView()
     {
-        var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14 };
-        head.Children.Add(headline);
+        var title = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14 };
+        title.Children.Add(headline);
         headlineArrow.VerticalAlignment = VerticalAlignment.Center;
         headlineArrow.Margin = new Thickness(0, 8, 0, 0);
-        head.Children.Add(headlineArrow);
+        title.Children.Add(headlineArrow);
+        var head = new Grid();
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        head.Children.Add(title);
+        aboutTop = AboutButton();
+        aboutTop.VerticalAlignment = VerticalAlignment.Center;
+        aboutTop.Visibility = Visibility.Collapsed;
+        Grid.SetColumn(aboutTop, 1);
+        head.Children.Add(aboutTop);
         AutomationProperties.SetHeadingLevel(headline, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level1);
 
-        var side = new Grid { Width = 160, Height = 392 };
         side.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         side.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         side.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -212,14 +224,20 @@ internal sealed class HomeView : UserControl
         {
             return;
         }
-        var cardW = Math.Min(260, Math.Max(200, (w - 40 - 176 - 3 * 16 - 40) / 4));
-        // 一排卡同高：默认 392，哪张放不下（视频卡多了「实况」标签换行）就一起加高。
-        var cardH = Math.Max(392, cardViews.Max(c => c.NeededHeight(cardW)));
+        var narrow = w < 1180;
+        side.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        aboutTop.Visibility = narrow ? Visibility.Visible : Visibility.Collapsed;
+        note.Text = narrow ? NoteText + "图片、视频、PDF 都在本机处理，不上传。" : NoteText;
+        note.Margin = new Thickness(narrow ? 0 : 176, 28, 0, 0);
+        var cardW = Math.Min(260, Math.Max(200, (w - 80 - (narrow ? 0 : 176) - 3 * 16) / 4));
+        // 一排卡同高：默认 410，哪张放不下（视频卡多了「实况」标签换行）就一起加高。
+        var cardH = Math.Max(410, cardViews.Max(c => c.NeededHeight(cardW)));
         foreach (var c in cardViews)
         {
             c.Width = cardW;
             c.Height = Math.Ceiling(cardH);
         }
+        side.Height = Math.Ceiling(cardH);
         column.Margin = new Thickness(0, Math.Max(20, (h - 640) / 2), 0, 0);
         cards.Margin = new Thickness(0, Math.Min(56, Math.Max(24, h - 600)), 0, 0);
     }
@@ -291,7 +309,7 @@ internal sealed class HomeCard : UserControl
     private int hovered = -1;
     private bool[] enabled = [];
 
-    /// 卡宽为 width 时放下全部内容要多高（视频卡标签两行、说明两行时比 392 高）。
+    /// 卡宽为 width 时放下全部内容要多高（视频卡标签两行、说明两行时比 410 高）。
     public double NeededHeight(double width)
     {
         var inner = Math.Max(1, width - 28);

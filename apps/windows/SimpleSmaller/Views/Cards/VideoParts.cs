@@ -147,6 +147,26 @@ internal static class VideoParts
             tr.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(tr, 2);
             g.Children.Add(tr);
+            // 窄窗口（1000–1180 档）和右边的说明挤不下时，说明挪到下一行靠右，不压住左边的选项。
+            g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var c = (FrameworkElement)content;
+            void fit()
+            {
+                if (g.ActualWidth <= 0) return;
+                c.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+                tr.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+                var below = tr.Visibility == Visibility.Visible && 64 + 2 * g.ColumnSpacing + c.DesiredSize.Width + tr.DesiredSize.Width > g.ActualWidth;
+                if (below == (Grid.GetRow(tr) == 1)) return;
+                Grid.SetRow(tr, below ? 1 : 0);
+                Grid.SetColumn(tr, below ? 1 : 2);
+                Grid.SetColumnSpan(tr, below ? 2 : 1);
+                tr.HorizontalAlignment = below ? HorizontalAlignment.Right : HorizontalAlignment.Stretch;
+                tr.Margin = new Thickness(0, below ? 6 : 0, 0, 0);
+            }
+            g.SizeChanged += (_, _) => fit();
+            tr.SizeChanged += (_, _) => fit();
+            c.SizeChanged += (_, _) => fit();
         }
         return g;
     }

@@ -63,6 +63,7 @@ internal sealed class Coach : Grid
         TabFocusNavigation = KeyboardNavigationMode.Cycle;
 
         SizeChanged += (_, _) => Place(animated: false);
+        LayoutUpdated += (_, _) => Follow();
         ActualThemeChanged += (_, _) => { Paint(); Fill(appear: false); };
         Loaded += (_, _) =>
         {
@@ -197,18 +198,7 @@ internal sealed class Coach : Grid
     private void Place(bool animated)
     {
         if (ActualWidth <= 0 || closing) return;
-        var s = steps[step];
-        Rect? target = null;
-        if (GuideTargets.Find(s.Target) is { } fe)
-        {
-            var b = fe.TransformToVisual(this).TransformBounds(new Rect(0, 0, fe.ActualWidth, fe.ActualHeight));
-            target = b;
-        }
-        card.Measure(new Size(CardWidth, double.PositiveInfinity));
-        var cardHeight = card.DesiredSize.Height;
-        var spot = target is { } t ? new Rect(t.X - Pad, t.Y - Pad, t.Width + 2 * Pad, t.Height + 2 * Pad) : (Rect?)null;
-        var pos = target is { } tt ? CardPosition(tt, s.Side, cardHeight) : new Point((ActualWidth - CardWidth) / 2, (ActualHeight - cardHeight) / 2);
-
+        var (spot, pos) = Locate();
         if (!animated || !Motion.Enabled || spotNow is null || spot is null)
         {
             clock = null;
@@ -226,6 +216,57 @@ internal sealed class Coach : Grid
         CompositionTarget.Rendering -= OnFrame;
         CompositionTarget.Rendering += OnFrame;
     }
+
+    /// 这一步现在该画在哪：目标外扩的聚光框（找不到目标为 null）与卡片左上角。
+    private (Rect? Spot, Point Card) Locate()
+    {
+        var s = steps[step];
+        Rect? target = null;
+        if (GuideTargets.Find(s.Target) is { } fe && fe.XamlRoot is not null)
+        {
+            var r = fe.TransformToVisual(this).TransformBounds(new Rect(0, 0, fe.ActualWidth, fe.ActualHeight));
+            // 窄档时目标在可滚动的一列里：只框露出来的那一截，不框到被滚走、盖住别的卡的部分。
+            for (var p = VisualTreeHelper.GetParent(fe); p is not null && !ReferenceEquals(p, this); p = VisualTreeHelper.GetParent(p))
+            {
+                if (p is ScrollViewer sv && sv.ActualHeight > 0)
+                {
+                    var v = sv.TransformToVisual(this).TransformBounds(new Rect(0, 0, sv.ActualWidth, sv.ActualHeight));
+                    r.Intersect(v);
+                    if (r.IsEmpty) break;
+                }
+            }
+            target = r.IsEmpty ? null : r;
+        }
+        card.Measure(new Size(CardWidth, double.PositiveInfinity));
+        var cardHeight = card.DesiredSize.Height;
+        var spot = target is { } t ? new Rect(t.X - Pad, t.Y - Pad, t.Width + 2 * Pad, t.Height + 2 * Pad) : (Rect?)null;
+        var pos = target is { } tt ? CardPosition(tt, s.Side, cardHeight) : new Point((ActualWidth - CardWidth) / 2, (ActualHeight - cardHeight) / 2);
+        return (spot, pos);
+    }
+
+    /// 窗口改大小、目标换了排布（窄档 / 宽档）时实时跟着目标走，不播翻页动画；翻页动画途中只改终点。
+    private void Follow()
+    {
+        if (ActualWidth <= 0 || closing || !IsLoaded) return;
+        var (spot, pos) = Locate();
+        if (clock is not null)
+        {
+            if (spot is not null) spotTo = spot;
+            cardTo = pos;
+            return;
+        }
+        if (Same(spot, spotNow) && Math.Abs(pos.X - cardNow.X) < 0.5 && Math.Abs(pos.Y - cardNow.Y) < 0.5) return;
+        spotNow = spot;
+        cardNow = pos;
+        Apply();
+    }
+
+    private static bool Same(Rect? a, Rect? b) => (a, b) switch
+    {
+        (null, null) => true,
+        ({ } x, { } y) => Math.Abs(x.X - y.X) < 0.5 && Math.Abs(x.Y - y.Y) < 0.5 && Math.Abs(x.Width - y.Width) < 0.5 && Math.Abs(x.Height - y.Height) < 0.5,
+        _ => false,
+    };
 
     /// 卡片放在框的哪一边（量自设计稿：下方隔 22、右边隔 18、左边隔 40），放不下换另一边，最后夹在窗口里。
     private Point CardPosition(Rect t, CoachSide side, double h)

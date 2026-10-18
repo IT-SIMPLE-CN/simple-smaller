@@ -52,7 +52,7 @@ internal sealed class LiveKindCard : VideoCardBase
         top.Children.Add(ratioPanel);
         top.Children.Add(edgePanel);
         lockable = Lockable(Rows((top, false), (new Border(), true), (outputLine, false)));
-        Content = Card.Create(lockable);
+        Content = Card.Create(CardBody.Fit(lockable));
     }
 
     protected override void Refresh()
@@ -120,7 +120,7 @@ internal sealed class LiveCoverCard : VideoCardBase
         Grid.SetRow(steps, 2);
         g.Children.Add(steps);
         lockable = Lockable(g);
-        Content = Card.Create(lockable);
+        Content = Card.Create(CardBody.Fit(lockable));
         Unloaded += (_, _) => loading?.Cancel();
     }
 

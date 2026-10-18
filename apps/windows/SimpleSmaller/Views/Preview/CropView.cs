@@ -72,7 +72,11 @@ internal sealed class CropView : Reactive
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         bar.Children.Add(BackButton());
         var hint = Themed.Text("拖框就按新的；Ctrl+Z 撤回这一张", 11, "BentoSecondary");
+        // 窄窗口放不下一行时折两行，不截成省略号。
+        hint.TextWrapping = TextWrapping.Wrap;
+        hint.MaxLines = 2;
         hint.TextTrimming = TextTrimming.CharacterEllipsis;
+        hint.VerticalAlignment = VerticalAlignment.Center;
         hint.Margin = new Thickness(4, 0, 0, 0);
         Grid.SetColumn(hint, 1);
         bar.Children.Add(hint);

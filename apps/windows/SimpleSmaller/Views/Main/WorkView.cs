@@ -16,6 +16,7 @@ internal sealed class WorkView : Reactive
     private const double BarHeight = 58;
     private const double MaxColumn = 400;
     private const double Gap = 14;
+    private const double MinLeft = 470;
 
     private readonly Workspace ws;
     private readonly Grid host = new() { Padding = new Thickness(16, 6, 16, 16) };
@@ -135,7 +136,8 @@ internal sealed class WorkView : Reactive
             tall.ColumnDefinitions.Add(new ColumnDefinition());
             tall.RowDefinitions.Add(new RowDefinition { Height = new GridLength(BarHeight) });
             tall.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            tall.RowDefinitions.Add(new RowDefinition());
+            // 开始卡按内容高（输出两行 + 开始块），不压扁；剩下的高度给可滚动的参数卡。
+            tall.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             Place(tall, main, 0, 0, rowSpan: 3);
             Place(tall, bar, 0, 1);
             var stack = column = new StackPanel { Spacing = Gap };
@@ -169,6 +171,8 @@ internal sealed class WorkView : Reactive
             host.Children.Add(wide);
         }
         Size();
+        // 新放进来的卡第一次排版后才量得准（模板、字体都就位），再算一次行高。
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, Size);
         if (appear)
         {
             var i = 0;
@@ -192,7 +196,6 @@ internal sealed class WorkView : Reactive
     private void Size()
     {
         var w = ActualWidth - 32;
-        var h = ActualHeight - 22;
         if (w <= 0)
         {
             return;
@@ -200,14 +203,23 @@ internal sealed class WorkView : Reactive
         if (narrow == true)
         {
             tall.ColumnDefinitions[1].Width = new GridLength(Math.Max(300, w * 0.46));
-            tall.RowDefinitions[2].Height = new GridLength(Math.Min(280, h * 0.42));
         }
         else if (wide.ColumnDefinitions.Count == 3)
         {
             var unit = (w - 2 * Gap) / (LeftFraction + 2);
-            var col = Math.Min(MaxColumn, unit);
+            // 左大卡至少 MinLeft：1180 档时左卡头部的标题与四个按钮才放得下，不截成省略号。
+            var col = Math.Max(0, Math.Min(Math.Min(MaxColumn, unit), (w - 2 * Gap - MinLeft) / 2));
             wide.ColumnDefinitions[1].Width = new GridLength(col);
             wide.ColumnDefinitions[2].Width = new GridLength(col);
+            // 窗口矮（640 档）时下面一行平分不够放「输出 + 开始」：按开始卡要的高度给，上方参数卡变矮、可滚动；开始块不被截。
+            if (lowerRight is FrameworkElement start)
+            {
+                var half = (ActualHeight - 22 - BarHeight - 2 * Gap) / 2;
+                start.Measure(new Windows.Foundation.Size(col, double.PositiveInfinity));
+                var need = Math.Ceiling(start.DesiredSize.Height);
+                var height = need > half ? new GridLength(need) : new GridLength(1, GridUnitType.Star);
+                if (wide.RowDefinitions[2].Height != height) wide.RowDefinitions[2].Height = height;
+            }
         }
     }
 

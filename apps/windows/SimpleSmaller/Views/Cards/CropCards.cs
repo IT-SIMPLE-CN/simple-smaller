@@ -47,14 +47,13 @@ internal sealed class FrameCard : Reactive
 
         // 比例格子（设计稿 V2.2）：原比例 + 7 个平台比例一排，格子里写全名。
         // 「公众号次图 1:1」与「电商主图 1:1」同比例，设计稿只放后者；当前配方正好用它时才显示。
-        var grid = new Grid { ColumnSpacing = 6 };
+        var grid = new Grid { ColumnSpacing = 6, RowSpacing = 6 };
         AutomationProperties.SetName(grid, "比例");
         var all = new List<CropPreset?> { null };
         all.AddRange(CropPreset.ImagePresets.Where(p => p.Id != "gzh2" || ws.Draft.Image.Crop?.Id == "gzh2"));
         for (var i = 0; i < all.Count; i++)
         {
             var p = all[i];
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             var tile = p is null
                 ? new RatioTile("原比例", "只压缩", "原比例，只压缩")
                 : new RatioTile(p.RatioLabel.Length == 0 ? "—" : p.RatioLabel, p.RatioLabel.Length == 0 ? "自由" : ShortName(p),
@@ -64,10 +63,27 @@ internal sealed class FrameCard : Reactive
                 ToolTipService.SetToolTip(tile, p.RatioLabel.Length == 0 ? p.Name : $"{p.Name} {p.RatioLabel}");
             }
             tile.Click += (_, _) => Choose(p);
-            Grid.SetColumn(tile, i);
             grid.Children.Add(tile);
             tiles.Add((p, tile));
         }
+        // 放得下排一行（设计稿，每格至少 68）；窄窗口（1000–1180 档）放不下就每行 5 个折成两行，不挤成省略号。
+        var perRow = 0;
+        grid.SizeChanged += (_, e) =>
+        {
+            var n = grid.Children.Count;
+            var cols = e.NewSize.Width >= n * 68 + (n - 1) * 6 ? n : Math.Min(5, n);
+            if (cols == perRow) return;
+            perRow = cols;
+            grid.ColumnDefinitions.Clear();
+            grid.RowDefinitions.Clear();
+            for (var c = 0; c < cols; c++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            for (var r = 0; r < (n + cols - 1) / cols; r++) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            for (var k = 0; k < n; k++)
+            {
+                Grid.SetColumn((FrameworkElement)grid.Children[k], k % cols);
+                Grid.SetRow((FrameworkElement)grid.Children[k], k / cols);
+            }
+        };
 
         // 原尺寸 / 自定义。
         axis = new Segments<SizeAxis>(Segments<SizeAxis>.Kind.Mini, new[] { SizeAxis.Width, SizeAxis.Height, SizeAxis.LongEdge }.Select(a => (a, a.Title(), (string?)null)), ws.Draft.Image.SizeAxis, "按宽、高或长边");
