@@ -26,6 +26,9 @@ final class AppModel {
     var showHome = true
     private(set) var workspaces: [MediaType: Workspace] = [:]
     var toast: String?
+    /// 清空 / 移除后底部的「撤销 ⌘Z」提示条（见 AppModel+Files）。
+    var undoBar: UndoBar?
+    @ObservationIgnored var undoKeyMonitor: Any?
     /// 最近完成的任务（菜单栏小窗）。
     var recent: [RecentJob] = []
 
@@ -57,4 +60,16 @@ final class AppModel {
             if self.toast == text { self.toast = nil }
         }
     }
+}
+
+/// 清空或移除之后可撤销的那一次。
+struct UndoBar: Identifiable {
+    let id = UUID()
+    let text: String
+    let type: MediaType
+    let snapshot: Workspace.ListSnapshot
+    /// 动手之后列表里剩下的文件；之后列表变了（加了文件、开始处理）就不再能撤。
+    let after: [FileItem.ID]
+    /// 移出去的文件（撤销期过了才删它们的解锁副本）。
+    let dropped: [FileItem]
 }

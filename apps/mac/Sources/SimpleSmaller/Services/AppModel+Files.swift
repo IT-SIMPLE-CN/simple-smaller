@@ -126,24 +126,39 @@ extension AppModel {
         try? FileManager.default.removeItem(at: unlockedDir)
     }
 
+    /// 从列表移除所选（⌘⌫、Delete、右键）：底部浮出「已移除 N 个文件 · 撤销 ⌘Z」，5 秒内可撤销。
     func remove(_ ids: Set<FileItem.ID>, from ws: Workspace) {
         // 处理中不动列表：引擎按开始时的顺序回报结果。
         guard !ws.running else { return }
-        // 解锁出的临时副本跟着删掉。
-        for f in ws.files where ids.contains(f.id) {
-            if let u = f.unlockedURL { try? FileManager.default.removeItem(at: u.deletingLastPathComponent()) }
-        }
+        let gone = ws.files.filter { ids.contains($0.id) }
+        guard !gone.isEmpty else { return }
+        let before = ws.snapshot()
         ws.files.removeAll { ids.contains($0.id) }
         ws.selection.subtract(ids)
         if ws.type == .pdf { rebuildPageOrder(ws) }
+        offerUndo("已移除 \(gone.count) 个文件", ws, before: before, dropped: gone)
     }
 
-    /// 再来一批：清空这一批的文件和所有跟文件相关的状态（与逐个移除一致）。
+    /// 清空这一批（⌘⇧⌫、文件卡「清空」）：回到空状态，底部浮出「已清空 N 个文件 · 撤销 ⌘Z」，5 秒内可撤销。
+    func clearWithUndo(_ ws: Workspace) {
+        guard !ws.running, !ws.files.isEmpty else { return }
+        let before = ws.snapshot()
+        let gone = ws.files
+        reset(ws)
+        offerUndo("已清空 \(gone.count) 个文件", ws, before: before, dropped: gone)
+    }
+
+    /// 再来一批（完成页）：清空这一批的文件和所有跟文件相关的状态，不留撤销。
     func clear(_ ws: Workspace) {
         guard !ws.running else { return }
-        for f in ws.files { if let u = f.unlockedURL { try? FileManager.default.removeItem(at: u.deletingLastPathComponent()) } }
+        removeUnlocked(ws.files)
+        reset(ws)
+    }
+
+    private func reset(_ ws: Workspace) {
         ws.files.removeAll()
         ws.selection.removeAll()
+        ws.cropEditing = false
         ws.resetCrop()
         ws.videoIndex = 0
         ws.trim.removeAll()
@@ -157,6 +172,77 @@ extension AppModel {
         ws.batchJobs = []
         ws.createdRoots = []
         ws.showResult = false
+    }
+
+    /// 解锁出的临时副本跟着删掉。
+    private func removeUnlocked(_ items: [FileItem]) {
+        for f in items { if let u = f.unlockedURL { try? FileManager.default.removeItem(at: u.deletingLastPathComponent()) } }
+    }
+
+    // MARK: 撤销清空 / 移除
+
+    /// 记下这次清空或移除，浮出提示条；5 秒后（或被下一次替掉时）才算定，解锁副本那时再删。
+    private func offerUndo(_ text: String, _ ws: Workspace, before: Workspace.ListSnapshot, dropped: [FileItem]) {
+        settleUndo()
+        let bar = UndoBar(text: text, type: ws.type, snapshot: before, after: ws.files.map(\.id), dropped: dropped)
+        undoBar = bar
+        installUndoKey()
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(5))
+            if self.undoBar?.id == bar.id { self.settleUndo() }
+        }
+    }
+
+    /// 提示条还能不能撤：这一类的列表在那之后没变过（没加新文件、没开始处理）。
+    func canUndo(_ bar: UndoBar) -> Bool {
+        let ws = workspace(bar.type)
+        return !ws.running && ws.files.map(\.id) == bar.after
+    }
+
+    /// 提示条现在该不该显示：在它那一类的工作区里，且还能撤。
+    var visibleUndoBar: UndoBar? {
+        guard let bar = undoBar, !showHome, selectedType == bar.type, canUndo(bar) else { return nil }
+        return bar
+    }
+
+    /// 撤销：文件、顺序、每张的裁切框 / 截取 / 封面、选中都回来。
+    func undoRemoval() {
+        guard let bar = visibleUndoBar else { return }
+        undoBar = nil
+        removeUndoKey()
+        workspace(bar.type).restore(bar.snapshot)
+    }
+
+    /// 过了撤销时间：收起提示条，真正丢掉移出的文件（删解锁副本）。
+    func settleUndo() {
+        guard let bar = undoBar else { return }
+        undoBar = nil
+        removeUndoKey()
+        removeUnlocked(bar.dropped.filter { f in !workspace(bar.type).files.contains { $0.id == f.id } })
+    }
+
+    /// 提示条在时 ⌘Z 撤销清空 / 移除。图片调框页的「⌘Z 撤回这一张」优先；输入框里的 ⌘Z 照常撤文字。
+    private func installUndoKey() {
+        guard undoKeyMonitor == nil else { return }
+        undoKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  event.charactersIgnoringModifiers?.lowercased() == "z" else { return event }
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                let model = AppModel.shared
+                guard let bar = model.visibleUndoBar, event.window?.identifier?.rawValue.hasPrefix("main") == true,
+                      !(event.window?.firstResponder is NSText) else { return false }
+                let ws = model.workspace(bar.type)
+                if ws.isCropping && ws.cropEditing && !ws.files.isEmpty { return false }
+                model.undoRemoval()
+                return true
+            }
+            return handled ? nil : event
+        }
+    }
+
+    private func removeUndoKey() {
+        if let undoKeyMonitor { NSEvent.removeMonitor(undoKeyMonitor) }
+        undoKeyMonitor = nil
     }
 
     /// 剪贴板里的图片存成临时 PNG 再处理；剪贴板里是文件就直接加。

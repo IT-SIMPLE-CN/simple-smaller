@@ -44,6 +44,14 @@ struct MainView: View {
             }
         }
         .animation(.smooth(duration: 0.3), value: model.toast)
+        .overlay(alignment: .bottom) {
+            if let bar = model.visibleUndoBar {
+                UndoBarView(bar: bar)
+                    .padding(.bottom, 28)
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.35, dampingFraction: 0.82), value: model.visibleUndoBar?.id)
         .background(NoInitialFocus())
         .background(GuideWindowProbe())
         // 每类第一次拖进文件后，小教学自动出现一次（GuideCenter 判断条件）。
@@ -117,5 +125,38 @@ struct MainView: View {
         }
         parts.append(Format.size(ws.totalBytes))
         return parts.joined(separator: " · ")
+    }
+}
+
+/// 清空 / 移除后窗口底部居中的提示条（设计稿 V3 · 11）：墨黑胶囊「已清空 12 个文件」+ 浅色内胶囊「撤销 ⌘Z」，停 5 秒。
+struct UndoBarView: View {
+    @Environment(AppModel.self) private var model
+    let bar: UndoBar
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Text(bar.text)
+                .font(.system(size: 13))
+                .foregroundStyle(Bento.onInk)
+            Button { model.undoRemoval() } label: {
+                Text("撤销 ⌘Z")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Bento.onInk)
+                    .padding(.horizontal, 14)
+                .frame(height: 30)
+                .background(Capsule().fill(Bento.onInk.opacity(0.16)))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(BentoPressStyle())
+            .accessibilityLabel("撤销")
+            .accessibilityHint("恢复刚才的文件")
+        }
+        .padding(.leading, 18)
+        .padding(.trailing, 8)
+        .frame(height: 44)
+        .background(Capsule().fill(Bento.ink))
+        .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
+        .accessibilityElement(children: .contain)
+        .onAppear { NSAccessibility.post(element: NSApp.mainWindow as Any, notification: .announcementRequested, userInfo: [.announcement: bar.text, .priority: NSAccessibilityPriorityLevel.high.rawValue]) }
     }
 }

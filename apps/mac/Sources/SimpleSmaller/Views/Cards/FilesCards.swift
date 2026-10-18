@@ -111,6 +111,11 @@ struct FilesCard: View {
                 BentoHeader(symbol: "square.stack.3d.up", title: title, subtitle: subtitle) {
                     IconSegmented(selection: $view, options: [("grid", "square.grid.2x2", "缩略图"), ("list", "list.bullet", "列表")], label: "显示方式")
                     CircleIconButton(symbol: "plus", label: "添加文件（⌘O）") { FilePicker.pick(into: model) }
+                    CapsuleButton(title: "清空") { model.clearWithUndo(ws) }
+                        .disabled(ws.running)
+                        .opacity(ws.running ? 0.4 : 1)
+                        .help("清空这一批（⌘⇧⌫），5 秒内可撤销")
+                        .accessibilityLabel("清空")
                     if ws.type == .image {
                         CircleIconButton(symbol: "doc.on.clipboard", label: "粘贴剪贴板（⌘⇧V）") { model.pasteFromClipboard() }
                     }

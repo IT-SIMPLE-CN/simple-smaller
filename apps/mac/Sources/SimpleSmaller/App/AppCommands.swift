@@ -65,7 +65,9 @@ struct AppCommands: Commands {
             Button("从列表移除所选") { model.remove(model.current.selection, from: model.current) }
                 .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(model.current.selection.isEmpty || model.current.running)
-            Button("清空列表") { model.clear(model.current) }
+            // ⌘⇧⌫ 清空整批（用户定，和设计稿的 ⌘⌫ 不同）；清空、移除后 5 秒内 ⌘Z 撤销。
+            Button("清空列表") { model.clearWithUndo(model.current) }
+                .keyboardShortcut(.delete, modifiers: [.command, .shift])
                 .disabled(model.current.files.isEmpty || model.current.running)
         }
     }

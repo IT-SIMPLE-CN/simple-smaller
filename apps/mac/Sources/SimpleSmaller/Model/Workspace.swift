@@ -184,3 +184,62 @@ final class Workspace {
         pathIndex[path] ?? files.first { $0.url.path == path || $0.unlockedURL?.path == path }
     }
 }
+
+// MARK: - 清空 / 移除的撤销
+
+extension Workspace {
+    /// 清空或移除之前这一批的样子：文件与顺序、选中，以及每张的裁切框、截取、封面、页序等跟文件走的状态。
+    struct ListSnapshot {
+        var files: [FileItem]
+        var selection: Set<FileItem.ID>
+        var cropEditing: Bool
+        var cropBoxes: [URL: CGRect]
+        var cropIndex: Int
+        var cropHistory: [URL: [CGRect?]]
+        var videoIndex: Int
+        var trim: [URL: ClosedRange<Double>]
+        var videoCrop: [URL: CGRect]
+        var coverAt: [URL: Double]
+        var liveRange: [URL: ClosedRange<Double>]
+        var liveCover: [URL: Double]
+        var pageOrder: [PdfPageRef]
+        var pageOrderFiles: [URL]
+        var finishedCount: Int
+        var lastRun: (draft: Recipe, segment: String)?
+        var job: Job?
+        var batchJobs: [Job]
+        var createdRoots: [String]
+        var showResult: Bool
+    }
+
+    func snapshot() -> ListSnapshot {
+        ListSnapshot(files: files, selection: selection, cropEditing: cropEditing, cropBoxes: cropBoxes, cropIndex: cropIndex,
+                     cropHistory: cropHistory, videoIndex: videoIndex, trim: trim, videoCrop: videoCrop, coverAt: coverAt,
+                     liveRange: liveRange, liveCover: liveCover, pageOrder: pageOrder, pageOrderFiles: pageOrderFiles,
+                     finishedCount: finishedCount, lastRun: lastRun, job: job, batchJobs: batchJobs,
+                     createdRoots: createdRoots, showResult: showResult)
+    }
+
+    func restore(_ s: ListSnapshot) {
+        files = s.files
+        selection = s.selection
+        cropEditing = s.cropEditing
+        cropBoxes = s.cropBoxes
+        cropIndex = s.cropIndex
+        cropHistory = s.cropHistory
+        videoIndex = s.videoIndex
+        trim = s.trim
+        videoCrop = s.videoCrop
+        coverAt = s.coverAt
+        liveRange = s.liveRange
+        liveCover = s.liveCover
+        pageOrder = s.pageOrder
+        pageOrderFiles = s.pageOrderFiles
+        finishedCount = s.finishedCount
+        lastRun = s.lastRun
+        job = s.job
+        batchJobs = s.batchJobs
+        createdRoots = s.createdRoots
+        showResult = s.showResult
+    }
+}

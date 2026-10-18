@@ -6,6 +6,7 @@ import SwiftUI
 /// 发送：通知名 `cn.it-simple.smaller.script`，object 是一行命令，例如
 ///   snapshot /路径/a.png · size 1280 800 · appearance dark · home · enter video 实况 /路径/x.mp4
 ///   segment 实况 · recipe vid.live.both · live 2.0 4.5 3.1（片段开始 结束 封面）· start · settings · guide · closeguide
+///   ring（圆环教学）· clear（清空，可撤销）· remove 2（移除前 2 个）· undo（撤销清空 / 移除）· cropnudge（第一张框缩一圈）
 enum ScriptHooks {
     static let name = Notification.Name("cn.it-simple.smaller.script")
 
@@ -77,6 +78,19 @@ enum ScriptHooks {
             ws.showResult = false
         case "guide":
             GuideCenter.shared.showFeature(ws.type)
+        case "ring":
+            GuideCenter.shared.showRing()
+        case "clear":
+            model.clearWithUndo(ws)
+        case "remove":
+            let n = parts.count > 1 ? Int(parts[1]) ?? 1 : 1
+            ws.selection = Set(ws.files.prefix(n).map(\.id))
+            model.remove(ws.selection, from: ws)
+        case "undo":
+            model.undoRemoval()
+        case "cropnudge":
+            guard let item = ws.cropItems.first else { return }
+            ws.cropBoxes[item.url] = ws.effectiveCropBox(0).insetBy(dx: CGFloat(item.width) / 8, dy: CGFloat(item.height) / 8)
         case "guidestep":
             if parts.count > 1, let n = Int(parts[1]) { GuideCenter.shared.step = n }
         default:
