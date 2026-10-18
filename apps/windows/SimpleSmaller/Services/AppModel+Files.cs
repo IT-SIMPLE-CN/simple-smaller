@@ -163,22 +163,42 @@ internal sealed partial class AppModel
             try { Directory.Delete(dir, recursive: true); } catch { }
     }
 
+    /// 从列表移除（Ctrl+Delete、Delete、右键「从列表移除」）：底部出「已移除 N 个文件 · 撤销」，5 秒内可以放回来。
     public void Remove(IReadOnlySet<Guid> ids, Workspace ws)
     {
         // 处理中不动列表：引擎按开始时的顺序回报结果。
         if (ws.Running) return;
-        // 解锁出的临时副本跟着删掉。
-        foreach (var f in ws.Files.Where(f => ids.Contains(f.Id))) DeleteUnlockedCopy(f);
-        foreach (var f in ws.Files.Where(f => ids.Contains(f.Id)).ToList()) ws.Files.Remove(f);
+        var gone = ws.Files.Where(f => ids.Contains(f.Id)).ToList();
+        if (gone.Count == 0) return;
+        var undo = RemovalUndo.Take(ws, $"已移除 {gone.Count} 个文件", gone, cleared: false);
+        foreach (var f in gone) ws.Files.Remove(f);
         ws.SetSelection(ws.Selection.Where(id => !ids.Contains(id)));
         if (ws.Type == MediaType.Pdf) RebuildPageOrder(ws);
+        OfferUndo(undo);
     }
 
-    /// 再来一批：清空这一批的文件和所有跟文件相关的状态（与逐个移除一致）。
+    /// 文件卡右上「清空」（Ctrl+Shift+Delete）：一次清掉这一批，回到空状态；底部出「已清空 N 个文件 · 撤销」。
+    public void ClearUndoable(Workspace ws)
+    {
+        if (ws.Running || ws.Files.Count == 0) return;
+        var undo = RemovalUndo.Take(ws, $"已清空 {ws.Files.Count} 个文件", ws.Files.ToList(), cleared: true);
+        Reset(ws);
+        ws.CropEditing = false;
+        OfferUndo(undo);
+    }
+
+    /// 再来一批：清空这一批的文件和所有跟文件相关的状态（与逐个移除一致）。完成页上用，不可撤销。
     public void Clear(Workspace ws)
     {
         if (ws.Running) return;
+        // 先收掉这一类还挂着的撤销（里面的文件也一起作废）。
+        if (PendingUndo is { } u && u.Ws == ws) DismissUndo();
         foreach (var f in ws.Files) DeleteUnlockedCopy(f);
+        Reset(ws);
+    }
+
+    private static void Reset(Workspace ws)
+    {
         ws.Files.Clear();
         ws.SetSelection([]);
         ws.ResetCrop();
@@ -198,6 +218,50 @@ internal sealed partial class AppModel
         ws.ShowResult = false;
     }
 
+    // MARK: 清空 / 移除的撤销（设计稿 V3 · 11）
+
+    /// 底部提示条对应的那一次清空或移除；为 null 时提示条不在，Ctrl+Z 不做撤销清空。
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private RemovalUndo? pendingUndo;
+
+    /// 提示条停多久。
+    public static readonly TimeSpan UndoWindow = TimeSpan.FromSeconds(5);
+
+    private void OfferUndo(RemovalUndo undo)
+    {
+        // 上一条还在：它就作废了（只撤最近一次）。
+        if (PendingUndo is { } old) Discard(old);
+        PendingUndo = undo;
+        _ = ExpireLater(undo);
+    }
+
+    private async Task ExpireLater(RemovalUndo undo)
+    {
+        await Task.Delay(UndoWindow).ConfigureAwait(false);
+        Ui.Post(() => { if (PendingUndo == undo) DismissUndo(); });
+    }
+
+    /// 提示条到时间或被别的操作顶掉：不再能撤，拿走的文件的解锁副本这时才删。
+    public void DismissUndo()
+    {
+        if (PendingUndo is not { } u) return;
+        PendingUndo = null;
+        Discard(u);
+    }
+
+    private static void Discard(RemovalUndo u)
+    {
+        foreach (var f in u.Removed.Where(f => !u.Ws.Files.Contains(f))) DeleteUnlockedCopy(f);
+    }
+
+    /// 撤销清空 / 移除：文件、顺序、每张的裁切框 / 截取 / 封面、选中都放回去，回到那一类。
+    public void UndoRemoval()
+    {
+        if (PendingUndo is not { } u || u.Ws.Running) return;
+        PendingUndo = null;
+        u.Restore();
+        if (u.Ws.Type == MediaType.Pdf && u.Ws.Files.Count > u.Files.Count) RebuildPageOrder(u.Ws);
+        if (ShowHome || SelectedType != u.Ws.Type) SelectedType = u.Ws.Type;
+    }
     // MARK: 剪贴板
 
     private static readonly string ClipboardMark =

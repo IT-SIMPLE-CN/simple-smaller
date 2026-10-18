@@ -9,7 +9,7 @@ using SimpleSmaller.Bento;
 namespace SimpleSmaller.Views.Guide;
 
 /// 主窗口上的教学：什么时候弹、弹在哪、看过没有。
-/// - 圆环教学：第一次打开应用时出现一次；设置 › 入口 的「再看一遍」随时打开。
+/// - 圆环教学：点首页「资源管理器圆环」卡片打开；设置 › 入口 的「再看一遍」也能打开。第一次启动不自动弹。
 /// - 小教学：图片 / 视频 / PDF 各自第一次有文件之后自动出现一次（没文件不弹）；「跳过」「知道了」、Esc 都记为看过。
 ///   标题栏右上角常驻「? 再看一遍教学」，点了从第 1 步再看。
 /// 两层都盖在主窗口最上面（跨标题栏和内容两行）。
@@ -42,9 +42,8 @@ internal sealed class GuideHost
         {
             if (shown) return;
             shown = true;
-            // 第一次打开应用：等主窗口排好版、首页卡片弹完再出。
-            if (!store.IsSeen(GuideStore.Ring)) Later(700, () => { if (!store.IsSeen(GuideStore.Ring)) ShowRing(); });
-            else Check();
+            // 圆环教学不再自动弹（设计稿 V3）：看过记录里的 ring 只留着不用。
+            Check();
         };
     }
 
@@ -83,7 +82,7 @@ internal sealed class GuideHost
         var ws = model.Current;
         type = ws.Type;
         return !IsOpen && !model.ShowHome && ws.Files.Count > 0 && !ws.Running && !ws.ShowResult
-            && !store.IsSeen(GuideStore.KeyOf(ws.Type)) && store.IsSeen(GuideStore.Ring);
+            && !store.IsSeen(GuideStore.KeyOf(ws.Type));
     }
 
     /// 从第 1 步打开这一类的小教学。
@@ -150,7 +149,7 @@ internal sealed class GuideHost
         {
             store.MarkSeen(GuideStore.Ring);
             if (ringGuide == g) ringGuide = null;
-            // 第一次启动就带着文件（右键菜单打开）：圆环教学关掉后再看要不要出小教学。
+            // 圆环教学关掉后再看要不要出小教学（打开它时收起了的）。
             Check();
         };
         Cover(g);

@@ -14,7 +14,7 @@ namespace SimpleSmaller.Views.Guide;
 /// 资源管理器圆环教学弹窗（设计稿 V2.2 · D，Windows 版）：3 步——在什么场景用（资源管理器画面 + 真实圆环）、
 /// 三步用法、快捷键与右键菜单。宽 724、圆角 30，页面压暗 rgba(17,18,20,.36)；
 /// 底部左边分页点，右边上一步 / 下一步，最后一步「知道了，去试试」；右上 × 关闭，Esc 也关。
-/// 第一次打开应用时出现一次，怎么关都算看过（不做「不再显示」勾选）；设置 › 入口 里可以再看。
+/// 点首页「资源管理器圆环」卡片打开（每次点都打开），设置 › 入口 的「再看一遍」也能打开；不自动弹，不做「不再显示」勾选。
 internal sealed class RingGuide : Grid
 {
     private const double DialogWidth = 724, DialogHeight = 568;
@@ -112,7 +112,7 @@ internal sealed class RingGuide : Grid
         var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         var title = new TextBlock { Text = "资源管理器圆环怎么用", FontSize = 15, FontWeight = FontWeights.Bold, LineHeight = 15 * 1.3, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
         AutomationProperties.SetHeadingLevel(title, AutomationHeadingLevel.Level1);
-        var sub = new TextBlock { Text = "设置 › 入口 里可以再看", FontSize = 11, LineHeight = 11 * 1.3, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
+        var sub = new TextBlock { Text = "点首页「资源管理器圆环」卡片打开 · 设置 › 入口 也能打开", FontSize = 11, LineHeight = 11 * 1.3, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
         texts.Children.Add(title);
         texts.Children.Add(sub);
         Grid.SetColumn(texts, 1);

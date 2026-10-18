@@ -22,10 +22,13 @@ internal sealed class WorkView : Reactive
     private string contentKey = "";
     private bool? narrow;
     private UIElement? main, bar, upper, lowerLeft, lowerRight;
+    /// 清空 / 移除后的提示条：照设计稿 V3 · 11 浮在左大卡底部居中（左大卡换内容时挪到新卡上）。
+    private readonly UndoBar undoBar;
 
     public WorkView(Workspace ws)
     {
         this.ws = ws;
+        undoBar = new UndoBar(ws);
         Content = host;
         Watch(ws, nameof(Workspace.ShowResult), nameof(Workspace.Running), nameof(Workspace.SegmentKey),
             nameof(Workspace.IsCropping), nameof(Workspace.CropEditing), nameof(Workspace.VideoSegment), nameof(Workspace.PdfSegment));
@@ -67,7 +70,7 @@ internal sealed class WorkView : Reactive
             Motion.PageIn(result);
             return;
         }
-        main = Region(Slots.MainCard(ws), "文件");
+        main = WithUndoBar(Region(Slots.MainCard(ws), "文件"));
         bar = Region(Slots.TopBar(ws), "常用");
         upper = Region(Slots.Upper(ws), "设置");
         lowerLeft = Region(Slots.LowerLeft(ws), "设置");
@@ -82,6 +85,16 @@ internal sealed class WorkView : Reactive
         {
             Motion.PageIn(host);
         }
+    }
+
+    /// 左大卡上盖一层提示条（不占布局）。
+    private UIElement WithUndoBar(UIElement card)
+    {
+        if (undoBar.Parent is Panel old) old.Children.Remove(undoBar);
+        var g = new Grid();
+        g.Children.Add(card);
+        g.Children.Add(undoBar);
+        return g;
     }
 
     /// 便当盒里的一格：旁白当作一个分组整体读完再读下一格。
