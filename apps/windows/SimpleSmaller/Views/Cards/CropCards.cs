@@ -81,7 +81,7 @@ internal sealed class FrameCard : Reactive
             return s;
         };
         sizeField.VerticalAlignment = VerticalAlignment.Center;
-        ToolTipService.SetToolTip(extra, "这个配方每张图还会多出这几档小图，给网站按屏幕大小加载用；在配方里改");
+        ToolTipService.SetToolTip(extra, "这个常用每张图还会多出这几档小图，给网站按屏幕大小加载用；在常用里改");
         var cols = new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto };
         foreach (var c in cols)
         {

@@ -7,7 +7,7 @@ struct FormatQualityCard: View {
     var body: some View {
         BentoCard {
             VStack(alignment: .leading, spacing: 14) {
-                BentoHeader(symbol: "slider.horizontal.3", title: "格式与质量", subtitle: "跟着配方走")
+                BentoHeader(symbol: "slider.horizontal.3", title: "格式与质量", subtitle: "跟着常用走")
                 VStack(alignment: .leading, spacing: 8) {
                     Text("格式").font(.system(size: 11)).foregroundStyle(Bento.secondary)
                     PillChoice(selection: $ws.draft.image.format, options: ImageFormatChoice.allCases.map { ($0, $0.title) }, label: "格式")

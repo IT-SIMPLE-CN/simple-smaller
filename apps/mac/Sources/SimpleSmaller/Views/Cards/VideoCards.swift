@@ -10,7 +10,7 @@ struct VideoPictureCard: View {
     var body: some View {
         BentoCard {
             VStack(alignment: .leading, spacing: 12) {
-                BentoHeader(symbol: "slider.horizontal.3", title: "画面与画质", subtitle: v.muteOnly ? "只去掉声音" : "跟着配方走") {
+                BentoHeader(symbol: "slider.horizontal.3", title: "画面与画质", subtitle: v.muteOnly ? "只去掉声音" : "跟着常用走") {
                     SaveRecipeAccessory(ws: ws, saving: $saving)
                 }
                 if v.muteOnly {

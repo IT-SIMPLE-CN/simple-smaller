@@ -18,7 +18,7 @@ internal sealed class FormatQualityCard : Reactive
         var all = new[] { ImageFormatChoice.Webp, ImageFormatChoice.Avif, ImageFormatChoice.Jpeg, ImageFormatChoice.Png, ImageFormatChoice.Original };
         formats = new PillChoice<ImageFormatChoice>(all.Select(f => (f, f.Title())), ws.Draft.Image.Format, label: "格式");
         formats.Changed += f => ws.Draft = ws.Draft with { Image = ws.Draft.Image with { Format = f } };
-        var header = new Header { Glyph = "", Title = "格式与质量", Subtitle = "跟着配方走" };
+        var header = new Header { Glyph = "", Title = "格式与质量", Subtitle = "跟着常用走" };
         var formatGroup = new StackPanel { Spacing = 8 };
         formatGroup.Children.Add(Themed.Text("格式", 11, "BentoSecondary"));
         formatGroup.Children.Add(formats);

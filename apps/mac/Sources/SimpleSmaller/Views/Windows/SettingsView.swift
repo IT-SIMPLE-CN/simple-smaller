@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 /// 设置（设计稿 V2.1 · 10）：便当盒小窗，通用 / 配方 / 自动 三页。
 struct SettingsView: View {
-    enum Tab: String, CaseIterable { case general = "通用", recipes = "配方", auto = "自动" }
+    enum Tab: String, CaseIterable { case general = "通用", recipes = "常用", auto = "自动" }
     @State private var tab: Tab = .general
 
     var body: some View {
@@ -160,8 +160,8 @@ private struct RecipeSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Text("配方").font(.system(size: 14, weight: .semibold))
-                Text(message ?? "拖动排序，配方条和圆环按这个顺序").font(.system(size: 11)).foregroundStyle(Bento.secondary)
+                Text("常用").font(.system(size: 14, weight: .semibold))
+                Text(message ?? "拖动排序，常用条和圆环按这个顺序").font(.system(size: 11)).foregroundStyle(Bento.secondary)
                 Spacer()
                 CapsuleButton(title: "导入…", height: 30) { importFile() }
                 CapsuleButton(title: "导出所选…", height: 30) { exportSelected() }
@@ -186,7 +186,7 @@ private struct RecipeSettings: View {
                             Button("编辑…") { editing = r }
                             Button("删除", role: .destructive) { model.store.delete(id: r.id) }
                         } else {
-                            Button("复制为我的配方…") { var c = r; c.id = ""; c.name = "\(r.name) 改"; c.builtIn = false; editing = c }
+                            Button("复制为我的常用…") { var c = r; c.id = ""; c.name = "\(r.name) 改"; c.builtIn = false; editing = c }
                         }
                     }
                 }
@@ -203,7 +203,7 @@ private struct RecipeSettings: View {
                     selection = []
                 }
                 .disabled(!selection.contains { !(model.store.recipe(id: $0)?.builtIn ?? true) })
-                CapsuleButton(title: "新建配方", height: 34, fill: .brand, foreground: .white) {
+                CapsuleButton(title: "新建常用", height: 34, fill: .brand, foreground: .white) {
                     editing = Recipe(id: "", name: "", type: model.selectedType)
                 }
             }
@@ -220,20 +220,20 @@ private struct RecipeSettings: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let n = try model.store.importRecipes(from: url)
-            message = "导入了 \(n) 个配方"
+            message = "导入了 \(n) 个常用"
         } catch {
-            message = "这个文件读不出配方"
+            message = "这个文件里没有可用的常用"
         }
     }
 
     private func exportSelected() {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = selection.count == 1 ? "\(model.store.recipe(id: selection.first!)?.name ?? "配方").smaller" : "配方.smaller"
+        panel.nameFieldStringValue = selection.count == 1 ? "\(model.store.recipe(id: selection.first!)?.name ?? "常用").smaller" : "常用.smaller"
         panel.allowedContentTypes = [.init(filenameExtension: "smaller") ?? .json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try model.store.export(ids: Array(selection), to: url)
-            message = "已导出 \(selection.count) 个配方"
+            message = "已导出 \(selection.count) 个常用"
         } catch {
             message = "导出失败：\(error.localizedDescription)"
         }
@@ -265,10 +265,10 @@ private struct AutoSettings: View {
                 }
             }
             SettingsCard(symbol: "folder.badge.gearshape", title: "监视文件夹",
-                         note: "放进这些文件夹的新文件按配方自动处理，结果放在旁边，处理完发通知。只处理之后放进来的文件。") {
+                         note: "放进这些文件夹的新文件按常用自动处理，结果放在旁边，处理完发通知。只处理之后放进来的文件。") {
                 ForEach($settings.watchFolders) { $watch in
                     BentoRow(label: (watch.path as NSString).lastPathComponent, height: 40) {
-                        Picker("配方", selection: $watch.recipeID) {
+                        Picker("常用", selection: $watch.recipeID) {
                             ForEach(MediaType.allCases) { type in
                                 Section(type.title) {
                                     ForEach(model.store.all.filter { $0.type == type }) { Text($0.name).tag($0.id) }

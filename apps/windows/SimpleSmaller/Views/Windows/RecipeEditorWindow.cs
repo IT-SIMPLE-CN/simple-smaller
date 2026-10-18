@@ -28,7 +28,7 @@ internal sealed class RecipeEditorWindow : SubWindow
 
     private bool IsNew => initial.Id.Length == 0 || initial.BuiltIn;
 
-    public RecipeEditorWindow(Recipe initial, Action<Recipe> onSave) : base(initial.Id.Length == 0 || initial.BuiltIn ? "新建配方" : "编辑配方", 760, 720, "BentoCard", showTitle: false)
+    public RecipeEditorWindow(Recipe initial, Action<Recipe> onSave) : base(initial.Id.Length == 0 || initial.BuiltIn ? "新建常用" : "编辑常用", 760, 720, "BentoCard", showTitle: false)
     {
         this.initial = initial;
         this.onSave = onSave;
@@ -69,11 +69,11 @@ internal sealed class RecipeEditorWindow : SubWindow
         circle.Child = new LineIcon(SubIcons.Sliders, 20, 2, "OnBrand");
         AutomationProperties.SetAccessibilityView(circle, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         var texts = new StackPanel { Spacing = 4 };
-        var t = FormTheme.Text(IsNew ? "新建配方" : "编辑配方", 22);
+        var t = FormTheme.Text(IsNew ? "新建常用" : "编辑常用", 22);
         t.FontWeight = Microsoft.UI.Text.FontWeights.Bold;
         AutomationProperties.SetHeadingLevel(t, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level1);
         texts.Children.Add(t);
-        texts.Children.Add(FormTheme.Text("配方会出现在顶部配方条、资源管理器圆环和右键菜单里。", 12, "BentoSecondary"));
+        texts.Children.Add(FormTheme.Text("常用会出现在顶部常用条、资源管理器圆环和右键菜单里。", 12, "BentoSecondary"));
         row.Children.Add(circle);
         row.Children.Add(texts);
         return row;
@@ -502,13 +502,13 @@ internal sealed class RecipeEditorWindow : SubWindow
         try
         {
             var n = AppModel.Shared.Store.ImportRecipes(file.Path);
-            AppModel.Shared.Flash($"导入了 {n} 个配方");
+            AppModel.Shared.Flash($"导入了 {n} 个常用");
             Close();
         }
         catch
         {
             importFailed = true;
-            note.Text = "这个文件读不出配方";
+            note.Text = "这个文件里没有可用的常用";
             PaintNote();
         }
     }

@@ -14,7 +14,7 @@ internal sealed class RecipeBar : Reactive
 {
     private readonly Workspace ws;
     private readonly StackPanel pills = new() { Orientation = Orientation.Horizontal, Spacing = 6, Padding = new Thickness(0, 0, 24, 0), VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock label = new() { Text = "配方", FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock label = new() { Text = "常用", FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
     private readonly Border card;
     private string built = "";
     private readonly Microsoft.UI.Xaml.Shapes.Rectangle fade = new() { Width = 28, HorizontalAlignment = HorizontalAlignment.Right, IsHitTestVisible = false };
@@ -30,12 +30,12 @@ internal sealed class RecipeBar : Reactive
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollMode = ScrollMode.Disabled,
         };
-        AutomationProperties.SetName(scroll, "配方");
-        var plus = new CircleIconButton("", "新建配方", 36);
+        AutomationProperties.SetName(scroll, "常用");
+        var plus = new CircleIconButton("", "新建常用", 36);
         plus.Click += (_, _) => App.OpenRecipeEditor(ws.Draft with { Id = "", Name = "", BuiltIn = false }, saved => ws.Select(saved));
         var manage = new CapsuleButton("管理", 36);
-        ToolTipService.SetToolTip(manage, "在设置里排序、导入导出配方");
-        manage.Click += (_, _) => App.OpenSettings("配方");
+        ToolTipService.SetToolTip(manage, "在设置里排序、导入导出常用");
+        manage.Click += (_, _) => App.OpenSettings("常用");
         var row = new Grid { ColumnSpacing = 12 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -154,7 +154,7 @@ internal sealed class RecipeBar : Reactive
     private static async Task Export(Recipe recipe)
     {
         var picker = new FileSavePicker { SuggestedFileName = recipe.Name };
-        picker.FileTypeChoices.Add("简单小一点配方", new List<string> { ".smaller" });
+        picker.FileTypeChoices.Add("简单小一点常用", new List<string> { ".smaller" });
         WinRT.Interop.InitializeWithWindow.Initialize(picker, App.MainHwnd);
         var file = await picker.PickSaveFileAsync();
         if (file is null)

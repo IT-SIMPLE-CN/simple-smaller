@@ -102,7 +102,7 @@ internal static class RingMenu
     /// 自定义：我的配方 + 打开主窗口（带上这批文件，细调后再开始）。
     private static RingSlot Custom(RecipeStore store, MediaType type)
     {
-        var mine = store.MineFor(type).Take(4).Select(r => new RingChoice(r.Name, "我的配方", r));
+        var mine = store.MineFor(type).Take(4).Select(r => new RingChoice(r.Name, "我的常用", r));
         return new RingSlot("自定义", [.. mine, new RingChoice("打开面板…", "", null)], 0);
     }
 }

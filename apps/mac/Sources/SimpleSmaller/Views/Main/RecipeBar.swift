@@ -24,7 +24,7 @@ struct RecipeBar: View {
         let list = recipes
         BentoCard(padding: EdgeInsets(top: 10, leading: 20, bottom: 10, trailing: 10)) {
             HStack(spacing: 12) {
-                Text("配方").font(.system(size: 13, weight: .semibold))
+                Text("常用").font(.system(size: 13, weight: .semibold))
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
                         ForEach(list.builtIn) { pill($0) }
@@ -44,8 +44,8 @@ struct RecipeBar: View {
                 .scrollIndicators(.never)
                 .mask(LinearGradient(stops: [.init(color: .black, location: 0.9), .init(color: .clear, location: 1)], startPoint: .leading, endPoint: .trailing))
                 .accessibilityElement(children: .contain)
-                .accessibilityLabel("配方")
-                CircleIconButton(symbol: "plus", label: "新建配方", size: 36) {
+                .accessibilityLabel("常用")
+                CircleIconButton(symbol: "plus", label: "新建常用", size: 36) {
                     var r = ws.draft
                     r.id = ""
                     r.name = ""
@@ -53,7 +53,7 @@ struct RecipeBar: View {
                     editing = r
                 }
                 CapsuleButton(title: "管理", height: 36) { openSettings() }
-                    .help("在设置里排序、导入导出配方")
+                    .help("在设置里排序、导入导出常用")
             }
             .frame(maxHeight: .infinity)
         }

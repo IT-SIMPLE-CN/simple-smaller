@@ -15,9 +15,9 @@ struct TrayView: View {
             dropArea
                 .padding(12)
             HStack {
-                Text("配方").foregroundStyle(Bento.secondary)
+                Text("常用").foregroundStyle(Bento.secondary)
                 Spacer()
-                Picker("配方", selection: $recipeID) {
+                Picker("常用", selection: $recipeID) {
                     ForEach(MediaType.allCases) { type in
                         Section(type.title) {
                             ForEach(model.store.all.filter { $0.type == type }) { Text($0.name).tag($0.id) }

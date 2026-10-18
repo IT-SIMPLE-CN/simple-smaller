@@ -71,7 +71,7 @@ internal sealed class PdfMainCard : Reactive
 
     private void BuildCompress(Grid body)
     {
-        var head = Head("\uE73F", "压缩档", "跟着配方走", save: true);
+        var head = Head("\uE73F", "压缩档", "跟着常用走", save: true);
         HeaderIcon.Set(head, PdfIcons.Sliders);
         Row(body, head);
         var grid = new Grid { RowSpacing = 10, ColumnSpacing = 10 };

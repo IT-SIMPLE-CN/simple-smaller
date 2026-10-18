@@ -158,7 +158,7 @@ internal static class TrayView
     private static FrameworkElement RecipeStrip()
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        var label = FormTheme.Text("配方", 12, semibold: true);
+        var label = FormTheme.Text("常用", 12, semibold: true);
         label.Margin = new Thickness(4, 0, 4, 0);
         label.VerticalAlignment = VerticalAlignment.Center;
         AutomationProperties.SetAccessibilityView(label, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
@@ -181,7 +181,7 @@ internal static class TrayView
             var back = new Border { Height = 30, Padding = new Thickness(12, 0, 12, 0), CornerRadius = new CornerRadius(15), Child = text };
             var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = back };
             Motion.SetPress(b, true);
-            AutomationProperties.SetName(b, $"配方 {r.Name}");
+            AutomationProperties.SetName(b, $"常用 {r.Name}");
             var id = r.Id;
             b.Click += (_, _) => { recipeId = id; paint(); };
             chips.Add((b, back, text, id));
@@ -398,7 +398,7 @@ internal static class TrayView
             model.BeginActivity();
             run.Start();
         }
-        Hud.Show($"正在按「{(recipe?.Name ?? "当前配方")}」处理…");
+        Hud.Show($"正在按「{(recipe?.Name ?? "当前常用")}」处理…");
     }
 
     private struct POINT { public int X, Y; }

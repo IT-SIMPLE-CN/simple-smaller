@@ -31,7 +31,7 @@ struct PdfMainCard: View {
     // MARK: 压缩：四档大格子
 
     @ViewBuilder private var compress: some View {
-        BentoHeader(symbol: "arrow.down.right.and.arrow.up.left", title: "压缩档", subtitle: "跟着配方走；文字一直保持矢量") {
+        BentoHeader(symbol: "arrow.down.right.and.arrow.up.left", title: "压缩档", subtitle: "跟着常用走；文字一直保持矢量") {
             SaveRecipeAccessory(ws: ws, saving: $saving)
         }
         Grid(horizontalSpacing: 10, verticalSpacing: 10) {

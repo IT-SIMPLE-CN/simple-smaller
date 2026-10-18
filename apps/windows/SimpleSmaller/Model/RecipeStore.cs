@@ -125,7 +125,7 @@ internal sealed partial class RecipeStore : ObservableObject
         }
         catch (JsonException)
         {
-            list = [JsonSerializer.Deserialize<Recipe>(text, Storage.Options) ?? throw new JsonException("不是配方文件")];
+            list = [JsonSerializer.Deserialize<Recipe>(text, Storage.Options) ?? throw new JsonException("不是常用文件")];
         }
         foreach (var r in list) SaveMine(r);
         return list.Count;

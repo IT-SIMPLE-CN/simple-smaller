@@ -90,7 +90,7 @@ struct FrameCard: View {
                 if !ws.draft.image.extraSizes.isEmpty {
                     Text(verbatim: "另出 " + ws.draft.image.extraSizes.map { "\($0)" }.joined(separator: " / "))
                         .font(.system(size: 11).monospacedDigit()).foregroundStyle(Bento.secondary)
-                        .help("这个配方每张图还会多出这几档小图，给网站按屏幕大小加载用；在配方里改")
+                        .help("这个常用每张图还会多出这几档小图，给网站按屏幕大小加载用；在常用里改")
                 }
                 Spacer(minLength: 8)
                 MiniSegmented(selection: $ws.draft.image.sizeAxis, options: SizeAxis.allCases.map { ($0, $0.title) }, label: "按宽、高或长边")

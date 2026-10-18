@@ -68,7 +68,7 @@ internal sealed class WorkView : Reactive
             return;
         }
         main = Region(Slots.MainCard(ws), "文件");
-        bar = Region(Slots.TopBar(ws), "配方");
+        bar = Region(Slots.TopBar(ws), "常用");
         upper = Region(Slots.Upper(ws), "设置");
         lowerLeft = Region(Slots.LowerLeft(ws), "设置");
         lowerRight = Region(Slots.LowerRight(ws), "开始");

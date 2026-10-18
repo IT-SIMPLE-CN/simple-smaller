@@ -16,7 +16,7 @@ struct SaveRecipeAccessory: View {
                     .padding(.horizontal, 10)
                     .frame(height: 26)
                     .background(Capsule().fill(Bento.alertFill))
-                CapsuleButton(title: "存为新配方") {
+                CapsuleButton(title: "存为常用") {
                     var r = ws.draft
                     r.id = ""
                     r.name = ws.base.builtIn ? "\(ws.base.name) 改" : ws.base.name

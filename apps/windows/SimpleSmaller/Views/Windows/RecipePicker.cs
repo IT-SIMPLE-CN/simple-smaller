@@ -7,7 +7,7 @@ namespace SimpleSmaller.Views.Sub;
 /// 按类型分组的配方下拉（托盘小窗、监视文件夹共用）：图片 / 视频 / PDF 各一个不可选的小标题。
 internal static class RecipePicker
 {
-    public static ComboBox Create(string selectedId, Action<Recipe> changed, string label = "配方")
+    public static ComboBox Create(string selectedId, Action<Recipe> changed, string label = "常用")
     {
         var box = new ComboBox { MinWidth = 150, MaxWidth = 200 };
         AutomationProperties.SetName(box, label);

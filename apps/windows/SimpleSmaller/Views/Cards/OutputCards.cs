@@ -195,7 +195,7 @@ internal sealed class SaveRecipeAccessory : StackPanel
         Orientation = Orientation.Horizontal;
         Spacing = 6;
         var tag = Themed.Capsule(Themed.Text("已修改", 11, "BentoAlertText"), "BentoAlertFill", 26, 10);
-        var save = new CapsuleButton("存为新配方");
+        var save = new CapsuleButton("存为常用");
         save.Click += (_, _) =>
         {
             var r = ws.Draft with

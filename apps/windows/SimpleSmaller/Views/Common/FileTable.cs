@@ -333,7 +333,7 @@ internal sealed class FileRow : Reactive
             FileStateKind.Done when item.Outputs.Length > 1 => ($"{item.Outputs.Length} 个文件", "Saving", null),
             FileStateKind.Done when item.Bytes > 0 && item.AfterBytes > 0 => (Format.Change(item.Bytes, item.AfterBytes), item.AfterBytes < item.Bytes ? "Saving" : "Warning", $"输出 {Format.Size(item.AfterBytes)}"),
             FileStateKind.Done => ("完成", "Saving", null),
-            FileStateKind.Kept => (item.KeptText, "Warning", "不用处理：压完没有变小，或已经符合配方（比如本来就没有声音），原文件保持不动"),
+            FileStateKind.Kept => (item.KeptText, "Warning", "不用处理：压完没有变小，或已经符合要求（比如本来就没有声音），原文件保持不动"),
             FileStateKind.Failed => ("失败", "BentoFailed", FileTable.Explain(s.Message)),
             _ => ("已停止", "BentoSecondary", null),
         };

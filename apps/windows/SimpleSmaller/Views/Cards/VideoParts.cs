@@ -108,7 +108,7 @@ internal static class VideoParts
         var tag = new TextBlock { Text = "已修改", FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
         var tagBack = new Border { Height = 26, Padding = new Thickness(10, 0, 10, 0), CornerRadius = new CornerRadius(13), Child = tag, VerticalAlignment = VerticalAlignment.Center };
         Paint(tagBack, b => { b.Background = Palette.Get(b, "BentoAlertFill"); tag.Foreground = Palette.Get(b, "BentoAlertText"); });
-        var save = new CapsuleButton("另存为配方", 34);
+        var save = new CapsuleButton("存为常用", 34);
         save.Click += (_, _) =>
         {
             var r = ws.Draft with { Id = "", Name = ws.Base.BuiltIn ? $"{ws.Base.Name} 改" : ws.Base.Name, BuiltIn = false };

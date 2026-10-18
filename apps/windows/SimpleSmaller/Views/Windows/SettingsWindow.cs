@@ -11,7 +11,7 @@ namespace SimpleSmaller.Views.Sub;
 /// 标题行 60 高：左边 15 号粗体「设置」，正中是 Top 样式的滑块分段（和设计稿一样放在标题行里）。
 internal sealed class SettingsWindow : SubWindow
 {
-    public static readonly string[] Tabs = ["通用", "配方", "自动"];
+    public static readonly string[] Tabs = ["通用", "常用", "自动"];
     private readonly Segments<string> tabs;
     private readonly ContentPresenter page = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private string current;
@@ -35,7 +35,7 @@ internal sealed class SettingsWindow : SubWindow
         tabs.Selected = tab;
         UIElement content = tab switch
         {
-            "配方" => new RecipeSettings(),
+            "常用" => new RecipeSettings(),
             "自动" => new AutoSettings(),
             _ => new GeneralSettings(),
         };
@@ -146,7 +146,7 @@ internal sealed class RecipeSettings : Reactive
     private readonly TextCapsule export = new("导出所选…", 30, 12, 12);
     private readonly TextCapsule delete = new("删除所选", 36, 13, 16);
     private readonly Border card = new() { CornerRadius = new CornerRadius(20), Padding = new Thickness(16, 14, 16, 16) };
-    private readonly TextBlock title = new() { Text = "配方", FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+    private readonly TextBlock title = new() { Text = "常用", FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
     private readonly Dictionary<ListViewItem, Action> painters = [];
     private string built = "";
     private List<string> dragOrder = [];
@@ -154,8 +154,8 @@ internal sealed class RecipeSettings : Reactive
 
     public RecipeSettings()
     {
-        message.Text = "拖动排序，配方条和圆环按这个顺序";
-        AutomationProperties.SetName(list, "配方");
+        message.Text = "拖动排序，常用条和圆环按这个顺序";
+        AutomationProperties.SetName(list, "常用");
         list.ItemContainerStyle = itemStyle ??= (Style)Microsoft.UI.Xaml.Markup.XamlReader.Load(ItemXaml);
         var head = new Grid { ColumnSpacing = 10, Margin = new Thickness(0, 0, 0, 4), MinHeight = 30 };
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -179,7 +179,7 @@ internal sealed class RecipeSettings : Reactive
         {
             foreach (var id in SelectedIds().Where(id => store.RecipeById(id) is { BuiltIn: false })) store.Delete(id);
         };
-        var add = new TextCapsule("新建配方", 36, 13, 16, "Brand", "OnBrand", SubIcons.Plus, semibold: true);
+        var add = new TextCapsule("新建常用", 36, 13, 16, "Brand", "OnBrand", SubIcons.Plus, semibold: true);
         add.Click += (_, _) => App.OpenRecipeEditor(new Recipe { Id = "", Name = "", Type = AppModel.Shared.SelectedType }, _ => { });
         foot.Children.Add(add);
         foot.Children.Add(delete);
@@ -328,7 +328,7 @@ internal sealed class RecipeSettings : Reactive
         }
         else
         {
-            var copy = new MenuFlyoutItem { Text = "复制为我的配方…" };
+            var copy = new MenuFlyoutItem { Text = "复制为我的常用…" };
             copy.Click += (_, _) => App.OpenRecipeEditor(r with { Id = "", Name = $"{r.Name} 改", BuiltIn = false }, _ => { });
             menu.Items.Add(copy);
         }
@@ -347,11 +347,11 @@ internal sealed class RecipeSettings : Reactive
         try
         {
             var n = store.ImportRecipes(file.Path);
-            message.Text = $"导入了 {n} 个配方";
+            message.Text = $"导入了 {n} 个常用";
         }
         catch
         {
-            message.Text = "这个文件读不出配方";
+            message.Text = "这个文件里没有可用的常用";
         }
     }
 
@@ -359,14 +359,14 @@ internal sealed class RecipeSettings : Reactive
     {
         var ids = SelectedIds();
         if (ids.Count == 0) return;
-        var picker = new FileSavePicker { SuggestedFileName = ids.Count == 1 ? store.RecipeById(ids[0])?.Name ?? "配方" : "配方" };
-        picker.FileTypeChoices.Add("简单小一点配方", [".smaller"]);
+        var picker = new FileSavePicker { SuggestedFileName = ids.Count == 1 ? store.RecipeById(ids[0])?.Name ?? "常用" : "常用" };
+        picker.FileTypeChoices.Add("简单小一点常用", [".smaller"]);
         WinRT.Interop.InitializeWithWindow.Initialize(picker, App.SettingsHwnd);
         if (await picker.PickSaveFileAsync() is not { } file) return;
         try
         {
             store.Export(ids, file.Path);
-            message.Text = $"已导出 {ids.Count} 个配方";
+            message.Text = $"已导出 {ids.Count} 个常用";
         }
         catch (Exception e)
         {
@@ -409,11 +409,11 @@ internal sealed class AutoSettings : Reactive
             var id = watch.Id;
             var name = Path.GetFileName(watch.Path.TrimEnd('\\'));
             if (string.IsNullOrEmpty(name)) name = watch.Path;
-            var picker = new MenuCapsule($"{name} 的配方", "", arrowSuffix: true);
+            var picker = new MenuCapsule($"{name} 的常用", "", arrowSuffix: true);
             picker.Options(store.All.Select(r => (r.Id, r.Name)), watch.RecipeId,
                 v => settings.WatchFolders = settings.WatchFolders.Select(w => w.Id == id ? w with { RecipeId = v } : w).ToList(),
                 ("不再监视", () => settings.WatchFolders = settings.WatchFolders.Where(w => w.Id != id).ToList()));
-            if (store.RecipeById(watch.RecipeId) is null) picker.Value = "选择配方";
+            if (store.RecipeById(watch.RecipeId) is null) picker.Value = "选择常用";
             var row = FormRow.Create(name, picker);
             ToolTipService.SetToolTip(row, watch.Path);
             rows.Add(row);
@@ -429,7 +429,7 @@ internal sealed class AutoSettings : Reactive
             settings.WatchFolders = settings.WatchFolders.Append(new WatchFolder { Path = f.Path, RecipeId = "img.web" }).ToList();
         };
         var watchCard = FormCard.Create(null, "监视文件夹", add,
-            "放进这些文件夹的新文件按配方自动处理，结果放在旁边，处理完发通知。", rows.ToArray());
+            "放进这些文件夹的新文件按常用自动处理，结果放在旁边，处理完发通知。", rows.ToArray());
 
         Content = Columns.Two(clipCard, watchCard);
     }

@@ -28,8 +28,8 @@ struct RecipeEditorView: View {
                     .background(Circle().fill(Color.brand))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(isNew ? "新建配方" : "编辑配方").font(.system(size: 22, weight: .bold))
-                    Text("配方会出现在顶部配方条、访达圆环和右键菜单里。").font(.system(size: 12)).foregroundStyle(Bento.secondary)
+                    Text(isNew ? "新建常用" : "编辑常用").font(.system(size: 22, weight: .bold))
+                    Text("常用会出现在顶部常用条、访达圆环和右键菜单里。").font(.system(size: 12)).foregroundStyle(Bento.secondary)
                 }
             }
             .padding(.horizontal, 28)
@@ -332,10 +332,10 @@ struct RecipeEditorView: View {
         do {
             let n = try model.store.importRecipes(from: url)
             importError = nil
-            model.flash("导入了 \(n) 个配方")
+            model.flash("导入了 \(n) 个常用")
             dismiss()
         } catch {
-            importError = "这个文件读不出配方"
+            importError = "这个文件里没有可用的常用"
         }
     }
 

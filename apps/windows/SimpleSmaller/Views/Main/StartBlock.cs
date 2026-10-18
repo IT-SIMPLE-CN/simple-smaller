@@ -177,8 +177,8 @@ internal sealed class StartBlock : Reactive
         ToolTipService.SetToolTip(button, phase switch
         {
             Phase.Running => "停止处理（Ctrl+.）",
-            Phase.Done => "这一批已按当前配方处理完；改配方或加文件后可以再开始",
-            _ => "按当前配方处理全部文件（Ctrl+Enter）",
+            Phase.Done => "这一批已按当前设置处理完；改设置或加文件后可以再开始",
+            _ => "按当前设置处理全部文件（Ctrl+Enter）",
         });
         AutomationProperties.SetName(button, phase switch
         {

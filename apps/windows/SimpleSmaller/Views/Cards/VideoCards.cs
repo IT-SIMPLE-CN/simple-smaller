@@ -190,7 +190,7 @@ internal sealed class VideoPictureCard : VideoCardBase
         var v = V;
         BuildRatio();
         BuildEdges();
-        header.Subtitle = v.MuteOnly ? "只去掉声音" : "跟着配方走";
+        header.Subtitle = v.MuteOnly ? "只去掉声音" : "跟着常用走";
         Show(modifiedTag, ws.Modified && ws.UsesRecipe);
         Show(muteNote, v.MuteOnly);
         Show(body, !v.MuteOnly);
