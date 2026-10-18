@@ -87,4 +87,46 @@ internal sealed partial class Workspace
             _ => r.Start + k / Math.Max(1, item.Fps),
         };
     }
+
+    // MARK: 实况：每段取一小段（不超过 3 秒）做成会动的部分，再选一帧当封面（照片）。
+
+    public const double LiveMaxSeconds = 3.0;
+
+    /// 这一段用的片段：拖过的 > 默认（从开头取最多 3 秒）。
+    public TimeRange LiveWindow(FileItem item) =>
+        LiveRange.TryGetValue(item.FilePath, out var r) ? r : new TimeRange(0, Math.Min(LiveMaxSeconds, Math.Max(0, item.Duration)));
+
+    /// 封面：选过的（落在片段里）> 片段正中。
+    public double LiveCoverTime(FileItem item)
+    {
+        var w = LiveWindow(item);
+        if (!LiveCover.TryGetValue(item.FilePath, out var t)) return (w.Start + w.End) / 2;
+        return Math.Min(Math.Max(t, w.Start), w.End);
+    }
+
+    /// 片段整体挪到从 start 开始（长度不变，不出界）；封面跟着挪。
+    public void MoveLiveWindow(FileItem item, double start)
+    {
+        var w = LiveWindow(item);
+        var length = w.End - w.Start;
+        var s = Math.Min(Math.Max(0, start), Math.Max(0, item.Duration - length));
+        var shift = s - w.Start;
+        SetLiveRange(item.FilePath, new TimeRange(s, s + length));
+        if (LiveCover.TryGetValue(item.FilePath, out var c)) SetLiveCover(item.FilePath, c + shift);
+    }
+
+    /// 实况视频的画面尺寸：裁切后按最长边缩小（不放大），取偶数。
+    public PixelSize LiveOutputSize(FileItem item)
+    {
+        var size = VideoCropBox(item)?.Size ?? new PixelSize(item.Width, item.Height);
+        double edge = Draft.Video.LiveLongEdge;
+        var longest = Math.Max(size.Width, size.Height);
+        if (edge > 0 && edge < longest)
+        {
+            var s = edge / longest;
+            size = new PixelSize(size.Width * s, size.Height * s);
+        }
+        static double Even(double v) => Math.Max(2, Num.Round(v / 2) * 2);
+        return new PixelSize(Even(size.Width), Even(size.Height));
+    }
 }

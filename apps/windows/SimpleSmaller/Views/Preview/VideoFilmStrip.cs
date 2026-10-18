@@ -35,6 +35,9 @@ internal sealed class VideoFilmStrip : UserControl
         ActualThemeChanged += (_, _) => Update();
     }
 
+    /// 右下角的字；不给时写截取后的时长（实况写会动那一段的秒数）。
+    public Func<FileItem, string>? Badge { get; set; }
+
     /// 文件或当前段变了：必要时重建格子，再更新选中与时长。
     public void Update()
     {
@@ -56,8 +59,15 @@ internal sealed class VideoFilmStrip : UserControl
             outer.BorderBrush = on ? Palette.Brand : null;
             inner.BorderBrush = on ? card : null;
             thumb.Background = fill;
-            var r = ws.TrimRange(item);
-            badge.Text = Format.Duration(r.End - r.Start);
+            if (Badge is { } custom)
+            {
+                badge.Text = custom(item);
+            }
+            else
+            {
+                var r = ws.TrimRange(item);
+                badge.Text = Format.Duration(r.End - r.Start);
+            }
             AutomationProperties.SetName(button, $"{item.Name}，{badge.Text}");
             AutomationProperties.SetItemStatus(button, on ? "已选" : "");
             if (on && item.Id != centered)

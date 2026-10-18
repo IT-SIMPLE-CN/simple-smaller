@@ -4,19 +4,20 @@ using uniffi.smaller_core;
 
 namespace SimpleSmaller;
 
-internal enum VideoSegment { Compress, Edit, Frames }
+internal enum VideoSegment { Compress, Edit, Frames, Live }
 internal enum PdfSegment { Compress, Merge, Split, ToImages, FromImages }
 
 internal static class Segments
 {
-    public static readonly VideoSegment[] AllVideo = [VideoSegment.Compress, VideoSegment.Edit, VideoSegment.Frames];
+    public static readonly VideoSegment[] AllVideo = [VideoSegment.Compress, VideoSegment.Edit, VideoSegment.Frames, VideoSegment.Live];
     public static readonly PdfSegment[] AllPdf = [PdfSegment.Compress, PdfSegment.Merge, PdfSegment.Split, PdfSegment.ToImages, PdfSegment.FromImages];
 
     public static string Title(this VideoSegment s) => s switch
     {
         VideoSegment.Compress => "压缩",
         VideoSegment.Edit => "剪辑",
-        _ => "序列帧",
+        VideoSegment.Frames => "序列帧",
+        _ => "实况",
     };
 
     public static string Title(this PdfSegment s) => s switch
@@ -86,6 +87,9 @@ internal sealed partial class Workspace : ObservableObject
     [ObservableProperty] private IReadOnlyDictionary<string, TimeRange> trim = new Dictionary<string, TimeRange>(PathComparer);
     [ObservableProperty] private IReadOnlyDictionary<string, PixelRect> videoCrop = new Dictionary<string, PixelRect>(PathComparer);
     [ObservableProperty] private IReadOnlyDictionary<string, double> coverAt = new Dictionary<string, double>(PathComparer);
+    /// 实况：每段取哪一段（不超过 3 秒）、封面在第几秒（都是原视频里的秒数）。
+    [ObservableProperty] private IReadOnlyDictionary<string, TimeRange> liveRange = new Dictionary<string, TimeRange>(PathComparer);
+    [ObservableProperty] private IReadOnlyDictionary<string, double> liveCover = new Dictionary<string, double>(PathComparer);
 
     // PDF 合并：页面顺序（第几个文件, 第几页）。
     [ObservableProperty] private IReadOnlyList<PdfPageRef> pageOrder = [];
@@ -100,17 +104,17 @@ internal sealed partial class Workspace : ObservableObject
         draft = recipe;
     }
 
-    /// 改过配方参数才算「已修改」；切到「序列帧」分段带出的 outputFrames 不算。
+    /// 改过配方参数才算「已修改」；切到「序列帧」「实况」分段带出的 outputFrames / outputLive 不算。
     public bool Modified
     {
         get
         {
-            var d = Draft with { Video = Draft.Video with { OutputFrames = Base.Video.OutputFrames } };
+            var d = Draft with { Video = Draft.Video with { OutputFrames = Base.Video.OutputFrames, OutputLive = Base.Video.OutputLive } };
             return d != Base;
         }
     }
 
-    /// 分段各用各的配方（配方条只放这一段能用的）：视频「压缩 · 剪辑 / 序列帧」、PDF「压缩 / 转图片」。
+    /// 分段各用各的配方（配方条只放这一段能用的）：视频「压缩 · 剪辑 / 序列帧 / 实况」、PDF「压缩 / 转图片」。
     /// 切过去时换成那一段上次用的，没用过就用它的第一个内置配方。
     private readonly Dictionary<string, string> segmentRecipe = [];
 
@@ -123,11 +127,21 @@ internal sealed partial class Workspace : ObservableObject
             Select(r);
     }
 
+    /// 视频的常用分三组：压缩 · 剪辑共用、序列帧、实况。
+    public static string VideoGroup(Recipe r) => r.Video.OutputLive ? "live" : r.Video.OutputFrames ? "frames" : "video";
+
+    public static string VideoGroup(VideoSegment s) => s switch
+    {
+        VideoSegment.Compress or VideoSegment.Edit => "video",
+        VideoSegment.Frames => "frames",
+        _ => "live",
+    };
+
     public void EnterVideoSegment(VideoSegment s)
     {
-        var frames = s == VideoSegment.Frames;
-        SwitchRecipe(frames ? "frames" : "video", frames ? "video" : "frames",
-                     r => r.Video.OutputFrames == frames, frames ? "vid.frames.web" : "vid.chat");
+        var group = VideoGroup(s);
+        var fallback = group switch { "frames" => "vid.frames.web", "live" => "vid.live.apple", _ => "vid.chat" };
+        SwitchRecipe(group, VideoGroup(Draft), r => VideoGroup(r) == group, fallback);
     }
 
     public void EnterPdfSegment(PdfSegment s)
@@ -154,8 +168,9 @@ internal sealed partial class Workspace : ObservableObject
         Draft = recipe;
         if (Type == MediaType.Video)
         {
-            if (recipe.Video.OutputFrames) VideoSegment = VideoSegment.Frames;
-            else if (VideoSegment == VideoSegment.Frames) VideoSegment = VideoSegment.Compress;
+            if (recipe.Video.OutputLive) VideoSegment = VideoSegment.Live;
+            else if (recipe.Video.OutputFrames) VideoSegment = VideoSegment.Frames;
+            else if (VideoSegment is VideoSegment.Frames or VideoSegment.Live) VideoSegment = VideoSegment.Compress;
         }
         if (Type == MediaType.Pdf)
         {
@@ -225,6 +240,8 @@ internal sealed partial class Workspace : ObservableObject
     public void SetTrim(string path, TimeRange? range) => Trim = With(Trim, path, range);
     public void SetVideoCrop(string path, PixelRect? rect) => VideoCrop = With(VideoCrop, path, rect);
     public void SetCoverAt(string path, double? seconds) => CoverAt = With(CoverAt, path, seconds);
+    public void SetLiveRange(string path, TimeRange? range) => LiveRange = With(LiveRange, path, range);
+    public void SetLiveCover(string path, double? seconds) => LiveCover = With(LiveCover, path, seconds);
 
     /// 换一个键的值（null 为删掉），返回新字典。
     internal static Dictionary<string, T> With<T>(IReadOnlyDictionary<string, T> source, string key, T? value) where T : struct

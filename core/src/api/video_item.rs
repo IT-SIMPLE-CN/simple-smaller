@@ -144,11 +144,15 @@ impl Engine {
                         still_quality: 90,
                     };
                     // 苹果实况两个文件同名；动态照片跟着用这个名字，加 .MP（安卓手机拍的也这样叫）。
+                    // 几个文件一起挑名字：重名时整组换成 -2（只出动态照片时是「名-2.MP.jpg」，不是「名.MP-2.jpg」）。
                     let dir = &item.out_dir;
-                    let apple_stem = apple.then(|| naming::unique_stem(dir, &stem_name, &["jpg", "mov"], reserved));
+                    let mut exts: Vec<&str> = Vec::new();
+                    if *apple { exts.extend(["jpg", "mov"]); }
+                    if *android { exts.push("MP.jpg"); }
+                    let stem = naming::unique_stem(dir, &stem_name, &exts, reserved);
                     let targets = live::LiveTargets {
-                        apple: apple_stem.as_ref().map(|s| (dir.join(format!("{s}.jpg")), dir.join(format!("{s}.mov")))),
-                        android: android.then(|| naming::unique_path(dir, &format!("{}.MP", apple_stem.as_deref().unwrap_or(&stem_name)), "jpg", reserved)),
+                        apple: apple.then(|| (dir.join(format!("{stem}.jpg")), dir.join(format!("{stem}.mov")))),
+                        android: android.then(|| dir.join(format!("{stem}.MP.jpg"))),
                     };
                     live::make(tools, &item.source, &info, &live_recipe, &targets, &mut progress, cancel).map(|outs| result.outputs = outs)
                 }

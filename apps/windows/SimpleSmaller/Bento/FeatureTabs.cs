@@ -14,6 +14,24 @@ public static class FeatureIcons
     public static readonly string Crop = "M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2";
     public static readonly string Edit = LineIcon.Circle(6, 6, 3) + LineIcon.Circle(6, 18, 3) + "M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12";
     public static readonly string Frames = LineIcon.Rect(3, 5, 18, 14, 2) + "M9 5v14M15 5v14";
+    /// 实况：小圆 + 圆 + 点状外圈（照片里实况标的样子；设计稿外圈是 stroke-dasharray="0.1 2.9"，这里逐点画成短线段）。
+    public static readonly string Live = LineIcon.Circle(12, 12, 2.2) + LineIcon.Circle(12, 12, 5.6) + DottedCircle(12, 12, 9.2, 3);
+
+    /// 圆周上每隔 step 长一个点（0.1 长的短线段，圆头描边就是一个圆点），起点与方向同 SVG 的 circle。
+    private static string DottedCircle(double cx, double cy, double r, double step)
+    {
+        var sb = new System.Text.StringBuilder();
+        var c = System.Globalization.CultureInfo.InvariantCulture;
+        var length = 2 * Math.PI * r;
+        for (double d = 0; d < length - 0.5; d += step)
+        {
+            var a = d / r;
+            var x = cx + r * Math.Cos(a);
+            var y = cy + r * Math.Sin(a);
+            sb.Append(c, $"M{x:0.###} {y:0.###}l{-0.1 * Math.Sin(a):0.###} {0.1 * Math.Cos(a):0.###}");
+        }
+        return sb.ToString();
+    }
     public const string Merge = "M6 4v5a6 6 0 0 0 6 6a6 6 0 0 0 6-6V4M12 15v5";
     public const string Split = "M12 4v5M6 20v-5a6 6 0 0 1 6-6a6 6 0 0 1 6 6v5";
     public static readonly string ToImages = LineIcon.Rect(3, 5, 18, 14, 2) + "M3 16l5-5 4 4 3-3 6 6";
@@ -24,12 +42,13 @@ public static class FeatureIcons
     public static readonly string TypeVideo = LineIcon.Rect(3, 5, 18, 14, 3) + "M10 9.5v5l4.5-2.5z";
     public const string TypePdf = "M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM14 3v5h5M9 13h6M9 17h4";
 
-    /// 按子功能名取图标（压缩 / 裁切 / 剪辑 / 序列帧 / 合并 / 拆分 / 转图片 / 图片转 PDF）。
+    /// 按子功能名取图标（压缩 / 裁切 / 剪辑 / 序列帧 / 实况 / 合并 / 拆分 / 转图片 / 图片转 PDF）。
     public static string For(string name) => name switch
     {
         "裁切" => Crop,
         "剪辑" => Edit,
         "序列帧" => Frames,
+        "实况" => Live,
         "合并" => Merge,
         "拆分" => Split,
         "转图片" => ToImages,

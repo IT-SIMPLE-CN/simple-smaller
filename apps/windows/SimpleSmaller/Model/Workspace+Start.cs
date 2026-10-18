@@ -38,6 +38,11 @@ internal sealed partial class Workspace
                 case MediaType.Video:
                 {
                     if (VideoSegment == VideoSegment.Frames) return $"生成 {VideoItems.Sum(FrameCount)} 张";
+                    if (VideoSegment == VideoSegment.Live)
+                    {
+                        var kind = Draft.Video.LiveKind switch { LiveKind.Apple => "苹果实况", LiveKind.Android => "安卓动态照片", _ => "两种都要" };
+                        return $"{n} 个视频 · {kind}";
+                    }
                     var v = Draft.Video;
                     if (v.MuteOnly) return $"{n} 个视频 · 只去声音";
                     if (v.Codec == VideoCodec.Gif) return $"{n} 个视频 · GIF";

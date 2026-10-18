@@ -38,6 +38,7 @@ internal static class Conversion
             boxes);
     }
 
+    /// `coverAt`：导出封面、做实况时封面取原视频的第几秒。
     /// `long4K`：这段是 4K、3 分钟以上的长片，自动改用系统硬件编码（软件编码要几十分钟）。
     public static VideoSettings VideoSettings(this Recipe recipe, TimeRange? trim = null, PixelRect? crop = null, double? coverAt = null, bool long4K = false)
     {
@@ -50,7 +51,12 @@ internal static class Conversion
             _ => new VideoRate.TargetBytes((ulong)(video.TargetMB * 1_000_000)),
         };
         VideoOutput output;
-        if (video.MuteOnly)
+        if (video.OutputLive)
+        {
+            // 封面没给时取 1 秒处（引擎会把片段放在封面周围、不超过 3 秒）。
+            output = new VideoOutput.Live(video.LiveApple, video.LiveAndroid, coverAt ?? 1, (uint)Math.Max(0, video.LiveLongEdge));
+        }
+        else if (video.MuteOnly)
         {
             output = new VideoOutput.Mute();
         }
@@ -88,7 +94,7 @@ internal static class Conversion
             video.HdrToSdr,
             null,
             output,
-            video.ExportCover ? (coverAt ?? 0) : null);
+            video.ExportCover && !video.OutputLive ? (coverAt ?? 0) : null);
     }
 
     public static PdfLevel PdfLevel(this Recipe recipe) => recipe.Pdf.Level switch

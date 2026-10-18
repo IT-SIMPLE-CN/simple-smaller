@@ -186,6 +186,8 @@ internal sealed partial class AppModel
         ws.Trim = SimpleSmaller.Workspace.Empty<TimeRange>();
         ws.VideoCrop = SimpleSmaller.Workspace.Empty<PixelRect>();
         ws.CoverAt = SimpleSmaller.Workspace.Empty<double>();
+        ws.LiveRange = SimpleSmaller.Workspace.Empty<TimeRange>();
+        ws.LiveCover = SimpleSmaller.Workspace.Empty<double>();
         ws.PageOrder = [];
         ws.PageOrderFiles = [];
         ws.FinishedCount = 0;

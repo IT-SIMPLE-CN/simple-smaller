@@ -104,6 +104,7 @@ internal sealed class ResultView : Reactive
                 MediaType.Video => ws.VideoSegment switch
                 {
                     VideoSegment.Frames => "序列帧完成",
+                    VideoSegment.Live => "实况做好了",
                     VideoSegment.Edit => "剪辑完成",
                     _ => "压缩完成",
                 },

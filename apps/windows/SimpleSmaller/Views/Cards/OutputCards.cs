@@ -86,6 +86,7 @@ internal static class OutputNaming
     public static string? FixedName(Workspace ws)
     {
         if (ws.Type == MediaType.Video && ws.VideoSegment == VideoSegment.Frames) return "{name}_frames/{name}_0001";
+        if (ws.Type == MediaType.Video && ws.VideoSegment == VideoSegment.Live) return "{name}-live";
         if (ws.Type != MediaType.Pdf) return null;
         return ws.PdfSegment switch
         {

@@ -29,11 +29,14 @@ internal static class CoachSteps
     private static CoachStep[] VideoFor(VideoSegment segment)
     {
         var steps = (CoachStep[])Video.Clone();
+        steps[0] = steps[0] with { Art = sk => VideoTabsArt(sk, segment) };
         steps[1] = segment switch
         {
             VideoSegment.Edit => steps[1],
             VideoSegment.Compress => new(GuideTargets.Main, CoachSide.Right, "这一批都在这",
                 "把视频拖进来，随时还能往里加。要截一段、裁画面，切到顶部的「剪辑」。", VideoBatchArt),
+            VideoSegment.Live => new(GuideTargets.Main, CoachSide.Right, "选一段，挑封面",
+                "红框里的一段（最长 3 秒）就是会动的部分，拖动换位置；单击时间轴选封面，照片用这一帧。", LiveArt),
             _ => new(GuideTargets.Main, CoachSide.Right, "这一批都在这",
                 "把视频拖进来，随时还能往里加。", VideoBatchArt),
         };
@@ -61,8 +64,8 @@ internal static class CoachSteps
 
     private static readonly CoachStep[] Video =
     [
-        new(GuideTargets.Tabs, CoachSide.Below, "一个视频，三件事",
-            "顶部切换压缩、剪辑、序列帧。切过去文件还在，不用重新拖。", VideoTabsArt),
+        new(GuideTargets.Tabs, CoachSide.Below, "一个视频，四件事",
+            "顶部切换压缩、剪辑、序列帧、实况。切过去文件还在，不用重新拖。", s => VideoTabsArt(s, VideoSegment.Edit)),
         new(GuideTargets.Main, CoachSide.Right, "拖两端截一段",
             "时间线两端拖动截取，单击一帧设为封面；画面里的框可以拖，决定保留哪块。", TrimArt),
         new(GuideTargets.Recipes, CoachSide.BelowEnd, "再选一个常用",
@@ -87,14 +90,19 @@ internal static class CoachSteps
 
     // MARK: 插图（坐标照搬设计稿 SVG，viewBox 0 0 308 92）
 
-    private static void VideoTabsArt(Sketch s)
+    /// 墨黑胶囊跟着当前分段走，宽度随字数（两个字时与设计稿一致：左缘 = 字中心 − 32.5，宽 52），红点在字左边。
+    private static void VideoTabsArt(Sketch s, VideoSegment segment)
     {
-        s.Rect(74.5, 28, 159, 36, 18, "card");
-        s.Text(98.5, 46, "压缩", 11, "primary");
-        s.Rect(122.5, 32, 52, 28, 14, "ink");
-        s.Circle(135.5, 46, 5, "brand");
-        s.Text(155, 46, "剪辑", 11, "onInk", Bold);
-        s.Text(204, 46, "序列帧", 11, "primary");
+        (string Name, double X)[] items = [("压缩", 76), ("剪辑", 132.5), ("序列帧", 182), ("实况", 232)];
+        var selected = Array.IndexOf(Segments.AllVideo, segment);
+        if (selected < 0) selected = 1;
+        var n = items[selected].Name.Length;
+        var left = items[selected].X - 5.5 * n - 21.5;
+        s.Rect(50, 28, 208, 36, 18, "card");
+        s.Rect(left, 32, n <= 2 ? 52 : 11 * n + 31.5, 28, 14, "ink");
+        s.Circle(left + 13, 46, 5, "brand");
+        for (var i = 0; i < items.Length; i++)
+            s.Text(items[i].X, 46, items[i].Name, 11, i == selected ? "onInk" : "primary", i == selected ? (FontWeight?)Bold : null);
         s.Text(154, 82, "文件留着，换个做法", 9.5, "secondary");
     }
 
@@ -108,6 +116,21 @@ internal static class CoachSteps
         s.Rect(122, 26, 6, 42, 3, "brand");
         s.Rect(205, 26, 6, 42, 3, "brand");
         s.Text(166, 80, "截取 00:18 – 01:03", 9.5, "brand", Semi);
+    }
+
+    /// 实况：时间线上一个短红框（会动的那一段），框里一条白线 + 红色小标是封面。
+    private static void LiveArt(Sketch s)
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            s.Rect(20 + 27 * i, 30, 25, 34, 3, i is >= 4 and <= 5 ? "#5A4E44" : "key");
+        }
+        s.Rect(126, 26, 54, 42, 6, (string?)null, "brand", 3);
+        s.Rect(122, 26, 6, 42, 3, "brand");
+        s.Rect(178, 26, 6, 42, 3, "brand");
+        s.Rect(151, 30, 2, 34, 0, "white");
+        s.Rect(145, 12, 14, 11, 2.5, "brand");
+        s.Text(153, 80, "会动 3 秒 · 封面", 9.5, "brand", Semi);
     }
 
     private static void VideoRecipeArt(Sketch s)

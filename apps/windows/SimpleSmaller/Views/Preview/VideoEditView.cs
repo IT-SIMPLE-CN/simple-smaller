@@ -50,24 +50,26 @@ internal sealed class VideoEditView : Reactive
         Loaded += (_, _) =>
         {
             playback ??= new VideoPlayback(DispatcherQueue);
+            playback.Changed -= PlaybackChanged;
             playback.Changed += PlaybackChanged;
             stage.Playback = trim.Playback = playback;
             loadedPath = null;
             Refresh();
             Focus(FocusState.Programmatic);
         };
-        Unloaded += (_, _) =>
+        // 窗口变宽变窄时网格会把预览挪个位置：先触发新的 Loaded、后触发旧的 Unloaded。等这一轮走完再看，
+        // 还在界面上就不拆，免得播放器被关掉、画面变黑。
+        Unloaded += (_, _) => DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
-            if (playback is { } p)
-            {
-                p.Changed -= PlaybackChanged;
-                stage.Playback = trim.Playback = null;
-                stage.Detach();
-                playback = null;
-                // 画面元素还在卸载流程里时释放 MediaPlayer 会让 XAML 崩（E_ABORT）：断开后等这一轮走完再释放。
-                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, p.Dispose);
-            }
-        };
+            if (IsLoaded || playback is not { } p) return;
+            p.Changed -= PlaybackChanged;
+            stage.Playback = trim.Playback = null;
+            // 先放开画面元素（SetMediaPlayer(null)），再隔一轮释放 MediaPlayer：画面元素还在卸载流程里时释放会让 XAML 崩（E_ABORT）。
+            stage.Detach();
+            playback = null;
+            p.Pause();
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, p.Dispose);
+        });
         // 空格播放 / 暂停（焦点在预览里时）。
         KeyDown += (_, e) =>
         {
@@ -229,7 +231,7 @@ internal sealed class VideoStage : UserControl
                 canvas.Children.Insert(0, player);
             }
         }
-        var size = ws.VideoOutputSize(item);
+        var size = ws.VideoSegment == VideoSegment.Live ? ws.LiveOutputSize(item) : ws.VideoOutputSize(item);
         var crop = ws.Draft.Video.Crop;
         labelText.Text = $"{crop?.Name ?? "原比例"} · {(int)size.Width} × {(int)size.Height}{(crop != null ? " · 框可拖" : "")}";
         Layout();

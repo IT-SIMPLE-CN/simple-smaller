@@ -184,6 +184,8 @@ internal sealed record ImageBody
 internal enum VideoCodec { H264, Hevc, Gif }
 internal enum VideoRateChoice { High, Medium, Low, Size }
 internal enum FrameMode { PerSecond, Every, Total, All }
+/// 实况做成哪种：苹果实况（照片 + 视频一对）、安卓动态照片（一张会动的 JPEG）、两种都要。
+internal enum LiveKind { Apple, Android, Both }
 
 internal sealed record VideoBody
 {
@@ -211,6 +213,18 @@ internal sealed record VideoBody
     public int? FrameWidth { get; init; } = 1920;
     public bool FrameZip { get; init; }
     public bool FrameContactSheet { get; init; }
+    /// 输出实况（选中这个配方时切到「实况」）。
+    public bool OutputLive { get; init; }
+    /// 做成苹果实况（照片 + 视频一对）、安卓动态照片（一张会动的 JPEG），可以都要。
+    public bool LiveApple { get; init; } = true;
+    public bool LiveAndroid { get; init; }
+    /// 实况视频的最长边（0 为原分辨率）。
+    public int LiveLongEdge { get; init; } = 1920;
+
+    [JsonIgnore]
+    public LiveKind LiveKind => LiveApple && LiveAndroid ? LiveKind.Both : LiveAndroid ? LiveKind.Android : LiveKind.Apple;
+
+    public VideoBody WithLiveKind(LiveKind k) => this with { LiveApple = k != LiveKind.Android, LiveAndroid = k != LiveKind.Apple };
 
     public VideoBody() { }
 
@@ -279,6 +293,8 @@ internal sealed record Recipe
                     return Image.Format.Title();
                 case MediaType.Video:
                     if (Video.MuteOnly) return "不重编码";
+                    if (Video.OutputLive)
+                        return Video.LiveKind switch { LiveKind.Apple => "照片 + 视频", LiveKind.Android => "一张 JPG", _ => "苹果 + 安卓" };
                     if (Video.OutputFrames) return Video.FrameFormat.Title();
                     if (Video.Codec == VideoCodec.Gif) return $"{Video.GifWidth} · {(int)Video.GifFps}fps";
                     if (Video.Crop is { } vc) return $"{vc.Width}×{(int)Num.Round(vc.Width / (vc.Aspect ?? 1))}";
@@ -328,6 +344,9 @@ internal sealed record Recipe
         Vid("vid.mute", "只去声音", v => v with { MuteOnly = true, KeepAudio = false });
         Vid("vid.frames.web", "网页序列帧", v => v with { OutputFrames = true, FrameMode = FrameMode.PerSecond, FrameValue = 15, FrameFormat = ImageFormatChoice.Webp, FrameWidth = 1920 });
         Vid("vid.frames.1s", "每秒一张截图", v => v with { OutputFrames = true, FrameMode = FrameMode.PerSecond, FrameValue = 1, FrameFormat = ImageFormatChoice.Jpeg, FrameWidth = null });
+        Vid("vid.live.apple", "苹果实况", v => v with { OutputLive = true, LiveApple = true, LiveAndroid = false, Rate = VideoRateChoice.High });
+        Vid("vid.live.android", "安卓动态照片", v => v with { OutputLive = true, LiveApple = false, LiveAndroid = true, Rate = VideoRateChoice.High });
+        Vid("vid.live.both", "两种都要", v => v with { OutputLive = true, LiveApple = true, LiveAndroid = true, Rate = VideoRateChoice.High });
 
         void Pdf(string id, string name, Func<PdfBody, PdfBody> edit) =>
             list.Add(new Recipe { Id = id, Name = name, Type = MediaType.Pdf, BuiltIn = true, Pdf = edit(new PdfBody()) });

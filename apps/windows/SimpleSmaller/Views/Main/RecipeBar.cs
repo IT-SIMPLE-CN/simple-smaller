@@ -65,7 +65,7 @@ internal sealed class RecipeBar : Reactive
     private bool Fits(Recipe r) => ws.Type switch
     {
         MediaType.Image => true, // 图片只有一页，全部配方都在这里（带比例的就是裁切）
-        MediaType.Video => r.Video.OutputFrames == (ws.VideoSegment == VideoSegment.Frames),
+        MediaType.Video => Workspace.VideoGroup(r) == Workspace.VideoGroup(ws.VideoSegment),
         _ => r.Pdf.LongImage == (ws.PdfSegment == PdfSegment.ToImages),
     };
 

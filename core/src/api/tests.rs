@@ -116,7 +116,7 @@ fn 实况任务端到端_重名与撤销() {
     let engine = Engine::new(None);
     let (tx, rx) = mpsc::channel();
     let naming = Naming { template: "{name}-live".into(), lowercase: false, pinyin: false, hyphenate: false, date: "20261018".into() };
-    let job = engine.run_videos(vec![src.to_string_lossy().into()], Place::Folder { path: dir.to_string_lossy().into() }, naming, settings, Arc::new(Collect(Mutex::new(tx))));
+    let job = engine.clone().run_videos(vec![src.to_string_lossy().into()], Place::Folder { path: dir.to_string_lossy().into() }, naming, settings.clone(), Arc::new(Collect(Mutex::new(tx))));
     let results = wait(&rx);
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].state, ItemState::Done, "{:?}", results[0].message);
@@ -124,5 +124,16 @@ fn 实况任务端到端_重名与撤销() {
     assert_eq!(names, ["片段-live-2.jpg", "片段-live-2.mov", "片段-live-2.MP.jpg"]);
     job.undo().unwrap();
     assert!(results[0].outputs.iter().all(|o| !Path::new(&o.path).exists()));
+
+    // 只出动态照片、同名已有：换成「名-2.MP.jpg」（不是「名.MP-2.jpg」，安卓相册按 .MP.jpg 认）。
+    std::fs::write(dir.join("片段-live.MP.jpg"), b"x").unwrap();
+    let android_only = VideoSettings { output: VideoOutput::Live { apple: false, android: true, cover_at: 0.2, max_long_edge: 1920 }, ..settings };
+    let (tx, rx) = mpsc::channel();
+    let naming = Naming { template: "{name}-live".into(), lowercase: false, pinyin: false, hyphenate: false, date: "20261018".into() };
+    let _job = engine.run_videos(vec![src.to_string_lossy().into()], Place::Folder { path: dir.to_string_lossy().into() }, naming, android_only, Arc::new(Collect(Mutex::new(tx))));
+    let results = wait(&rx);
+    assert_eq!(results[0].state, ItemState::Done, "{:?}", results[0].message);
+    let names: Vec<String> = results[0].outputs.iter().map(|o| Path::new(&o.path).file_name().unwrap().to_string_lossy().into_owned()).collect();
+    assert_eq!(names, ["片段-live-2.MP.jpg"]);
     let _ = std::fs::remove_dir_all(&dir);
 }

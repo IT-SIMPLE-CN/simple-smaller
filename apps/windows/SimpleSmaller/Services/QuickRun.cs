@@ -59,6 +59,7 @@ internal sealed partial class QuickRun : ObservableObject
         var place = model.Settings.Place;
         var naming = Recipe.Naming;
         if (Type == MediaType.Video && Recipe.Video.OutputFrames) naming = naming with { Template = "{name}" };
+        if (Type == MediaType.Video && Recipe.Video.OutputLive) naming = naming with { Template = "{name}-live" };
         if (Type == MediaType.Pdf && Recipe.Pdf.LongImage) naming = naming with { Template = "{name}-长图" };
         var ffiNaming = naming.Ffi(Format.Today);
         var inputs = Paths.ToArray();
@@ -99,7 +100,7 @@ internal sealed partial class QuickRun : ObservableObject
                 if (meta != null && recipe.Video.Crop?.Aspect is { } a)
                     crop = PixelRect.CenteredMax(meta.Width, meta.Height, a, PixelRect.Even);
                 var long4K = meta != null && Math.Min(meta.Width, meta.Height) >= 2000 && meta.Duration > 180;
-                var settings = recipe.VideoSettings(null, crop, recipe.Video.ExportCover ? Math.Min(1, (meta?.Duration ?? 2) / 2) : null, long4K);
+                var settings = recipe.VideoSettings(null, crop, recipe.Video.ExportCover || recipe.Video.OutputLive ? Math.Min(1, (meta?.Duration ?? 2) / 2) : null, long4K);
                 var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 var bridge = new ListenerBridge(Ui.Post, (_, _) => { }, Record, () => done.TrySetResult());
                 var job = engine.RunVideos([path], place, naming, settings, bridge);

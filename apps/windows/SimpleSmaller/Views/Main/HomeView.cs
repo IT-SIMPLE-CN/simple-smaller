@@ -213,10 +213,12 @@ internal sealed class HomeView : UserControl
             return;
         }
         var cardW = Math.Min(260, Math.Max(200, (w - 40 - 176 - 3 * 16 - 40) / 4));
+        // 一排卡同高：默认 392，哪张放不下（视频卡多了「实况」标签换行）就一起加高。
+        var cardH = Math.Max(392, cardViews.Max(c => c.NeededHeight(cardW)));
         foreach (var c in cardViews)
         {
             c.Width = cardW;
-            c.Height = 392;
+            c.Height = Math.Ceiling(cardH);
         }
         column.Margin = new Thickness(0, Math.Max(20, (h - 640) / 2), 0, 0);
         cards.Margin = new Thickness(0, Math.Min(56, Math.Max(24, h - 600)), 0, 0);
@@ -282,9 +284,22 @@ internal sealed class HomeCard : UserControl
     private readonly Border split = new() { Margin = new Thickness(-3), CornerRadius = new CornerRadius(23), BorderThickness = new Thickness(3), Visibility = Visibility.Collapsed };
     private readonly List<SplitCell> cells = [];
     private readonly TextBlock splitLabel = new() { Text = "放到哪一格？", FontSize = 12, Height = SplitLabel, Padding = new Thickness(4, 2, 4, 0) };
+    private readonly Grid picture = new();
+    private readonly StackPanel texts = new();
+    private readonly Grid bottom = new() { VerticalAlignment = VerticalAlignment.Bottom };
     private bool hovering;
     private int hovered = -1;
     private bool[] enabled = [];
+
+    /// 卡宽为 width 时放下全部内容要多高（视频卡标签两行、说明两行时比 392 高）。
+    public double NeededHeight(double width)
+    {
+        var inner = Math.Max(1, width - 28);
+        picture.Height = inner * 3 / 4;
+        texts.Measure(new Size(inner, double.PositiveInfinity));
+        bottom.Measure(new Size(inner, double.PositiveInfinity));
+        return texts.DesiredSize.Height + 16 + bottom.DesiredSize.Height + 28;
+    }
 
     /// 这张卡能进的子功能（和标签、分格一一对应）。
     public IReadOnlyList<string> Cells { get; }
@@ -306,7 +321,7 @@ internal sealed class HomeCard : UserControl
         text.Text = kind switch
         {
             Kind.Image => "WebP、AVIF、JPG 一键变小，一次出多档尺寸；按比例批量裁切。",
-            Kind.Video => "按体积压到 25 MB，裁成 9:16，或者拆成一张张序列帧。",
+            Kind.Video => "按体积压到 25 MB，裁成 9:16，拆成序列帧，或者做成实况。",
             Kind.Pdf => "邮件、阅读、打印三档。",
             _ => "在资源管理器里按住 Alt 点文件，圆环里点一下就好。第一次用要在设置里开启。",
         };
@@ -314,7 +329,6 @@ internal sealed class HomeCard : UserControl
         glyph = new LineIcon(kind switch { Kind.Image => Icons.Image, Kind.Video => Icons.Video, Kind.Pdf => Icons.Pdf, _ => Icons.Ring }, 16);
         var art = kind switch { Kind.Image => "home-image", Kind.Video => "home-video", Kind.Pdf => "home-pdf", _ => "home-ring" };
 
-        var picture = new Grid();
         var artBox = new Border { CornerRadius = new CornerRadius(14) };
         artBox.Child = new Image { Source = new SvgImageSource(new Uri($"ms-appx:///Assets/{art}.svg")), Stretch = Stretch.UniformToFill };
         AutomationProperties.SetAccessibilityView(artBox, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
@@ -324,7 +338,6 @@ internal sealed class HomeCard : UserControl
         picture.Children.Add(notch);
         picture.SizeChanged += (_, e) => picture.Height = e.NewSize.Width * 3 / 4;
 
-        var bottom = new Grid { VerticalAlignment = VerticalAlignment.Bottom };
         arrow.Child = arrowIcon;
         bottom.Children.Add(formats);
 
@@ -332,7 +345,6 @@ internal sealed class HomeCard : UserControl
         stack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         stack.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         stack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var texts = new StackPanel();
         texts.Children.Add(picture);
         texts.Children.Add(title);
         if (Type is null)

@@ -195,7 +195,7 @@ internal sealed class VideoPictureCard : VideoCardBase
         Show(muteNote, v.MuteOnly);
         Show(body, !v.MuteOnly);
         ratio!.Selected = v.Crop?.Id ?? "";
-        Show(ratioTrailing, ws.VideoSegment == VideoSegment.Edit);
+        Show(ratioTrailing, ws.VideoSegment is VideoSegment.Edit or VideoSegment.Live);
         var gif = v.Codec == VideoCodec.Gif;
         Show(gifWidthRow, gif);
         Show(gifFpsRow, gif);

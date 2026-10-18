@@ -40,6 +40,8 @@ internal sealed partial class AppModel
         var namingSettings = ws.Draft.Naming;
         // 序列帧按「{name}_frames/{name}_0001」命名（设计稿 04b），不套用压缩时的后缀。
         if (ws.Type == MediaType.Video && ws.Draft.Video.OutputFrames) namingSettings = namingSettings with { Template = "{name}" };
+        // 实况：苹果实况一对同名（{name}-live.jpg / .mov），动态照片叫 {name}-live.MP.jpg。
+        if (ws.Type == MediaType.Video && ws.Draft.Video.OutputLive) namingSettings = namingSettings with { Template = "{name}-live" };
         // 拆分放进「原名-拆分」文件夹，里面按「原名-01」编号。
         if (ws.Type == MediaType.Pdf && ws.PdfSegment == PdfSegment.Split) namingSettings = namingSettings with { Template = "{name}" };
         // 转图片：逐页放进「原名-图片」，长图叫「原名-长图」。
@@ -204,20 +206,23 @@ internal sealed partial class AppModel
         var gen = ws.RunGeneration;
         var engine = Engine;
         // 视频逐段跑；每段一个任务，用同一个回调汇总。
+        var live = recipe.Video.OutputLive;
         var jobs = items.Select(item =>
         {
             var range = ws.TrimRange(item);
-            // 封面没单击指定时，取截取开头往后 1 秒（片头常是黑场）。
+            // 封面没单击指定时，取截取开头往后 1 秒（片头常是黑场）。实况用自己的片段与封面。
             var cover = ws.CoverAt.TryGetValue(item.FilePath, out var c) ? c : range.Start + Math.Min(1, item.Duration / 2);
             return (
                 Path: item.FilePath,
                 Index: Math.Max(0, ws.Files.IndexOf(item)),
                 Place: item.OutDir is { } dir ? new Place.Folder(dir) : place,
-                Settings: recipe.VideoSettings(
-                    ws.Trim.TryGetValue(item.FilePath, out var t) ? t : null,
-                    ws.VideoCropBox(item),
-                    cover,
-                    Math.Min(item.Width, item.Height) >= 2000 && range.End - range.Start > 180));
+                Settings: live
+                    ? recipe.VideoSettings(ws.LiveWindow(item), ws.VideoCropBox(item), ws.LiveCoverTime(item))
+                    : recipe.VideoSettings(
+                        ws.Trim.TryGetValue(item.FilePath, out var t) ? t : null,
+                        ws.VideoCropBox(item),
+                        cover,
+                        Math.Min(item.Width, item.Height) >= 2000 && range.End - range.Start > 180));
         }).ToList();
         Task.Run(async () =>
         {
