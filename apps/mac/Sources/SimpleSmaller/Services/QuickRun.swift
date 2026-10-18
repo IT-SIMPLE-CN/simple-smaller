@@ -46,6 +46,7 @@ final class QuickRun {
         let place = model.settings.place
         var naming = recipe.naming
         if type == .video, recipe.video.outputFrames { naming.template = "{name}" }
+        if type == .video, recipe.video.outputLive { naming.template = "{name}-live" }
         if type == .pdf, recipe.pdf.longImage { naming.template = "{name}-长图" }
         let ffiNaming = naming.ffi(date: Format.today)
         let inputs = urls.map(\.path)
@@ -79,7 +80,7 @@ final class QuickRun {
                     crop = .centeredMax(width: Double(m.width), height: Double(m.height), aspect: a, round: CGRect.even)
                 }
                 let long4K = meta.map { min($0.width, $0.height) >= 2000 && $0.duration > 180 } ?? false
-                let settings = recipe.videoSettings(trim: nil, crop: crop, coverAt: recipe.video.exportCover ? min(1, (meta?.duration ?? 2) / 2) : nil, long4K: long4K)
+                let settings = recipe.videoSettings(trim: nil, crop: crop, coverAt: recipe.video.exportCover || recipe.video.outputLive ? min(1, (meta?.duration ?? 2) / 2) : nil, long4K: long4K)
                 let done = DispatchSemaphore(value: 0)
                 let bridge = ListenerBridge(progress: { _, _ in }, item: { r in run?.record(r) }, finished: { done.signal() })
                 let job = engine.runVideos(inputs: [path], place: place, naming: naming, settings: settings, listener: bridge)

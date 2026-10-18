@@ -43,6 +43,9 @@
 	<string>14.0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.graphics-design</string>
+	<!-- 实况「存进照片」：只要添加权限，不读照片库。 -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>把做好的实况存进「照片」。</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

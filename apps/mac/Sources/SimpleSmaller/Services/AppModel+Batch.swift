@@ -37,6 +37,8 @@ extension AppModel {
         var namingSettings = ws.draft.naming
         // 序列帧按「{name}_frames/{name}_0001」命名（设计稿 04b），不套用压缩时的后缀。
         if ws.type == .video, ws.draft.video.outputFrames { namingSettings.template = "{name}" }
+        // 实况：苹果实况一对同名（{name}-live.jpg / .mov），动态照片叫 {name}-live.MP.jpg。
+        if ws.type == .video, ws.draft.video.outputLive { namingSettings.template = "{name}-live" }
         // 拆分放进「原名-拆分」文件夹，里面按「原名-01」编号。
         if ws.type == .pdf, ws.pdfSegment == .split { namingSettings.template = "{name}" }
         // 转图片：逐页放进「原名-图片」，长图叫「原名-长图」。
@@ -172,12 +174,15 @@ extension AppModel {
         let gen = ws.runGeneration
         let engine = engine
         // 视频逐段跑；每段一个任务，用同一个回调汇总。
+        let live = recipe.video.outputLive
         let jobs = items.map { item in
-            // 封面没单击指定时，取截取开头往后 1 秒（片头常是黑场）。
+            // 封面没单击指定时，取截取开头往后 1 秒（片头常是黑场）。实况用自己的片段与封面。
             (path: item.url.path,
              index: ws.files.firstIndex { $0.id == item.id } ?? 0,
              place: item.outDir.map { Place.folder(path: $0.path) } ?? place,
-             settings: recipe.videoSettings(trim: ws.trim[item.url], crop: ws.videoCropBox(item),
+             settings: live
+                ? recipe.videoSettings(trim: ws.liveWindow(item), crop: ws.videoCropBox(item), coverAt: ws.liveCoverTime(item))
+                : recipe.videoSettings(trim: ws.trim[item.url], crop: ws.videoCropBox(item),
                                             coverAt: ws.coverAt[item.url] ?? (ws.trimRange(item).lowerBound + min(1, item.duration / 2)),
                                             long4K: min(item.width, item.height) >= 2000 && (ws.trimRange(item).upperBound - ws.trimRange(item).lowerBound) > 180))
         }

@@ -34,6 +34,10 @@ extension Workspace {
             return parts.joined(separator: " · ")
         case .video:
             if videoSegment == .frames { return "生成 \(videoItems.reduce(0) { $0 + frameCount($1) }) 张" }
+            if videoSegment == .live {
+                let kind = switch draft.video.liveKind { case .apple: "苹果实况"; case .android: "安卓动态照片"; case .both: "苹果实况 + 安卓动态照片" }
+                return "\(n) 个视频 · \(kind)"
+            }
             let v = draft.video
             if v.muteOnly { return "\(n) 个视频 · 只去声音" }
             if v.codec == .gif { return "\(n) 个视频 · GIF" }

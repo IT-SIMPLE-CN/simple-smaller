@@ -81,3 +81,43 @@ extension Workspace {
         }
     }
 }
+
+/// 实况：每段取一小段（不超过 3 秒）做成会动的部分，再选一帧当封面（照片）。
+extension Workspace {
+    static let liveMaxSeconds = 3.0
+
+    /// 这一段用的片段：拖过的 > 默认（从开头取最多 3 秒）。
+    func liveWindow(_ item: FileItem) -> ClosedRange<Double> {
+        if let r = liveRange[item.url] { return r }
+        return 0...min(Self.liveMaxSeconds, max(0, item.duration))
+    }
+
+    /// 封面：选过的（落在片段里）> 片段正中。
+    func liveCoverTime(_ item: FileItem) -> Double {
+        let w = liveWindow(item)
+        guard let t = liveCover[item.url] else { return (w.lowerBound + w.upperBound) / 2 }
+        return min(max(t, w.lowerBound), w.upperBound)
+    }
+
+    /// 片段整体挪到从 `start` 开始（长度不变，不出界）；封面跟着挪。
+    func moveLiveWindow(_ item: FileItem, to start: Double) {
+        let w = liveWindow(item)
+        let length = w.upperBound - w.lowerBound
+        let s = min(max(0, start), max(0, item.duration - length))
+        let shift = s - w.lowerBound
+        liveRange[item.url] = s...(s + length)
+        if let c = liveCover[item.url] { liveCover[item.url] = c + shift }
+    }
+
+    /// 实况视频的画面尺寸：裁切后按最长边缩小（不放大），取偶数。
+    func liveOutputSize(_ item: FileItem) -> CGSize {
+        var size = videoCropBox(item)?.size ?? CGSize(width: item.width, height: item.height)
+        let edge = CGFloat(draft.video.liveLongEdge)
+        if edge > 0, edge < max(size.width, size.height) {
+            let s = edge / max(size.width, size.height)
+            size = CGSize(width: size.width * s, height: size.height * s)
+        }
+        let even = { (v: CGFloat) in max(2, (v / 2).rounded() * 2) }
+        return CGSize(width: even(size.width), height: even(size.height))
+    }
+}

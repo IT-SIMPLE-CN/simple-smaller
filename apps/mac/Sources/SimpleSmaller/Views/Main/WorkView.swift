@@ -8,8 +8,10 @@ struct WorkView: View {
     var body: some View {
         Group {
             if ws.showResult, !ws.running, !ws.files.isEmpty {
-                ResultView(ws: ws)
-                    .transition(.bentoGrow)
+                Group {
+                    if ws.type == .video, ws.videoSegment == .live { LiveResultView(ws: ws) } else { ResultView(ws: ws) }
+                }
+                .transition(.bentoGrow)
             } else {
                 WorkGrid(ws: ws)
                     .transition(.opacity)
@@ -106,6 +108,7 @@ struct WorkGrid: View {
                 case .compress: FilesCard(ws: ws)
                 case .edit: PreviewCard(inset: 14) { VideoEditView(ws: ws) }
                 case .frames: PreviewCard(inset: 14) { VideoFramesView(ws: ws) }
+                case .live: PreviewCard(inset: 14) { LiveEditView(ws: ws) }
                 }
             case .pdf:
                 PreviewCard(inset: 14) { PdfDetailView(ws: ws) }
@@ -135,7 +138,12 @@ struct WorkGrid: View {
     @ViewBuilder private var upper: some View {
         switch ws.type {
         case .image: FrameCard(ws: ws)
-        case .video: if ws.videoSegment == .frames { FramesCard(ws: ws) } else { VideoPictureCard(ws: ws) }
+        case .video:
+            switch ws.videoSegment {
+            case .frames: FramesCard(ws: ws)
+            case .live: LiveKindCard(ws: ws)
+            default: VideoPictureCard(ws: ws)
+            }
         case .pdf: PdfMainCard(ws: ws)
         }
     }
@@ -143,7 +151,12 @@ struct WorkGrid: View {
     @ViewBuilder private var lowerLeft: some View {
         switch ws.type {
         case .image: FormatQualityCard(ws: ws)
-        case .video: if ws.videoSegment == .frames { FrameEachCard(ws: ws) } else { VideoFormatCard(ws: ws) }
+        case .video:
+            switch ws.videoSegment {
+            case .frames: FrameEachCard(ws: ws)
+            case .live: LiveCoverCard(ws: ws)
+            default: VideoFormatCard(ws: ws)
+            }
         case .pdf: PdfOptionsCard(ws: ws)
         }
     }
@@ -151,7 +164,12 @@ struct WorkGrid: View {
     @ViewBuilder private var lowerRight: some View {
         switch ws.type {
         case .image: OutputStartCard(ws: ws)
-        case .video: if ws.videoSegment == .frames { FramesOutputStartCard(ws: ws) } else { VideoAudioStartCard(ws: ws) }
+        case .video:
+            switch ws.videoSegment {
+            case .frames: FramesOutputStartCard(ws: ws)
+            case .live: LiveStartCard(ws: ws)
+            default: VideoAudioStartCard(ws: ws)
+            }
         case .pdf: if ws.pdfSegment == .compress { PdfStartCard(ws: ws) } else { OutputStartCard(ws: ws) }
         }
     }

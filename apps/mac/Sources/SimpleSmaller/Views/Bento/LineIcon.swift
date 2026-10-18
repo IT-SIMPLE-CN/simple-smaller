@@ -17,7 +17,7 @@ struct LineIcon: View {
 
     /// 设计稿里的图标（路径照搬）。
     enum Glyph {
-        case compress, crop, scissors, frames, merge, split, toImages, fromImages
+        case compress, crop, scissors, frames, live, merge, split, toImages, fromImages
         case image, video, pdf, ring, arrowUpRight, plus, grip
         /// 设置 › 常用左栏的三类图标（与卡片角标略有不同，照稿）。
         case kindImage, kindVideo, kindPdf
@@ -28,6 +28,8 @@ struct LineIcon: View {
             case .crop: #"<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>"#
             case .scissors: #"<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/>"#
             case .frames: #"<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/>"#
+            // 实况：实心小圆 + 圆 + 虚线外圈（照片里实况标的样子）。
+            case .live: #"<circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="12" r="5.6"/><circle cx="12" cy="12" r="9.2" stroke-dasharray="0.1 2.9"/>"#
             case .merge: #"<path d="M6 4v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4M12 15v5"/>"#
             case .split: #"<path d="M12 4v5M6 20v-5a6 6 0 0 1 6-6 6 6 0 0 1 6 6v5"/>"#
             case .toImages, .image: #"<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/>"#

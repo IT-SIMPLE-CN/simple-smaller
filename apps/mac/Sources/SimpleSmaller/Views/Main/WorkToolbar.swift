@@ -102,6 +102,7 @@ extension Workspace.VideoSegment {
         case .compress: .compress
         case .edit: .scissors
         case .frames: .frames
+        case .live: .live
         }
     }
 }

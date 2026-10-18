@@ -34,6 +34,7 @@ extension Recipe {
         )
     }
 
+    /// `coverAt`：导出封面、做实况时封面取原视频的第几秒。
     /// `long4K`：这段是 4K、3 分钟以上的长片，自动改用系统硬件编码（软件编码要几十分钟）。
     func videoSettings(trim: ClosedRange<Double>? = nil, crop: CGRect? = nil, coverAt: Double? = nil, long4K: Bool = false) -> VideoSettings {
         let rate: VideoRate = switch video.rate {
@@ -43,7 +44,10 @@ extension Recipe {
         case .size: .targetBytes(bytes: UInt64(video.targetMB * 1_000_000))
         }
         let output: VideoOutput
-        if video.muteOnly {
+        if video.outputLive {
+            // 封面没给时取 1 秒处（引擎会把片段放在封面周围、不超过 3 秒）。
+            output = .live(apple: video.liveApple, android: video.liveAndroid, coverAt: coverAt ?? 1, maxLongEdge: UInt32(max(0, video.liveLongEdge)))
+        } else if video.muteOnly {
             output = .mute
         } else if video.outputFrames {
             let pick: FramePick = switch video.frameMode {
@@ -73,7 +77,7 @@ extension Recipe {
             hdrToSdr: video.hdrToSdr,
             maxFps: nil,
             output: output,
-            coverAt: video.exportCover ? (coverAt ?? 0) : nil
+            coverAt: video.exportCover && !video.outputLive ? (coverAt ?? 0) : nil
         )
     }
 

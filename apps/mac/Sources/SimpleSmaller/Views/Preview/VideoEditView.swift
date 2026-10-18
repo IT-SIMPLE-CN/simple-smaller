@@ -93,7 +93,7 @@ struct VideoStage: View {
     }
 
     private var label: String {
-        let size = ws.videoOutputSize(item)
+        let size = ws.videoSegment == .live ? ws.liveOutputSize(item) : ws.videoOutputSize(item)
         let ratio = ws.draft.video.crop?.name ?? "原比例"
         return "\(ratio) · \(Int(size.width)) × \(Int(size.height))"
     }

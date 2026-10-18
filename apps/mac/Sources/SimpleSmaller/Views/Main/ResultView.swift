@@ -66,6 +66,7 @@ struct ResultView: View {
         switch (ws.type, ws.videoSegment) {
         case (.image, _): return ws.isCropping ? "裁切完成" : "压缩完成"
         case (.video, .frames): return "序列帧完成"
+        case (.video, .live): return "实况做好了"
         case (.video, .edit): return "剪辑完成"
         case (.video, .compress): return "压缩完成"
         default: return ws.pdfSegment == .compress ? "压缩完成" : "处理完成"

@@ -196,6 +196,54 @@ struct VideoBody: Codable, Equatable, Hashable, Sendable {
     var frameWidth: Int? = 1920
     var frameZip = false
     var frameContactSheet = false
+    /// 输出实况（选中这个配方时切到「实况」）。
+    var outputLive = false
+    /// 做成苹果实况（照片 + 视频一对）、安卓动态照片（一张会动的 JPEG），可以都要。
+    var liveApple = true
+    var liveAndroid = false
+    /// 实况视频的最长边。
+    var liveLongEdge = 1920
+
+    enum LiveKind: String, CaseIterable, Sendable { case apple, android, both }
+
+    var liveKind: LiveKind {
+        get { liveApple && liveAndroid ? .both : liveAndroid ? .android : .apple }
+        set { liveApple = newValue != .android; liveAndroid = newValue != .apple }
+    }
+}
+
+extension VideoBody {
+    /// 旧版存下的配方、别人导出的 .smaller 可能缺新加的字段：缺的按默认值补上，不让整份配方读不出来。
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = VideoBody()
+        func v<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T { (try? c.decodeIfPresent(T.self, forKey: key)).flatMap { $0 } ?? fallback }
+        codec = v(.codec, d.codec)
+        rate = v(.rate, d.rate)
+        targetMB = v(.targetMB, d.targetMB)
+        // 可选值存的时候 nil 不写键：缺键就是 nil（与系统自动生成的解码一致）。
+        shortEdge = (try? c.decodeIfPresent(Int.self, forKey: .shortEdge)) ?? nil
+        keepAudio = v(.keepAudio, d.keepAudio)
+        hdrToSdr = v(.hdrToSdr, d.hdrToSdr)
+        fast = v(.fast, d.fast)
+        exportCover = v(.exportCover, d.exportCover)
+        crop = (try? c.decodeIfPresent(CropPreset.self, forKey: .crop)) ?? nil
+        gifFps = v(.gifFps, d.gifFps)
+        gifWidth = v(.gifWidth, d.gifWidth)
+        muteOnly = v(.muteOnly, d.muteOnly)
+        outputFrames = v(.outputFrames, d.outputFrames)
+        frameMode = v(.frameMode, d.frameMode)
+        frameValue = v(.frameValue, d.frameValue)
+        frameFormat = v(.frameFormat, d.frameFormat)
+        frameQuality = v(.frameQuality, d.frameQuality)
+        frameWidth = (try? c.decodeIfPresent(Int.self, forKey: .frameWidth)) ?? nil
+        frameZip = v(.frameZip, d.frameZip)
+        frameContactSheet = v(.frameContactSheet, d.frameContactSheet)
+        outputLive = v(.outputLive, d.outputLive)
+        liveApple = v(.liveApple, d.liveApple)
+        liveAndroid = v(.liveAndroid, d.liveAndroid)
+        liveLongEdge = v(.liveLongEdge, d.liveLongEdge)
+    }
 }
 
 // MARK: - PDF 参数
@@ -245,6 +293,13 @@ struct Recipe: Codable, Equatable, Hashable, Identifiable, Sendable {
             return image.format.title
         case .video:
             if video.muteOnly { return "不重编码" }
+            if video.outputLive {
+                switch video.liveKind {
+                case .apple: return "照片 + 视频"
+                case .android: return "一张 JPG"
+                case .both: return "苹果 + 安卓"
+                }
+            }
             if video.outputFrames { return video.frameFormat.title }
             if video.codec == .gif { return "\(video.gifWidth) · \(Int(video.gifFps))fps" }
             if let c = video.crop { return "\(c.width)×\(Int((Double(c.width) / (c.aspect ?? 1)).rounded()))" }
@@ -295,6 +350,9 @@ extension Recipe {
         video("vid.mute", "只去声音") { $0.muteOnly = true; $0.keepAudio = false }
         video("vid.frames.web", "网页序列帧") { $0.outputFrames = true; $0.frameMode = .perSecond; $0.frameValue = 15; $0.frameFormat = .webp; $0.frameWidth = 1920 }
         video("vid.frames.1s", "每秒一张截图") { $0.outputFrames = true; $0.frameMode = .perSecond; $0.frameValue = 1; $0.frameFormat = .jpeg; $0.frameWidth = nil }
+        video("vid.live.apple", "苹果实况") { $0.outputLive = true; $0.liveApple = true; $0.liveAndroid = false; $0.rate = .high }
+        video("vid.live.android", "安卓动态照片") { $0.outputLive = true; $0.liveApple = false; $0.liveAndroid = true; $0.rate = .high }
+        video("vid.live.both", "两种都要") { $0.outputLive = true; $0.liveApple = true; $0.liveAndroid = true; $0.rate = .high }
 
         func pdf(_ id: String, _ name: String, _ edit: (inout PdfBody) -> Void) {
             var r = Recipe(id: id, name: name, type: .pdf, builtIn: true)

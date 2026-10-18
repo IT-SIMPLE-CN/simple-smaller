@@ -6,7 +6,7 @@ import SmallerCore
 @Observable
 @MainActor
 final class Workspace {
-    enum VideoSegment: String, CaseIterable { case compress = "压缩", edit = "剪辑", frames = "序列帧" }
+    enum VideoSegment: String, CaseIterable { case compress = "压缩", edit = "剪辑", frames = "序列帧", live = "实况" }
     enum PdfSegment: String, CaseIterable { case compress = "压缩", merge = "合并", split = "拆分", toImages = "转图片", fromImages = "图片转 PDF" }
 
     let type: MediaType
@@ -54,6 +54,9 @@ final class Workspace {
     var trim: [URL: ClosedRange<Double>] = [:]
     var videoCrop: [URL: CGRect] = [:]
     var coverAt: [URL: Double] = [:]
+    /// 实况：每段取哪一段（不超过 3 秒）、封面在第几秒（都是原视频里的秒数）。
+    var liveRange: [URL: ClosedRange<Double>] = [:]
+    var liveCover: [URL: Double] = [:]
 
     // PDF 合并：页面顺序（第几个文件, 第几页）。
     var pageOrder: [PdfPageRef] = []
@@ -67,10 +70,11 @@ final class Workspace {
         draft = recipe
     }
 
-    /// 改过配方参数才算「已修改」；切到「序列帧」分段带出的 outputFrames 不算。
+    /// 改过配方参数才算「已修改」；切到「序列帧」「实况」分段带出的 outputFrames / outputLive 不算。
     var modified: Bool {
         var d = draft
         d.video.outputFrames = base.video.outputFrames
+        d.video.outputLive = base.video.outputLive
         return d != base
     }
 
@@ -87,10 +91,23 @@ final class Workspace {
         }
     }
 
+    /// 视频的常用分三组：压缩 · 剪辑共用、序列帧、实况。
+    static func videoGroup(_ r: Recipe) -> String {
+        r.video.outputLive ? "live" : r.video.outputFrames ? "frames" : "video"
+    }
+
+    static func videoGroup(_ s: VideoSegment) -> String {
+        switch s {
+        case .compress, .edit: "video"
+        case .frames: "frames"
+        case .live: "live"
+        }
+    }
+
     func enterVideoSegment(_ s: VideoSegment) {
-        let frames = s == .frames
-        switchRecipe(into: frames ? "frames" : "video", from: frames ? "video" : "frames",
-                     fits: { $0.video.outputFrames == frames }, fallback: frames ? "vid.frames.web" : "vid.chat")
+        let group = Self.videoGroup(s)
+        let fallback = ["video": "vid.chat", "frames": "vid.frames.web", "live": "vid.live.apple"][group]!
+        switchRecipe(into: group, from: Self.videoGroup(draft), fits: { Self.videoGroup($0) == group }, fallback: fallback)
     }
 
     func enterPdfSegment(_ s: PdfSegment) {
@@ -114,8 +131,9 @@ final class Workspace {
         draft = recipe
         if type == .image, let c = recipe.image.crop { AppSettings.shared.lastImageRatio = c.id }
         if type == .video {
-            if recipe.video.outputFrames { videoSegment = .frames }
-            else if videoSegment == .frames { videoSegment = .compress }
+            if recipe.video.outputLive { videoSegment = .live }
+            else if recipe.video.outputFrames { videoSegment = .frames }
+            else if [.frames, .live].contains(videoSegment) { videoSegment = .compress }
         }
         if type == .pdf {
             if recipe.pdf.longImage { pdfSegment = .toImages }

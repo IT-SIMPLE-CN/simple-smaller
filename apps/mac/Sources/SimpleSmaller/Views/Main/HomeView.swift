@@ -245,7 +245,7 @@ struct HomeCard: View {
         var text: String {
             switch self {
             case .image: "WebP、AVIF、JPG 一键变小，一次出多档尺寸；按比例批量裁切。"
-            case .video: "按体积压到 25 MB，裁成 9:16，或者拆成一张张序列帧。"
+            case .video: "按体积压到 25 MB，裁成 9:16，拆成序列帧，或者做成实况。"
             case .pdf: "邮件、阅读、打印三档。"
             case .ring: "在访达里按住 ⌥ 点文件，圆环里点一下就好。第一次用要在设置里开启。"
             }

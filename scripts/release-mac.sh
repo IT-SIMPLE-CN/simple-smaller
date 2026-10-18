@@ -67,7 +67,8 @@ while IFS= read -r f; do
   if file "$f" | grep -q "Mach-O" && ! codesign --verify --strict "$f" 2> /dev/null; then UNSIGNED="$UNSIGNED$f"$'\n'; fi
 done < <(find "$APP/Contents/Resources" "$APP/Contents/Frameworks" -type f -perm -u+x)
 [ -z "$UNSIGNED" ] || { echo "这些可执行文件没签：$UNSIGNED"; exit 1; }
-"${SIGN[@]}" "$APP"
+# 应用本体带权限声明（实况「存进照片」要请求照片添加权限）。
+"${SIGN[@]}" --entitlements "$ROOT/apps/mac/SimpleSmaller.entitlements" "$APP"
 codesign --verify --strict --deep "$APP"
 
 notarize() {

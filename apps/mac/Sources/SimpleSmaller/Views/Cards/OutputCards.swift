@@ -42,6 +42,7 @@ enum OutputNaming {
     /// 拆分、转图片按固定规则命名（文件夹 + 编号），不用配方里的模板。
     @MainActor static func fixedName(_ ws: Workspace) -> String? {
         if ws.type == .video, ws.videoSegment == .frames { return "{name}_frames/{name}_0001" }
+        if ws.type == .video, ws.videoSegment == .live { return "{name}-live" }
         guard ws.type == .pdf else { return nil }
         switch ws.pdfSegment {
         case .split: return "{name}-拆分/{name}-01"

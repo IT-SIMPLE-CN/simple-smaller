@@ -21,7 +21,7 @@ struct VideoPictureCard: View {
                         ws.draft.video.crop = CropPreset.videoPresets.first { $0.id == id }
                         ws.resetVideoCrop()
                     }), options: [("", "原比例")] + CropPreset.videoPresets.map { ($0.id, $0.name) },
-                                 trailing: ws.videoSegment == .edit ? "预览里的框可拖" : nil)
+                                 trailing: [.edit, .live].contains(ws.videoSegment) ? "预览里的框可拖" : nil)
                     if v.codec == .gif {
                         HStack(alignment: .top, spacing: 18) {
                             LabeledPills(title: "宽", selection: $ws.draft.video.gifWidth, options: [320, 480, 640, 800].map { ($0, "\($0)") })
