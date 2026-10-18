@@ -10,11 +10,13 @@ using SimpleSmaller.Bento;
 
 namespace SimpleSmaller.Views.Main;
 
-/// 清空 / 移除后的提示条（设计稿 V3 · 11）：窗口底部居中，墨黑胶囊「已清空 12 个文件」+ 浅色内胶囊「撤销 Ctrl+Z」。
+/// 清空 / 移除后的提示条（设计稿 V3 · 11）：左大卡底部居中、底边离卡底 78，墨黑胶囊「已清空 12 个文件」+ 浅色内胶囊「撤销 Ctrl+Z」。
+/// 只显示这一类自己的那次清空 / 移除。
 /// 停 5 秒（AppModel.UndoWindow）后伸缩淡出；点「撤销」或 Ctrl+Z 把文件放回去。
 internal sealed class UndoBar : Grid
 {
     private readonly AppModel model = AppModel.Shared;
+    private readonly Workspace ws;
     private readonly Border pill = new() { Height = 44, CornerRadius = new CornerRadius(22), Padding = new Thickness(18, 0, 8, 0) };
     private readonly TextBlock text = new() { FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
     private readonly Border undoBack = new() { Height = 30, CornerRadius = new CornerRadius(15), Padding = new Thickness(14, 0, 14, 0) };
@@ -22,11 +24,12 @@ internal sealed class UndoBar : Grid
     private readonly ColorShadow shadow = new(Windows.UI.Color.FromArgb(71, 0, 0, 0), 30, 12, 22);
     private int ticket;
 
-    public UndoBar()
+    public UndoBar(Workspace ws)
     {
+        this.ws = ws;
         HorizontalAlignment = HorizontalAlignment.Center;
         VerticalAlignment = VerticalAlignment.Bottom;
-        Margin = new Thickness(0, 0, 0, 28);
+        Margin = new Thickness(0, 0, 0, 78);
         Visibility = Visibility.Collapsed;
 
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14, VerticalAlignment = VerticalAlignment.Center };
@@ -43,8 +46,16 @@ internal sealed class UndoBar : Grid
         Children.Add(pill);
         AutomationProperties.SetLiveSetting(this, AutomationLiveSetting.Polite);
 
-        model.PropertyChanged += OnModelChanged;
-        Loaded += (_, _) => Paint();
+        // 左大卡换内容时会被挪到新卡上（先卸再装）：装上时按当前状态摆好，卸下时退订。
+        Loaded += (_, _) =>
+        {
+            model.PropertyChanged -= OnModelChanged;
+            model.PropertyChanged += OnModelChanged;
+            Paint();
+            Sync();
+        };
+        // 挪位置时旧位置的 Unloaded 可能晚于新位置的 Loaded：已经装在新卡上就不退订。
+        Unloaded += (_, _) => { if (!IsLoaded) model.PropertyChanged -= OnModelChanged; };
         ActualThemeChanged += (_, _) => Paint();
     }
 
@@ -62,7 +73,7 @@ internal sealed class UndoBar : Grid
     {
         if (e.PropertyName != nameof(AppModel.PendingUndo)) return;
         var t = ++ticket;
-        if (model.PendingUndo is { } u)
+        if (model.PendingUndo is { } u && u.Ws == ws)
         {
             text.Text = u.Text;
             AutomationProperties.SetName(this, $"{u.Text}，按 Ctrl+Z 撤销");
@@ -81,6 +92,23 @@ internal sealed class UndoBar : Grid
         {
             Hide(t);
         }
+    }
+
+    /// 重新装上时：提示条该在就直接在（不重播出现动画），不该在就收起。
+    private void Sync()
+    {
+        var on = model.PendingUndo is { } u && u.Ws == ws;
+        if (on)
+        {
+            text.Text = model.PendingUndo!.Text;
+            AutomationProperties.SetName(this, $"{text.Text}，按 Ctrl+Z 撤销");
+        }
+        if (on == (Visibility == Visibility.Visible)) return;
+        ++ticket;
+        Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        var visual = Motion.VisualOf(this);
+        visual.Opacity = 1;
+        visual.Scale = new Vector3(1);
     }
 
     /// 伸缩淡出：缩到 92% 并淡掉（0.22 秒），然后收起；「减弱动态效果」时只淡出。

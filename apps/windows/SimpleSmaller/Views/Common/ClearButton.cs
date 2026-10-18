@@ -12,7 +12,9 @@ internal static class ClearButton
     public static TextCapsule Create(Workspace ws)
     {
         var b = new TextCapsule("清空", 34, 12, 12);
-        AutomationProperties.SetHelpText(b, "清空这一批，可以撤销");
+        // 旁白名照设计稿「清空这一批」（字面仍是「清空」）。
+        AutomationProperties.SetName(b, "清空这一批");
+        AutomationProperties.SetHelpText(b, "可以撤销");
         ToolTipService.SetToolTip(b, "清空这一批（Ctrl+Shift+Delete）");
         b.Click += (_, _) => AppModel.Shared.ClearUndoable(ws);
         void sync() => b.IsEnabled = !ws.Running;

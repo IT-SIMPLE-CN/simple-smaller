@@ -63,9 +63,6 @@ public sealed partial class MainWindow : Window
         Capsule.Apply(toast);
         Grid.SetRow(toast, 1);
         Root.Children.Add(toast);
-        var undoBar = new UndoBar();
-        Grid.SetRow(undoBar, 1);
-        Root.Children.Add(undoBar);
         SetTitleBar(titleBar);
         guides = new Views.Guide.GuideHost(Root, center);
 
