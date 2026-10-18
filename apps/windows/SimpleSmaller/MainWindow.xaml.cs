@@ -20,13 +20,14 @@ namespace SimpleSmaller;
 public sealed partial class MainWindow : Window
 {
     private readonly AppModel model = AppModel.Shared;
-    private readonly Grid titleBar = new() { Height = 52 };
+    private readonly Grid titleBar = new() { Height = 60 }; // 放得下顶部大标签（高 48）上下各留 6
     private readonly StackPanel leading = new() { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
     private readonly ContentPresenter center = new() { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
     private readonly StackPanel trailing = new() { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
     private readonly Grid content = new();
     private readonly Border toast = new() { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 28), Padding = new Thickness(14, 8, 14, 8), Visibility = Visibility.Collapsed };
     private readonly TextBlock toastText = new() { FontSize = 13 };
+    private readonly StackPanel titleTexts = new() { VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock title = new() { FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     private readonly TextBlock subtitle = new() { FontSize = 11 };
     private readonly Segments<string> homeTabs = new(Segments<string>.Kind.Mini, new[] { ("首页", "首页", (string?)null), ("设置", "设置", (string?)null) }, "首页", "首页与设置") { TrackKey = "BentoLine" };
@@ -102,8 +103,8 @@ public sealed partial class MainWindow : Window
         WatchWorkspaces();
         Root.ActualThemeChanged += (_, _) => Paint();
         Root.Loaded += (_, _) => { Paint(); Show(animated: false); };
-        titleBar.SizeChanged += (_, _) => UpdateDragRegions();
-        trailing.SizeChanged += (_, _) => UpdateDragRegions();
+        titleBar.SizeChanged += (_, _) => { FitCenter(); UpdateDragRegions(); };
+        trailing.SizeChanged += (_, _) => { FitCenter(); UpdateDragRegions(); };
         leading.SizeChanged += (_, _) => UpdateDragRegions();
         center.SizeChanged += (_, _) => UpdateDragRegions();
         HookShortcuts();
@@ -195,12 +196,13 @@ public sealed partial class MainWindow : Window
         titleBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         back.Click += (_, _) => model.ShowHome = true;
         ToolTipService.SetToolTip(back, "回首页（这一批文件保留）");
-        var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        texts.Children.Add(title);
-        texts.Children.Add(subtitle);
+        title.TextTrimming = subtitle.TextTrimming = TextTrimming.CharacterEllipsis;
+        title.TextWrapping = subtitle.TextWrapping = TextWrapping.NoWrap;
+        titleTexts.Children.Add(title);
+        titleTexts.Children.Add(subtitle);
         leading.Children.Add(homeTabs);
         leading.Children.Add(back);
-        leading.Children.Add(texts);
+        leading.Children.Add(titleTexts);
         // 首页左上「首页 | 设置」：点设置打开设置窗口，分段回到首页。
         homeTabs.Changed += v =>
         {
@@ -407,6 +409,7 @@ public sealed partial class MainWindow : Window
             {
                 segmentKey = segKey;
                 center.Content = WorkView.Segments(ws);
+                if (center.Content is FrameworkElement tabs) tabs.Loaded += (_, _) => { FitCenter(); UpdateDragRegions(); };
             }
             WorkView.SyncSegments(center.Content as UIElement, ws);
             title.Text = Titles.Title(ws);
@@ -420,7 +423,36 @@ public sealed partial class MainWindow : Window
             }
         }
         AutomationProperties.SetName(titleBar, home ? "简单小一点" : title.Text);
+        FitCenter();
         UpdateDragRegions();
+    }
+
+    /// 顶部大标签放不下时先只显示图标（设计稿 V2.2：不和左边标题、右边按钮重叠）；
+    /// 左边的标题按剩下的宽度截断。
+    private void FitCenter()
+    {
+        var w = titleBar.ActualWidth;
+        if (w <= 0) return;
+        const double gap = 16;
+        // 左边：内边距 16 + 返回 34 + 间距 10，后面是标题文字。
+        const double lead = 16 + 34 + 10;
+        var right = trailing.ActualWidth + trailing.Margin.Right;
+        if (center.Content is IFeatureTabs tabs)
+        {
+            titleTexts.MaxWidth = double.PositiveInfinity;
+            title.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            subtitle.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            var textW = Math.Max(title.DesiredSize.Width, subtitle.DesiredSize.Width);
+            // 文字标签和标题（长文件名按 260 算）放不下时先退成图标，再不够才截断标题。
+            var side = Math.Max(lead + Math.Min(textW, 260), right) + gap;
+            tabs.Compact = tabs.FullWidth > w - 2 * side;
+            var half = (w - (tabs.Compact ? tabs.CompactWidth : tabs.FullWidth)) / 2;
+            titleTexts.MaxWidth = Math.Max(60, half - lead - gap);
+        }
+        else
+        {
+            titleTexts.MaxWidth = Math.Max(60, w - lead - right - gap);
+        }
     }
 
     private void ShowToast()

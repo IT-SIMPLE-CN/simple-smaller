@@ -66,12 +66,9 @@ internal sealed partial class AppModel
         switch (ws.Type)
         {
             case MediaType.Image:
-            {
-                // 图片不再分段；「裁切」等于换成第一个带比例的配方，验证用。
-                var id = name == "裁切" ? "img.xhs" : "img.web";
-                if (Store.RecipeById(id) is { } r) ws.Select(r);
+                // 图片只有一页：「压缩」= 原比例；「裁切」= 上次用的比例（没用过是小红书 3:4）。
+                ws.SetCrop(name == "裁切" ? Settings.LastCropPreset : null);
                 break;
-            }
             case MediaType.Video:
                 if (Segments.VideoSegmentNamed(name) is not { } vs) return;
                 ws.VideoSegment = vs;
@@ -81,6 +78,22 @@ internal sealed partial class AppModel
                 if (Segments.PdfSegmentNamed(name) is { } ps) { ws.PdfSegment = ps; ws.EnterPdfSegment(ps); }
                 break;
         }
+        ws.ShowResult = false;
+    }
+
+    /// 首页卡片上的小标签：直接进这一类的这个功能。
+    public void Enter(MediaType type, string segment)
+    {
+        SelectedType = type;
+        if (!Current.Running) OpenSegment(segment);
+    }
+
+    /// 文件放到首页卡片分出来的某一格：这一类的文件进那个功能，其余类型照旧按类型分流。
+    public void AddInto(IEnumerable<string> paths, MediaType type, string segment)
+    {
+        Enter(type, segment);
+        Add(paths, type);
+        if (Workspace(type).Files.Count > 0) SelectedType = type;
     }
 
     // MARK: 加密的 PDF

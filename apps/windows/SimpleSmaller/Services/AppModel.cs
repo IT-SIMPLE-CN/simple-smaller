@@ -60,6 +60,13 @@ internal sealed partial class AppModel : ObservableObject
         Platform = platform;
         foreach (var type in MediaTypes.All)
             workspaces[type] = new Workspace(type, Store.BuiltInsFor(type)[0]);
+        // 记下图片上次用的比例（选常用、点比例格子都算），首页「裁切」进来时用。
+        var image = workspaces[MediaType.Image];
+        image.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SimpleSmaller.Workspace.Draft) && image.Draft.Image.Crop is { } crop && crop.Id != Settings.LastCropRatio)
+                Settings.LastCropRatio = crop.Id;
+        };
     }
 
     public Workspace Current => workspaces[SelectedType];

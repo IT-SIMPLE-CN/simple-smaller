@@ -6,11 +6,14 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Shapes;
 using SimpleSmaller.Bento;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
+using Windows.Storage;
 
 namespace SimpleSmaller.Views.Main;
 
-/// 首页（设计稿 V2.1 · 01）：打开应用、还没选类型时显示。
-/// 文件拖到哪张卡就进哪个功能；拖到窗口别处按类型自动分流。
+/// 首页（设计稿 V2.2 H1）：打开应用、还没选类型时显示。
+/// 卡片标题下一排小标签，点了直接进那个功能。拖文件进来：指针停在能接这些文件的卡上时，卡片分成几格，
+/// 放到哪格进哪个（这一类进那个功能，其余类型照旧分流）；拖到卡片外、窗口别处按类型自动分流。
 internal sealed class HomeView : UserControl
 {
     private readonly Grid root = new() { Padding = new Thickness(40, 0, 40, 0) };
@@ -18,7 +21,7 @@ internal sealed class HomeView : UserControl
     private readonly LineIcon headlineArrow = new(Icons.TurnDownRight, 34, 2);
     private readonly StackPanel cards = new() { Orientation = Orientation.Horizontal, Spacing = 16 };
     private readonly List<HomeCard> cardViews = new();
-    private readonly TextBlock note = new() { Text = "把文件拖到卡片上就进对应的功能；拖到窗口别处按类型自动分流。", FontSize = 12, Margin = new Thickness(176, 28, 0, 0) };
+    private readonly TextBlock note = new() { Text = "点标签直接进；拖文件到卡片上，卡片会分成几格，放到哪格进哪个。", FontSize = 12, Margin = new Thickness(176, 28, 0, 0) };
     private readonly TextBlock local = new() { Text = "图片、视频、PDF\n都在本机处理，不上传。", FontSize = 12, LineHeight = 18 };
     private readonly StackPanel column = new();
     private readonly Microsoft.UI.Xaml.Shapes.Path dots = new() { Width = 444, Height = 444, Data = DotGrid() };
@@ -66,6 +69,107 @@ internal sealed class HomeView : UserControl
         SizeChanged += (_, _) => Layout();
         ActualThemeChanged += (_, _) => Paint();
         Loaded += (_, _) => { Paint(); Layout(); };
+        HookDrag();
+    }
+
+    // ---------- 拖文件进来：卡片分格 ----------
+
+    /// 这一次拖进来的东西：各文件的类型、有没有文件夹（文件夹按落点那一类处理）。读出来之前不分格。
+    private sealed record DragInfo(HashSet<MediaType> Types, bool HasFolder);
+
+    private DragInfo? drag;
+    private bool dragLoading;
+
+    private void HookDrag()
+    {
+        AllowDrop = true;
+        DragEnter += async (_, e) =>
+        {
+            if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return;
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            if (dragLoading) return;
+            dragLoading = true;
+            var deferral = e.GetDeferral();
+            try
+            {
+                var items = await e.DataView.GetStorageItemsAsync();
+                drag = Describe(items);
+            }
+            catch
+            {
+                drag = new DragInfo([], false);
+            }
+            finally
+            {
+                dragLoading = false;
+                deferral.Complete();
+            }
+        };
+        DragOver += (_, e) =>
+        {
+            if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return;
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            var (card, cell) = Hover(e.GetPosition(this));
+            e.DragUIOverride.Caption = card is not null && cell >= 0 ? $"松手 → {card.Cells[cell]}" : "加进来";
+            e.Handled = true;
+        };
+        // 拖离首页或在首页上取消拖动（Esc、松手在别处）：卡片收回；再拖进来时重新读。
+        DragLeave += (_, _) => EndDrag();
+        Drop += async (_, e) =>
+        {
+            e.Handled = true;
+            var (card, cell) = Hover(e.GetPosition(this));
+            EndDrag();
+            if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return;
+            var items = await e.DataView.GetStorageItemsAsync();
+            var paths = items.Select(i => i.Path).Where(p => !string.IsNullOrEmpty(p)).ToList();
+            if (card?.Type is { } type && cell >= 0) AppModel.Shared.AddInto(paths, type, card.Cells[cell]);
+            else AppModel.Shared.Add(paths, null);
+        };
+    }
+
+    private static DragInfo Describe(IReadOnlyList<IStorageItem> items)
+    {
+        var types = new HashSet<MediaType>();
+        var folder = false;
+        foreach (var i in items)
+        {
+            if (i is IStorageFolder) folder = true;
+            else if (MediaTypes.Of(i.Path) is { } t) types.Add(t);
+        }
+        return new DragInfo(types, folder);
+    }
+
+    /// 指针在首页上的位置 → 落在哪张卡的哪一格；同时让那张卡分格、别的卡收回。
+    /// 接不了这批文件的卡（里面没有一个是它的类型）不分格。
+    private (HomeCard? Card, int Cell) Hover(Point p)
+    {
+        HomeCard? hit = null;
+        var cell = -1;
+        foreach (var c in cardViews)
+        {
+            var at = TransformToVisual(c).TransformPoint(p);
+            if (hit is null && drag is { } d && c.Accepts(d.Types, d.HasFolder) && HomeCard.Inside(at, c.ActualWidth, c.ActualHeight))
+            {
+                hit = c;
+                var enabled = c.EnabledCells(d.Types, d.HasFolder);
+                cell = HomeCard.CellAt(at.Y, c.ActualHeight, c.Cells.Count);
+                // 落在不可放的格子上：卡照样分格，但这一下不算放进格子（松手按类型分流）。
+                if (cell >= 0 && !enabled[cell]) cell = -1;
+                c.ShowSplit(cell, enabled);
+            }
+            else
+            {
+                c.HideSplit();
+            }
+        }
+        return (hit, cell);
+    }
+
+    private void EndDrag()
+    {
+        drag = null;
+        foreach (var c in cardViews) c.HideSplit();
     }
 
     private Button AboutButton()
@@ -147,38 +251,63 @@ internal sealed class HomeView : UserControl
     }
 }
 
-/// 首页的一张功能卡：插图、标题、说明、箭头；文件拖到卡上就进这个功能。
-internal sealed class HomeCard : Button
+/// 首页的一张功能卡（设计稿 V2.2 H1）：插图、标题、一排小标签（点了直接进那个功能）、说明、箭头（进第一个功能）。
+/// 拖文件进来、指针停在卡上时分成几格（「放到哪一格？」），悬停的格子品牌红底。
+/// 资源管理器圆环卡没有标签、不分格，整张卡点了打开设置。
+internal sealed class HomeCard : UserControl
 {
     public enum Kind { Image, Video, Pdf, Ring }
 
+    // 分格的版式（设计稿：内边距 12、「放到哪一格？」一行、格间距 8），落点判断按它算。
+    private const double SplitPad = 12;
+    private const double SplitLabel = 20;
+    private const double SplitGap = 8;
+
     private readonly Kind kind;
+    private readonly Grid root = new();
     private readonly Border back = new() { CornerRadius = new CornerRadius(20), Padding = new Thickness(14) };
     private readonly Border notch = new() { Padding = new Thickness(6, 0, 0, 6), CornerRadius = new CornerRadius(0, 0, 0, 16), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
     private readonly Border notchIcon = new() { Width = 34, Height = 34, CornerRadius = new CornerRadius(17) };
     private readonly LineIcon glyph;
     private readonly TextBlock title = new() { FontSize = 24, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Margin = new Thickness(0, 18, 0, 0) };
     private readonly TextBlock subtitle = new() { FontSize = 13, Margin = new Thickness(0, 4, 0, 0) };
+    private readonly WrapPanel tags = new() { Spacing = 4, Margin = new Thickness(0, 8, 0, 0) };
+    private readonly List<(Border Back, LineIcon Icon, TextBlock Text)> tagParts = [];
     private readonly Rectangle rule = new() { Width = 18, Height = 1.5, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 16, 0, 0) };
-    private readonly TextBlock text = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, LineHeight = 18, Margin = new Thickness(0, 12, 0, 0) };
+    private readonly TextBlock text = new() { FontSize = 12, TextWrapping = TextWrapping.Wrap, LineHeight = 19, Margin = new Thickness(0, 12, 0, 0) };
     private readonly Border arrow = new() { Width = 36, Height = 36, CornerRadius = new CornerRadius(18) };
     private readonly LineIcon arrowIcon = new(Icons.ArrowUpRight, 16, 2);
     private readonly TextBlock formats = new() { FontSize = 10, CharacterSpacing = 40, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
-    private bool targeted;
+    // 分格层盖在卡上，品牌红 3 的描边画在卡外（设计稿 box-shadow: 0 0 0 3px）。
+    private readonly Border split = new() { Margin = new Thickness(-3), CornerRadius = new CornerRadius(23), BorderThickness = new Thickness(3), Visibility = Visibility.Collapsed };
+    private readonly List<SplitCell> cells = [];
+    private readonly TextBlock splitLabel = new() { Text = "放到哪一格？", FontSize = 12, Height = SplitLabel, Padding = new Thickness(4, 2, 4, 0) };
     private bool hovering;
+    private int hovered = -1;
+    private bool[] enabled = [];
+
+    /// 这张卡能进的子功能（和标签、分格一一对应）。
+    public IReadOnlyList<string> Cells { get; }
+
+    public MediaType? Type => kind switch { Kind.Image => MediaType.Image, Kind.Video => MediaType.Video, Kind.Pdf => MediaType.Pdf, _ => null };
 
     public HomeCard(Kind kind)
     {
         this.kind = kind;
-        Style = (Style)Application.Current.Resources["BentoBareButton"];
-        Motion.SetPress(this, true);
+        Cells = kind switch
+        {
+            Kind.Image => ["压缩", "裁切"],
+            Kind.Video => Segments.AllVideo.Select(s => s.Title()).ToList(),
+            Kind.Pdf => Segments.AllPdf.Select(s => s.Title()).ToList(),
+            _ => [],
+        };
         title.Text = kind switch { Kind.Image => "图片", Kind.Video => "视频", Kind.Pdf => "PDF", _ => "资源管理器圆环" };
-        subtitle.Text = kind switch { Kind.Image => "压缩 · 裁切", Kind.Video => "压缩 · 剪辑 · 序列帧", Kind.Pdf => "压缩 · 合并 · 拆分", _ => "不开窗口也能压" };
+        subtitle.Text = "不开窗口也能压";
         text.Text = kind switch
         {
             Kind.Image => "WebP、AVIF、JPG 一键变小，一次出多档尺寸；按比例批量裁切。",
             Kind.Video => "按体积压到 25 MB，裁成 9:16，或者拆成一张张序列帧。",
-            Kind.Pdf => "邮件附件、屏幕阅读、打印保真三档；合并、拆分、转图片。",
+            Kind.Pdf => "邮件、阅读、打印三档。",
             _ => "在资源管理器里按住 Alt 点文件，圆环里点一下就好。第一次用要在设置里开启。",
         };
         formats.Text = kind switch { Kind.Image => "JPG · PNG · HEIC", Kind.Video => "MP4 · MOV · GIF", Kind.Pdf => "PDF", _ => "Windows" };
@@ -188,6 +317,7 @@ internal sealed class HomeCard : Button
         var picture = new Grid();
         var artBox = new Border { CornerRadius = new CornerRadius(14) };
         artBox.Child = new Image { Source = new SvgImageSource(new Uri($"ms-appx:///Assets/{art}.svg")), Stretch = Stretch.UniformToFill };
+        AutomationProperties.SetAccessibilityView(artBox, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
         picture.Children.Add(artBox);
         notchIcon.Child = glyph;
         notch.Child = notchIcon;
@@ -196,8 +326,6 @@ internal sealed class HomeCard : Button
 
         var bottom = new Grid { VerticalAlignment = VerticalAlignment.Bottom };
         arrow.Child = arrowIcon;
-        arrow.HorizontalAlignment = HorizontalAlignment.Left;
-        bottom.Children.Add(arrow);
         bottom.Children.Add(formats);
 
         var stack = new Grid();
@@ -207,89 +335,213 @@ internal sealed class HomeCard : Button
         var texts = new StackPanel();
         texts.Children.Add(picture);
         texts.Children.Add(title);
-        texts.Children.Add(subtitle);
+        if (Type is null)
+        {
+            texts.Children.Add(subtitle);
+        }
+        else
+        {
+            foreach (var name in Cells) tags.Children.Add(Tag(name));
+            texts.Children.Add(tags);
+        }
         texts.Children.Add(rule);
         texts.Children.Add(text);
         stack.Children.Add(texts);
         Grid.SetRow(bottom, 2);
         stack.Children.Add(bottom);
         back.Child = stack;
-        Content = back;
-        HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        VerticalContentAlignment = VerticalAlignment.Stretch;
 
-        AutomationProperties.SetName(this, $"{title.Text}：{subtitle.Text}");
-        AutomationProperties.SetHelpText(this, text.Text);
-        Click += (_, _) => Open();
+        if (Type is null)
+        {
+            // 圆环卡：整张卡是一个按钮。
+            arrow.HorizontalAlignment = HorizontalAlignment.Left;
+            bottom.Children.Add(arrow);
+            var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = back, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
+            Motion.SetPress(b, true);
+            AutomationProperties.SetName(b, $"{title.Text}：{subtitle.Text}");
+            AutomationProperties.SetHelpText(b, text.Text);
+            b.Click += (_, _) => App.OpenSettings("自动");
+            root.Children.Add(b);
+        }
+        else
+        {
+            // 功能卡：标签和右下箭头可点（箭头进第一个功能），卡本身是一组。
+            root.Children.Add(back);
+            var go = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = arrow, HorizontalAlignment = HorizontalAlignment.Left };
+            Motion.SetPress(go, true);
+            AutomationProperties.SetName(go, $"进入{title.Text}");
+            AutomationProperties.SetHelpText(go, text.Text);
+            var type = Type.Value;
+            go.Click += (_, _) => AppModel.Shared.SelectedType = type;
+            bottom.Children.Add(go);
+            AutomationProperties.SetName(this, $"{title.Text}：{string.Join(" · ", Cells)}");
+            BuildSplit();
+        }
+        Content = root;
+
         PointerEntered += (_, _) => { hovering = true; Paint(); };
         PointerExited += (_, _) => { hovering = false; Paint(); };
         ActualThemeChanged += (_, _) => Paint();
         Loaded += (_, _) => Paint();
-
-        AllowDrop = true;
-        DragEnter += (_, e) =>
-        {
-            if (e.DataView.Contains(StandardDataFormats.StorageItems))
-            {
-                e.AcceptedOperation = DataPackageOperation.Copy;
-                targeted = true;
-                Paint();
-            }
-        };
-        DragOver += (_, e) =>
-        {
-            if (e.DataView.Contains(StandardDataFormats.StorageItems))
-            {
-                e.AcceptedOperation = DataPackageOperation.Copy;
-                e.DragUIOverride.Caption = kind == Kind.Ring ? "加进来" : $"用{title.Text}处理";
-            }
-        };
-        DragLeave += (_, _) => { targeted = false; Paint(); };
-        Drop += async (_, e) =>
-        {
-            e.Handled = true;
-            targeted = false;
-            Paint();
-            if (!e.DataView.Contains(StandardDataFormats.StorageItems))
-            {
-                return;
-            }
-            var items = await e.DataView.GetStorageItemsAsync();
-            AppModel.Shared.Add(items.Select(i => i.Path).Where(p => !string.IsNullOrEmpty(p)), Type);
-        };
     }
 
-    private MediaType? Type => kind switch { Kind.Image => MediaType.Image, Kind.Video => MediaType.Video, Kind.Pdf => MediaType.Pdf, _ => null };
-
-    private void Open()
+    /// 标题下的小标签：高 24、灰底胶囊、11 的图标 + 11.5 粗体字（设计稿 H1）。
+    private Button Tag(string name)
     {
-        if (Type is { } t)
+        var icon = new LineIcon(FeatureIcons.For(name), 11, 2) { VerticalAlignment = VerticalAlignment.Center };
+        var label = new TextBlock { Text = name, FontSize = 11.5, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(icon);
+        row.Children.Add(label);
+        var pill = new Border { Height = 24, Padding = new Thickness(6, 0, 9, 0), CornerRadius = new CornerRadius(12), Child = row };
+        var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = pill };
+        Motion.SetPress(b, true);
+        AutomationProperties.SetName(b, $"{title.Text}：{name}");
+        ToolTipService.SetToolTip(b, $"进入{title.Text} · {name}");
+        var type = Type!.Value;
+        b.Click += (_, _) => AppModel.Shared.Enter(type, name);
+        tagParts.Add((pill, icon, label));
+        return b;
+    }
+
+    // ---------- 分格 ----------
+
+    private sealed class SplitCell
+    {
+        public readonly Grid Root = new();
+        public readonly Rectangle Frame = new() { RadiusX = 14, RadiusY = 14, StrokeThickness = 2 };
+        public readonly LineIcon Icon;
+        public readonly TextBlock Title = new() { FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.Bold };
+        public readonly TextBlock Hint = new() { FontSize = 11, Opacity = 0.85, Visibility = Visibility.Collapsed };
+
+        public SplitCell(string name)
         {
-            AppModel.Shared.SelectedType = t;
+            Icon = new LineIcon(FeatureIcons.For(name), 18, 2) { VerticalAlignment = VerticalAlignment.Center };
+            Title.Text = name;
+            Hint.Text = $"松手 → {name}";
+            var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            words.Children.Add(Title);
+            words.Children.Add(Hint);
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            row.Children.Add(Icon);
+            row.Children.Add(words);
+            Root.Children.Add(Frame);
+            Root.Children.Add(row);
         }
-        else
+    }
+
+    private void BuildSplit()
+    {
+        var g = new Grid { RowSpacing = SplitGap };
+        g.RowDefinitions.Add(new RowDefinition { Height = new GridLength(SplitLabel) });
+        g.Children.Add(splitLabel);
+        for (var i = 0; i < Cells.Count; i++)
         {
-            App.OpenSettings("自动");
+            g.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            var cell = new SplitCell(Cells[i]);
+            Grid.SetRow(cell.Root, i + 1);
+            g.Children.Add(cell.Root);
+            cells.Add(cell);
+        }
+        // 描边 3 在卡外，内容离卡边 12。
+        split.Padding = new Thickness(SplitPad);
+        split.Child = g;
+        split.IsHitTestVisible = false;
+        AutomationProperties.SetAccessibilityView(split, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+        root.Children.Add(split);
+    }
+
+    /// 能不能接这批文件：里面至少有一个是这类文件（文件夹按落点那一类处理，都能接）。圆环卡不接。
+    /// PDF 卡的「图片转 PDF」格接图片，所以拖的里面有图片时 PDF 卡也分格。
+    public bool Accepts(IReadOnlySet<MediaType> types, bool hasFolder) =>
+        Type is { } t && (hasFolder || types.Contains(t) || (t == MediaType.Pdf && types.Contains(MediaType.Image)));
+
+    /// 每一格能不能放：PDF 卡只拖了图片（没有 PDF、没有文件夹）时，只有「图片转 PDF」能放，其余 4 格变淡、不响应。
+    public bool[] EnabledCells(IReadOnlySet<MediaType> types, bool hasFolder) =>
+        Cells.Select(name => Type != MediaType.Pdf || hasFolder || types.Contains(MediaType.Pdf) || name == PdfSegment.FromImages.Title()).ToArray();
+
+    /// 点是否在卡上（卡自己的坐标）。
+    public static bool Inside(Point p, double width, double height) => p.X >= 0 && p.Y >= 0 && p.X < width && p.Y < height;
+
+    /// 卡上纵坐标 y 落在第几格（卡高 height、count 格）。格子之间的空隙和顶上的说明行归最近的一格，松手不会落空。
+    public static int CellAt(double y, double height, int count)
+    {
+        if (count <= 0) return -1;
+        var top = SplitPad + SplitLabel + SplitGap;
+        var cellH = (height - SplitPad - top - SplitGap * (count - 1)) / count;
+        if (cellH <= 0) return 0;
+        var i = (int)Math.Floor((y - top + SplitGap / 2) / (cellH + SplitGap));
+        return Math.Clamp(i, 0, count - 1);
+    }
+
+    /// 分格并高亮第 cell 格（伸缩出现；已经分着格就只换高亮）。
+    public void ShowSplit(int cell, bool[] enabled)
+    {
+        if (Type is null) return;
+        var first = split.Visibility != Visibility.Visible;
+        if (!first && cell == hovered && enabled.SequenceEqual(this.enabled)) return;
+        hovered = cell;
+        this.enabled = enabled;
+        split.Visibility = Visibility.Visible;
+        PaintSplit();
+        if (first)
+        {
+            split.Translation = new System.Numerics.Vector3(0, 0, 32);
+            split.Shadow ??= new ThemeShadow();
+            Motion.Appear(split);
+            for (var i = 0; i < cells.Count; i++) Motion.Appear(cells[i].Root, i);
+        }
+    }
+
+    public void HideSplit()
+    {
+        if (split.Visibility != Visibility.Visible) return;
+        split.Visibility = Visibility.Collapsed;
+        hovered = -1;
+    }
+
+    private void PaintSplit()
+    {
+        split.Background = Palette.Get(this, "BentoCard");
+        split.BorderBrush = Palette.Brand;
+        splitLabel.Foreground = Palette.Get(this, "BentoSecondary");
+        for (var i = 0; i < cells.Count; i++)
+        {
+            var c = cells[i];
+            var on = i == hovered;
+            // 不可放的格子（只拖了图片时 PDF 卡的压缩 / 合并 / 拆分 / 转图片）：整格变淡。
+            c.Root.Opacity = i < enabled.Length && !enabled[i] ? 0.35 : 1;
+            c.Frame.Fill = on ? Palette.Brand : Palette.Get(this, "BentoCard");
+            c.Frame.Stroke = on ? Palette.Brand : Palette.Get(this, "BentoLine");
+            c.Frame.StrokeDashArray = on ? [] : [3, 2];
+            c.Title.Foreground = on ? (Brush)Application.Current.Resources["OnBrand"] : Palette.Get(this, "BentoPrimary");
+            c.Hint.Foreground = c.Title.Foreground;
+            c.Hint.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            c.Icon.ColorKey = on ? "OnBrand" : "BentoPrimary";
         }
     }
 
     private void Paint()
     {
         back.Background = Palette.Get(this, "BentoCard");
-        back.BorderBrush = Palette.Brand;
-        back.BorderThickness = new Thickness(targeted ? 2.5 : 0);
         notch.Background = Palette.Get(this, "BentoCard");
         notchIcon.Background = Palette.Get(this, "BentoFill");
         title.Foreground = Palette.Get(this, "BentoPrimary");
         subtitle.Foreground = Palette.Get(this, "BentoSecondary");
         rule.Fill = Palette.Get(this, "BentoPrimary");
-        text.Foreground = Palette.Get(this, "BentoPrimary");
-        text.Opacity = 0.78;
+        text.Foreground = Palette.Get(this, "BentoSoft");
         formats.Foreground = Palette.Get(this, "BentoSecondary");
-        var red = kind == Kind.Image || targeted;
+        foreach (var (pill, icon, label) in tagParts)
+        {
+            pill.Background = Palette.Get(this, "BentoFill");
+            label.Foreground = Palette.Get(this, "BentoPrimary");
+            icon.ColorKey = "BentoPrimary";
+        }
+        var red = kind == Kind.Image;
         arrow.Background = red ? Palette.Brand : Palette.Get(this, "BentoFill");
         arrowIcon.ColorKey = red ? "OnBrand" : "BentoPrimary";
         back.Translation = new System.Numerics.Vector3(0, hovering ? -2 : 0, hovering ? 16 : 2);
         back.Shadow ??= new ThemeShadow();
+        if (split.Visibility == Visibility.Visible) PaintSplit();
     }
 }

@@ -8,7 +8,7 @@ namespace SimpleSmaller;
 internal sealed partial class RecipeStore : ObservableObject
 {
     public IReadOnlyList<Recipe> Mine { get; private set; } = [];
-    /// 设置里拖动排序后的顺序（含内置），前 5 个显示在圆环外圈。
+    /// 设置里拖动排序后的顺序（含内置）。按类型分开排：每一类的顺序就是那个功能页常用条的顺序，前 5 个进圆环外圈。
     public IReadOnlyList<string> Order { get; private set; } = [];
 
     private readonly string filePath;
@@ -62,6 +62,15 @@ internal sealed partial class RecipeStore : ObservableObject
         }
     }
 
+    /// 圆环外圈放每一类排在最前的几个常用。
+    public const int RingCount = 5;
+
+    /// 这一类的常用，按设置里的顺序（常用条、设置列表都用它）。
+    public IReadOnlyList<Recipe> ForType(MediaType type) => All.Where(r => r.Type == type).ToList();
+
+    /// 圆环外圈：这一类按顺序的前 5 个。
+    public IReadOnlyList<Recipe> RingFor(MediaType type) => ForType(type).Take(RingCount).ToList();
+
     public IReadOnlyList<Recipe> BuiltInsFor(MediaType type) => All.Where(r => r.Type == type && r.BuiltIn).ToList();
     public IReadOnlyList<Recipe> MineFor(MediaType type) => All.Where(r => r.Type == type && !r.BuiltIn).ToList();
     public Recipe? RecipeById(string id) => All.FirstOrDefault(r => r.Id == id);
@@ -105,6 +114,20 @@ internal sealed partial class RecipeStore : ObservableObject
         foreach (var i in Enumerable.Reverse(from)) ids.RemoveAt(i);
         ids.InsertRange(Math.Clamp(insert, 0, ids.Count), moving);
         Order = ids;
+        Save();
+    }
+
+    /// 在一类里移动（设置 › 常用按类型分开管）：fromOffsets、toOffset 是这一类列表里的位置，规则同 Move。
+    /// 存下的顺序按类型依次拼起来，别的类型不受影响。
+    public void MoveWithin(MediaType type, IEnumerable<int> fromOffsets, int toOffset)
+    {
+        var ids = ForType(type).Select(r => r.Id).ToList();
+        var from = fromOffsets.Where(i => i >= 0 && i < ids.Count).Distinct().OrderBy(i => i).ToList();
+        var moving = from.Select(i => ids[i]).ToList();
+        var insert = toOffset - from.Count(i => i < toOffset);
+        foreach (var i in Enumerable.Reverse(from)) ids.RemoveAt(i);
+        ids.InsertRange(Math.Clamp(insert, 0, ids.Count), moving);
+        Order = MediaTypes.All.SelectMany(t => t == type ? ids : ForType(t).Select(r => r.Id)).ToList();
         Save();
     }
 

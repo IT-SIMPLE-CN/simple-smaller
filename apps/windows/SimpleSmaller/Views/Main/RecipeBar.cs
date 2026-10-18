@@ -35,7 +35,11 @@ internal sealed class RecipeBar : Reactive
         plus.Click += (_, _) => App.OpenRecipeEditor(ws.Draft with { Id = "", Name = "", BuiltIn = false }, saved => ws.Select(saved));
         var manage = new CapsuleButton("管理", 36);
         ToolTipService.SetToolTip(manage, "在设置里排序、导入导出常用");
-        manage.Click += (_, _) => App.OpenSettings("常用");
+        manage.Click += (_, _) =>
+        {
+            Views.Sub.RecipeSettings.InitialType = ws.Type;
+            App.OpenSettings("常用");
+        };
         var row = new Grid { ColumnSpacing = 12 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -76,25 +80,16 @@ internal sealed class RecipeBar : Reactive
         };
         fade.Fill = new LinearGradientBrush(stops, 0);
         var store = AppModel.Shared.Store;
-        var builtIn = store.BuiltInsFor(ws.Type).Where(Fits).ToList();
-        var mine = store.MineFor(ws.Type).Where(Fits).ToList();
-        var key = string.Join("|", builtIn.Concat(mine).Select(r => r.Id + r.Name)) + $"#{ws.RecipeId}#{ws.Modified}";
+        // 按设置 › 常用 里这一类的顺序排（内置和我的混排，设计稿 V2.2）。
+        var list = store.ForType(ws.Type).Where(Fits).ToList();
+        var key = string.Join("|", list.Select(r => r.Id + r.Name)) + $"#{ws.RecipeId}#{ws.Modified}";
         if (key != built)
         {
             built = key;
             pills.Children.Clear();
-            foreach (var r in builtIn)
+            foreach (var r in list)
             {
-                pills.Children.Add(Pill(r, mine: false));
-            }
-            if (mine.Count > 0)
-            {
-                var sep = new Border { Width = 1, Height = 20, Margin = new Thickness(4, 0, 4, 0), Background = Palette.Get(this, "BentoLine") };
-                pills.Children.Add(sep);
-                foreach (var r in mine)
-                {
-                    pills.Children.Add(Pill(r, mine: true));
-                }
+                pills.Children.Add(Pill(r, mine: !r.BuiltIn));
             }
         }
         // 处理中锁住：不能点、变淡。
