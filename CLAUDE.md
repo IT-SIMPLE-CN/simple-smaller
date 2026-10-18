@@ -5,7 +5,8 @@
 ## 设计源
 
 - 设计稿：Claude Design 画布 <https://claude.ai/artifact/6fA3baqMbLuLNAv3gYqS9F>。界面文案、区块结构、排列顺序逐字照搬；设计更新时按 diff 对齐，不自由发挥。
-- 以画布「V2.1 · 调整」页为准（V2 便当盒视觉 + 合理性调整）：浅灰底白色圆角卡片、首页选功能、顶部配方条、右下红色开始块。工具栏、分段等系统控件仍用系统样式与 Liquid Glass。品牌红 `#EF3922` 只用于主按钮、选中和进度。
+- 以画布「V3 · 完整版」页为准（`V3Spec` 是说明）：浅灰底白色圆角卡片、首页选功能、顶部配方条、右下红色开始块，卡片与控件按便当盒自绘，不用 Liquid Glass。品牌红 `#EF3922` 只用于主按钮、选中和进度。
+- 用户定的与设计稿不同处：顶部大标签不置灰；清空整批是 ⌘⇧⌫（⌘⌫ 仍是从列表移除所选）；功能小教学在每类第一次拖进文件后出现。
 - 任何地方不写预估体积，点「开始」才处理。
 - 不写宣传语，不做五周年专题（只在「关于」里一句），不做「已为你省下」统计。
 
@@ -14,7 +15,7 @@
 | 位置 | 作用 |
 | --- | --- |
 | `core` | Rust 引擎 `smaller-core`：图片 / 视频 / PDF 管线、配方、队列、命名；UniFFI 导出 Swift / C# 接口 |
-| `apps/mac` | macOS 应用：SwiftUI + AppKit，最低 macOS 14；26 起用 Liquid Glass，14 / 15 退回系统材质 |
+| `apps/mac` | macOS 应用：SwiftUI + AppKit，最低 macOS 14；界面按便当盒自绘 |
 | `scripts` | 编解码库、引擎、打包、发布、图标渲染脚本（见 `docs/build.md`、`docs/release.md`） |
 | `apps/windows` | Windows 应用：WinUI 3（Windows App SDK，.NET 10，非打包 + Velopack），界面全部 C# 代码搭，字体 MiSans |
 | `docs` | 引擎说明、配方规范、验证方法 |
