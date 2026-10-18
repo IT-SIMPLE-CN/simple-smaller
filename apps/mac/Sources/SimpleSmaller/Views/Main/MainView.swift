@@ -5,6 +5,7 @@ import SwiftUI
 struct MainView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var windowWidth: CGFloat = 1280
 
     var body: some View {
         let ws = model.current
@@ -20,6 +21,7 @@ struct MainView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
         .background(Bento.window.ignoresSafeArea())
         .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86), value: model.showHome)
         .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86), value: model.selectedType)
@@ -27,7 +29,7 @@ struct MainView: View {
         .navigationTitle(model.showHome ? "简单小一点" : title(ws))
         .navigationSubtitle(model.showHome ? "" : subtitle(ws))
         .toolbar {
-            if model.showHome { HomeToolbar() } else { WorkToolbar(ws: ws) }
+            if model.showHome { HomeToolbar() } else { WorkToolbar(ws: ws, compactTabs: compactTabs(ws)) }
         }
         .modifier(HideWindowTitle(hidden: model.showHome))
         .overlay(alignment: .bottom) {
@@ -48,6 +50,19 @@ struct MainView: View {
             model.add(urls, preferred: model.showHome ? nil : model.selectedType)
             return true
         }
+    }
+
+    /// 顶部大标签居中放；左边标题、右边按钮占掉的地方估一下，放不下文字就只显示图标（不和两边重叠）。
+    private func compactTabs(_ ws: Workspace) -> Bool {
+        let titles = SegmentPicker.titles(ws.type)
+        guard !titles.isEmpty else { return false }
+        let tabs = FeatureTabs<Int>.fullWidth(titles)
+        func width(_ text: String, _ font: NSFont) -> CGFloat { (text as NSString).size(withAttributes: [.font: font]).width }
+        // 红绿灯与返回按钮约 150；标题 15 粗、副标题 11；右边「撤销这一批」约 110。
+        let titleEnd = 150 + max(width(title(ws), .systemFont(ofSize: 15, weight: .bold)), width(subtitle(ws), .systemFont(ofSize: 11))) + 16
+        let right: CGFloat = ws.showResult && !ws.running ? 130 : 20
+        let left = windowWidth / 2 - tabs / 2, rightEdge = windowWidth / 2 + tabs / 2
+        return left < titleEnd || rightEdge > windowWidth - right
     }
 
     /// 视频剪辑、序列帧一次看一段：标题写这段的文件名。

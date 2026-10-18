@@ -144,6 +144,7 @@ struct SlidingSegments<Value: Hashable, Item: View>: View {
     @Binding var selection: Value
     let values: [Value]
     var inset: CGFloat = 3
+    var spacing: CGFloat = 2
     var track: Color = Bento.fill
     var thumb: Color = Bento.card
     var thumbShadow = true
@@ -154,7 +155,7 @@ struct SlidingSegments<Value: Hashable, Item: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: spacing) {
             ForEach(Array(values.enumerated()), id: \.offset) { i, v in
                 let on = v == selection
                 Button { selection = v } label: { item(v, on).contentShape(Capsule()) }
@@ -247,6 +248,52 @@ struct TopTabs<Value: Hashable>: View {
                 .frame(height: 30)
                 .animation(.easeOut(duration: 0.2), value: on)
         }
+    }
+}
+
+/// 功能页顶部的大标签（设计稿 V2.2 · G1 / G2）：白底胶囊容器，每项左边一颗圆形图标底；
+/// 选中项墨黑底、图标底品牌红。`compact` 时只显示图标（窗口窄、放不下文字时），文字进悬停提示和旁白。
+struct FeatureTabs<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [(Value, String, LineIcon.Glyph)]
+    var compact = false
+    var label = ""
+
+    var body: some View {
+        SlidingSegments(selection: $selection, values: options.map(\.0), inset: 4, spacing: 4, track: .clear, thumb: Bento.ink, thumbShadow: false,
+                        label: label, titles: { v in option(v).1 }) { v, on in
+            let o = option(v)
+            HStack(spacing: 8) {
+                LineIcon(glyph: o.2, size: 14)
+                    .foregroundStyle(on ? Color.white : Color.primary)
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(on ? Color.brand : Bento.fill))
+                if !compact {
+                    Text(o.1)
+                        .font(.system(size: 13, weight: on ? .semibold : .regular))
+                        .foregroundStyle(on ? Bento.onInk : Color.primary)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            }
+            .padding(.leading, 6)
+            .padding(.trailing, compact ? 6 : 16)
+            .frame(height: 40)
+            .help(compact ? o.1 : "")
+            .animation(.easeOut(duration: 0.2), value: on)
+        }
+        .background(Capsule().fill(Bento.card).shadow(color: Color(red: 20 / 255, green: 22 / 255, blue: 28 / 255).opacity(0.06), radius: 1, y: 1))
+    }
+
+    private func option(_ v: Value) -> (Value, String, LineIcon.Glyph) {
+        options.first { $0.0 == v } ?? options[0]
+    }
+
+    /// 文字全显示时大约多宽（窗口能不能放下的估算用）：每项 6 + 28 + 8 + 字宽 + 16，项间 4，两头 4。
+    @MainActor static func fullWidth(_ titles: [String]) -> CGFloat {
+        let font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        let text = titles.reduce(CGFloat(0)) { $0 + ($1 as NSString).size(withAttributes: [.font: font]).width.rounded(.up) }
+        return text + CGFloat(titles.count) * 58 + CGFloat(titles.count - 1) * 4 + 8
     }
 }
 
