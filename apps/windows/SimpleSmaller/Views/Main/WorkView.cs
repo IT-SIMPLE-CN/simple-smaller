@@ -216,31 +216,32 @@ internal sealed class WorkView : Reactive
         }
     }
 
-    /// 标题栏正中的分段：视频（压缩 / 剪辑 / 序列帧）、PDF（五段）；图片只有一页，不用分段。
+    /// 标题栏正中的顶部大标签（设计稿 V2.2 G1 / G2）：视频（压缩 / 剪辑 / 序列帧）、PDF（五项）；图片只有一页，不放。
+    /// 切换时这一批文件保留，常用条换成那个功能的。
     public static UIElement? Segments(Workspace ws)
     {
         UIElement? seg = ws.Type switch
         {
-            MediaType.Video => Tabs(SimpleSmaller.Segments.AllVideo, ws.VideoSegment, s => s.Title(), s => { ws.VideoSegment = s; ws.EnterVideoSegment(s); ws.ShowResult = false; }),
-            MediaType.Pdf => Tabs(SimpleSmaller.Segments.AllPdf, ws.PdfSegment, s => s.Title(), s => { ws.PdfSegment = s; ws.EnterPdfSegment(s); ws.ShowResult = false; }),
+            MediaType.Video => Tabs(SimpleSmaller.Segments.AllVideo, ws.VideoSegment, s => s.Title(), "视频能做的事", s => { ws.VideoSegment = s; ws.EnterVideoSegment(s); ws.ShowResult = false; }),
+            MediaType.Pdf => Tabs(SimpleSmaller.Segments.AllPdf, ws.PdfSegment, s => s.Title(), "PDF 能做的事", s => { ws.PdfSegment = s; ws.EnterPdfSegment(s); ws.ShowResult = false; }),
             _ => null,
         };
         return seg;
     }
 
-    /// 标题栏分段跟着工作区走：选中项、处理中锁住。
+    /// 顶部标签跟着工作区走：选中项、处理中锁住。
     public static void SyncSegments(UIElement? seg, Workspace ws)
     {
         switch (seg)
         {
-            case Bento.Segments<VideoSegment> v: v.Selected = ws.VideoSegment; v.IsHitTestVisible = !ws.Running; v.Opacity = ws.Running ? 0.45 : 1; break;
-            case Bento.Segments<PdfSegment> p: p.Selected = ws.PdfSegment; p.IsHitTestVisible = !ws.Running; p.Opacity = ws.Running ? 0.45 : 1; break;
+            case FeatureTabs<VideoSegment> v: v.Selected = ws.VideoSegment; v.IsHitTestVisible = !ws.Running; v.Opacity = ws.Running ? 0.45 : 1; break;
+            case FeatureTabs<PdfSegment> p: p.Selected = ws.PdfSegment; p.IsHitTestVisible = !ws.Running; p.Opacity = ws.Running ? 0.45 : 1; break;
         }
     }
 
-    private static UIElement Tabs<T>(IEnumerable<T> all, T selected, Func<T, string> title, Action<T> pick) where T : notnull
+    private static UIElement Tabs<T>(IEnumerable<T> all, T selected, Func<T, string> title, string label, Action<T> pick) where T : notnull
     {
-        var s = new Bento.Segments<T>(Bento.Segments<T>.Kind.Top, all.Select(v => (v, title(v), (string?)null)), selected, "视图");
+        var s = new FeatureTabs<T>(all.Select(v => (v, title(v), FeatureIcons.For(title(v)))), selected, label);
         s.Changed += pick;
         return s;
     }

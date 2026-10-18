@@ -87,6 +87,16 @@ internal sealed partial class Workspace
         }
     }
 
+    /// 换比例（比例格子、首页「压缩 / 裁切」标签）：null 是原比例，只压缩。
+    /// 每张的框回到居中取最大；回到原比例时退出大图。
+    public void SetCrop(CropPreset? preset)
+    {
+        if (Draft.Image.Crop?.Id == preset?.Id) return;
+        Draft = Draft with { Image = Draft.Image with { Crop = preset, CropWidth = null } };
+        ResetCrop();
+        if (preset is null) CropEditing = false;
+    }
+
     /// 换比例后全部回到默认（设计稿 03）。
     public void ResetCrop()
     {

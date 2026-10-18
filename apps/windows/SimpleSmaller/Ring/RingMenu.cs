@@ -31,7 +31,7 @@ internal static class RingMenu
             var r = tweak($"{p.Name} {p.RatioLabel}", b => b with { Format = ImageFormatChoice.Jpeg, Quality = 90, Crop = p, Size = null });
             return new RingChoice(label, p.RatioLabel, r);
         }
-        var compress = new[] { "img.web", "img.chat", "img.lossless", "img.500k" }.Select(store.RecipeById).OfType<Recipe>().Select(r => Run(r)).ToList();
+        var compress = Common(store, MediaType.Image);
         (string, int)[] quality = [("高", 90), ("均衡", 78), ("小", 60)];
         List<RingChoice> format(ImageFormatChoice f) =>
             quality.Select(q => Run(tweak($"{f.Title()} {q.Item1}", b => b with { Format = f, Quality = q.Item2, Lossless = false }), q.Item1, $"质量 {q.Item2}")).ToList();
@@ -63,7 +63,7 @@ internal static class RingMenu
         var @base = store.RecipeById("vid.chat") ?? new Recipe { Id = "vid.chat", Name = "发群 25 MB", Type = MediaType.Video };
         Recipe tweak(string name, Func<VideoBody, VideoBody> edit) =>
             @base with { Id = $"ring.{name}", Name = name, SummaryOverride = null, Video = edit(@base.Video) };
-        var compress = new[] { "vid.chat", "vid.web", "vid.mute" }.Select(store.RecipeById).OfType<Recipe>().Select(r => Run(r)).ToList();
+        var compress = Common(store, MediaType.Video);
         var ratios = CropPreset.VideoPresets.Where(p => p.Id is "v916" or "v34" or "v11" or "v169")
             .Select(p => Run(tweak($"比例 {p.Name}", v => v with { Crop = p, Rate = VideoRateChoice.High, ShortEdge = 1080, Codec = VideoCodec.H264 }), p.Name, "1080p"))
             .ToList();
@@ -87,7 +87,7 @@ internal static class RingMenu
 
     private static IReadOnlyList<RingSlot> Pdf(RecipeStore store)
     {
-        var compress = new[] { "pdf.email", "pdf.screen", "pdf.print" }.Select(store.RecipeById).OfType<Recipe>().Select(r => Run(r)).ToList();
+        var compress = Common(store, MediaType.Pdf);
         var @long = new[] { "pdf.long" }.Select(store.RecipeById).OfType<Recipe>()
             .SelectMany(r => new[] { 1080, 750 }.Select(w => new RingChoice($"宽 {w}", "JPG 长图", r with { Id = $"ring.long.{w}", Pdf = r.Pdf with { ImageWidth = w } })))
             .ToList();
@@ -98,6 +98,9 @@ internal static class RingMenu
             Custom(store, MediaType.Pdf),
         ];
     }
+
+    /// 内圈「压缩」的外圈 = 这一类的常用按设置里的顺序取前 5 个（设计稿 V2.2：设置 › 常用 的虚线以上）。
+    private static List<RingChoice> Common(RecipeStore store, MediaType type) => store.RingFor(type).Select(r => Run(r)).ToList();
 
     /// 自定义：我的配方 + 打开主窗口（带上这批文件，细调后再开始）。
     private static RingSlot Custom(RecipeStore store, MediaType type)

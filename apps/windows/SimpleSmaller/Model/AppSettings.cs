@@ -35,6 +35,8 @@ internal sealed partial class AppSettings : ObservableObject
     [ObservableProperty] private int clipboardMaxEdge;
     /// 监视的文件夹与各自的配方。整份替换才会保存。
     [ObservableProperty] private IReadOnlyList<WatchFolder> watchFolders = [];
+    /// 图片上次用的裁切比例（CropPreset.Id）。首页图片卡「裁切」标签、拖到「裁切」格时用它；没用过是小红书 3:4。
+    [ObservableProperty] private string lastCropRatio = "xhs";
 
     private sealed class Saved
     {
@@ -46,6 +48,7 @@ internal sealed partial class AppSettings : ObservableObject
         public bool ClipboardAuto { get; set; }
         public int ClipboardMaxEdge { get; set; }
         public List<WatchFolder> WatchFolders { get; set; } = [];
+        public string? LastCropRatio { get; set; }
     }
 
     public AppSettings(string? directory = null)
@@ -61,6 +64,7 @@ internal sealed partial class AppSettings : ObservableObject
             clipboardAuto = s.ClipboardAuto;
             clipboardMaxEdge = s.ClipboardMaxEdge;
             watchFolders = s.WatchFolders ?? [];
+            lastCropRatio = string.IsNullOrEmpty(s.LastCropRatio) ? "xhs" : s.LastCropRatio;
         }
         PropertyChanged += (_, _) => Save();
     }
@@ -75,7 +79,12 @@ internal sealed partial class AppSettings : ObservableObject
         ClipboardAuto = ClipboardAuto,
         ClipboardMaxEdge = ClipboardMaxEdge,
         WatchFolders = WatchFolders.ToList(),
+        LastCropRatio = LastCropRatio,
     });
+
+    /// 上次用的裁切比例；记下的比例已不存在时回到小红书 3:4。
+    public CropPreset LastCropPreset =>
+        CropPreset.ImagePresets.FirstOrDefault(p => p.Id == LastCropRatio) ?? CropPreset.ImagePresets[0];
 
     public Place Place
     {

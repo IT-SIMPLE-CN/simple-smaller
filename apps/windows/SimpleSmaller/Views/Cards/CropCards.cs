@@ -210,19 +210,7 @@ internal sealed class FrameCard : Reactive
         _ => p.Name,
     };
 
-    private void Choose(CropPreset? preset)
-    {
-        if (ws.Draft.Image.Crop?.Id == preset?.Id)
-        {
-            return;
-        }
-        ws.Draft = ws.Draft with { Image = ws.Draft.Image with { Crop = preset, CropWidth = null } };
-        ws.ResetCrop();
-        if (preset is null)
-        {
-            ws.CropEditing = false;
-        }
-    }
+    private void Choose(CropPreset? preset) => ws.SetCrop(preset);
 
     private int SetWidth(int w)
     {
