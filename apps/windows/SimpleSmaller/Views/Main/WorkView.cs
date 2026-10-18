@@ -221,8 +221,8 @@ internal sealed class WorkView : Reactive
     {
         UIElement? seg = ws.Type switch
         {
-            MediaType.Video => Tabs(SimpleSmaller.Segments.AllVideo, ws.VideoSegment, s => s.Title(), s => { ws.EnterVideoSegment(s); ws.ShowResult = false; }),
-            MediaType.Pdf => Tabs(SimpleSmaller.Segments.AllPdf, ws.PdfSegment, s => s.Title(), s => { ws.EnterPdfSegment(s); ws.ShowResult = false; }),
+            MediaType.Video => Tabs(SimpleSmaller.Segments.AllVideo, ws.VideoSegment, s => s.Title(), s => { ws.VideoSegment = s; ws.EnterVideoSegment(s); ws.ShowResult = false; }),
+            MediaType.Pdf => Tabs(SimpleSmaller.Segments.AllPdf, ws.PdfSegment, s => s.Title(), s => { ws.PdfSegment = s; ws.EnterPdfSegment(s); ws.ShowResult = false; }),
             _ => null,
         };
         return seg;
