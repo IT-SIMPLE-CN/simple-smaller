@@ -131,8 +131,8 @@ enum FeatureGuides {
     // MARK: 视频
 
     private static var videoTabs: GuidePage {
-        GuidePage(title: "一个视频，三件事", text: "顶部切换压缩、剪辑、序列帧。切过去文件还在，不用重新拖。",
-                  sketch: tabsSketch([("压缩", 98.5), ("剪辑", 155), ("序列帧", 204)], selected: 1, box: (74.5, 28), pill: (122.5, 32), caption: (82, "文件留着，换个做法")))
+        GuidePage(title: "一个视频，四件事", text: "顶部切换压缩、剪辑、序列帧、实况。切过去文件还在，不用重新拖。",
+                  sketch: tabsSketch([("压缩", 76), ("剪辑", 132.5), ("序列帧", 182), ("实况", 232)], selected: 1, box: (50, 28), pill: (100, 32), caption: (82, "文件留着，换个做法")))
     }
 
     /// 第 2 步：剪辑照稿框预览 + 时间线；压缩、序列帧框左边文件卡。
@@ -154,6 +154,21 @@ enum FeatureGuides {
             return GuidePage(title: "这一批都在这", text: "把视频拖进来，随时还能往里加。要截一段、裁画面，切到顶部的「剪辑」。", sketch: batchSketch(video: true))
         case .frames:
             return GuidePage(title: "这一批都在这", text: "把视频拖进来，随时还能往里加。", sketch: batchSketch(video: true))
+        case .live:
+            // 时间线上一个短红框（会动的那一段），框里一条白线 + 红色小标是封面。
+            var frames = ""
+            for i in 0..<10 {
+                let x = 20 + i * 27
+                frames += ##"<rect x="\##(x)" y="30" width="25" height="34" rx="3" fill="\##((4...5).contains(i) ? "#5A4E44" : "{thumb}")"/>"##
+            }
+            let svg = frames + """
+            <rect x="126" y="26" width="54" height="42" rx="6" fill="none" stroke="#EF3922" stroke-width="3"/>
+            <rect x="122" y="26" width="6" height="42" rx="3" fill="#EF3922"/><rect x="178" y="26" width="6" height="42" rx="3" fill="#EF3922"/>
+            <rect x="151" y="30" width="2" height="34" fill="#FFFFFF"/>
+            <rect x="145" y="12" width="14" height="11" rx="2.5" fill="#EF3922"/>
+            """
+            return GuidePage(title: "选一段，挑封面", text: "红框里的一段（最长 3 秒）就是会动的部分，拖动换位置；单击时间轴选封面，照片用这一帧。",
+                             sketch: sketch(svg, [SketchText(153, 80, "会动 3 秒 · 封面", size: 9.5, weight: .semibold, color: .brand)]))
         }
     }
 
