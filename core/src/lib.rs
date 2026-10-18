@@ -7,6 +7,7 @@ uniffi::setup_scaffolding!();
 pub mod ffi;
 pub mod image;
 pub mod video;
+pub mod live;
 pub mod pdf;
 pub mod naming;
 pub mod jobs;

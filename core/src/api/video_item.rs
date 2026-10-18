@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::image::{self as img, OutputFormat, Picture, SizeMode};
 use crate::jobs::{self, ItemResult, ItemStatus, OutputFile};
 use crate::naming::{self};
-use crate::video;
+use crate::{live, video};
 use super::engine::*;
 use super::types::*;
 
@@ -124,6 +124,34 @@ impl Engine {
                 });
                 result.outputs = outputs;
                 r
+            }
+            VideoOutput::Live { apple, android, cover_at, max_long_edge } => {
+                if !*apple && !*android {
+                    Err(video::VideoError::Encode("没选要做哪种实况".into()))
+                } else {
+                    let recipe = settings.recipe();
+                    let live_recipe = live::LiveRecipe {
+                        apple: *apple,
+                        android: *android,
+                        cover_at: *cover_at,
+                        trim: recipe.trim,
+                        crop: recipe.crop,
+                        hdr_to_sdr: recipe.hdr_to_sdr,
+                        keep_audio: recipe.keep_audio,
+                        max_long_edge: *max_long_edge,
+                        rate: recipe.rate,
+                        encoder: recipe.encoder,
+                        still_quality: 90,
+                    };
+                    // 苹果实况两个文件同名；动态照片跟着用这个名字，加 .MP（安卓手机拍的也这样叫）。
+                    let dir = &item.out_dir;
+                    let apple_stem = apple.then(|| naming::unique_stem(dir, &stem_name, &["jpg", "mov"], reserved));
+                    let targets = live::LiveTargets {
+                        apple: apple_stem.as_ref().map(|s| (dir.join(format!("{s}.jpg")), dir.join(format!("{s}.mov")))),
+                        android: android.then(|| naming::unique_path(dir, &format!("{}.MP", apple_stem.as_deref().unwrap_or(&stem_name)), "jpg", reserved)),
+                    };
+                    live::make(tools, &item.source, &info, &live_recipe, &targets, &mut progress, cancel).map(|outs| result.outputs = outs)
+                }
             }
         };
         let outcome = outcome.and_then(|_| {

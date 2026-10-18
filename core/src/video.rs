@@ -71,7 +71,7 @@ impl Tools {
 }
 
 /// 起 ffmpeg / ffprobe。Windows 上不开控制台窗口（应用是窗口程序，否则每次都会闪一个黑框）。
-fn tool(path: &Path) -> Command {
+pub(crate) fn tool(path: &Path) -> Command {
     #[allow(unused_mut)]
     let mut c = Command::new(path);
     #[cfg(windows)]
@@ -233,9 +233,9 @@ pub struct VideoRecipe {
     pub max_fps: Option<f64>,
 }
 
-const AUDIO_KBPS: u64 = 128;
+pub(crate) const AUDIO_KBPS: u64 = 128;
 
-fn even(v: f64) -> u32 {
+pub(crate) fn even(v: f64) -> u32 {
     ((v / 2.0).round() as u32 * 2).max(2)
 }
 
@@ -251,7 +251,7 @@ fn output_size(info: &VideoInfo, crop: Option<Crop>, max_short_edge: Option<u32>
 }
 
 /// 拼滤镜链。`pixel_format` 为空时不追加格式转换（输出 RGBA 帧时由调用方指定）。
-fn filter_chain(info: &VideoInfo, crop: Option<Crop>, hdr_to_sdr: bool, size: (u32, u32), fps: Option<f64>, pixel_format: &str) -> String {
+pub(crate) fn filter_chain(info: &VideoInfo, crop: Option<Crop>, hdr_to_sdr: bool, size: (u32, u32), fps: Option<f64>, pixel_format: &str) -> String {
     let mut parts: Vec<String> = Vec::new();
     if let Some(c) = crop {
         parts.push(format!("crop={}:{}:{}:{}", c.width, c.height, c.x, c.y));
@@ -272,7 +272,7 @@ fn filter_chain(info: &VideoInfo, crop: Option<Crop>, hdr_to_sdr: bool, size: (u
     parts.join(",")
 }
 
-fn input_args(input: &Path, trim: Option<(f64, f64)>) -> Vec<String> {
+pub(crate) fn input_args(input: &Path, trim: Option<(f64, f64)>) -> Vec<String> {
     let mut args = vec!["-hide_banner".to_string(), "-nostdin".into(), "-y".into()];
     if let Some((start, end)) = trim {
         args.extend(["-ss".into(), format!("{start:.3}"), "-t".into(), format!("{:.3}", (end - start).max(0.1))]);
@@ -281,7 +281,7 @@ fn input_args(input: &Path, trim: Option<(f64, f64)>) -> Vec<String> {
     args
 }
 
-fn temp_path(output: &Path) -> PathBuf {
+pub(crate) fn temp_path(output: &Path) -> PathBuf {
     crate::jobs::temp_sibling(output, "")
 }
 
@@ -307,7 +307,7 @@ fn with_cancel<T>(child: Child, cancel: &AtomicBool, body: impl FnOnce(&Mutex<Ch
 }
 
 /// 跑一次 ffmpeg，读 `-progress` 输出换算成 [from, to] 区间的进度；取消时结束进程。
-fn run_ffmpeg(
+pub(crate) fn run_ffmpeg(
     tools: &Tools,
     args: &[String],
     duration: f64,
@@ -487,7 +487,7 @@ pub fn transcode(
 /// 系统 / 显卡硬件编码器。mac 走 VideoToolbox；Windows 走 Media Foundation，
 /// 它会挑显卡厂商（NVIDIA / Intel / AMD）的编码器，H.264 没有硬件时用系统自带的软件编码器。
 /// HEVC 只走硬件或系统扩展，不内置 x265。
-fn hardware_encoder(codec: VideoCodec) -> Vec<String> {
+pub(crate) fn hardware_encoder(codec: VideoCodec) -> Vec<String> {
     let tag = match codec {
         VideoCodec::H264 => "avc1",
         VideoCodec::Hevc => "hvc1",
@@ -516,7 +516,7 @@ fn hardware_encoder(codec: VideoCodec) -> Vec<String> {
 }
 
 /// 硬件编码的恒定质量参数。
-fn hardware_quality(rate: Rate) -> Vec<String> {
+pub(crate) fn hardware_quality(rate: Rate) -> Vec<String> {
     if cfg!(windows) {
         // Media Foundation 的质量模式，0–100。
         let q = match rate {

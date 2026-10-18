@@ -300,6 +300,11 @@ pub enum VideoOutput {
     Mute,
     Gif { fps: f64, width: u32, quality: u8 },
     Frames { pick: FramePick, width: Option<u32>, format: ImageFormat, quality: u8, zip: bool, contact_sheet: bool },
+    /// 实况：截取范围里取一段（不超过 3 秒，更长时以封面为中心取 3 秒）+ 封面帧。
+    /// `apple`：同名 JPEG + MOV（苹果实况）；`android`：一张末尾接 MP4 的 JPEG（动态照片，文件名 `名字.MP.jpg`）。
+    /// `cover_at` 是封面在原视频里的秒数；`max_long_edge` 是视频最长边上限（0 不缩小）。
+    /// 比例裁切、HDR 转 SDR、保留声音、画质、编码方式沿用 VideoSettings。
+    Live { apple: bool, android: bool, cover_at: f64, max_long_edge: u32 },
 }
 
 #[derive(Debug, Clone, uniffi::Record)]

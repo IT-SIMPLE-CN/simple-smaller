@@ -94,3 +94,35 @@ fn 平台解码接管_heic() {
     assert_eq!((picture.width, picture.height), (4, 2));
     assert!(Engine::new(None).decode(&heic).is_err());
 }
+
+/// 实况走完整的任务：苹果实况一对同名，动态照片跟着叫 `.MP.jpg`；重名时整对一起换名字；撤销全部移走。
+#[test]
+fn 实况任务端到端_重名与撤销() {
+    let Ok(_) = crate::video::Tools::locate() else { return };
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../.local/vtest/半秒.mp4");
+    if !sample.exists() { return; }
+    let dir = std::env::temp_dir().join(format!("smaller-api-live-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("片段.mp4");
+    std::fs::copy(&sample, &src).unwrap();
+    // 先占掉 .mov：整对要换成 -2。
+    std::fs::write(dir.join("片段-live.mov"), b"x").unwrap();
+    let settings = VideoSettings {
+        codec: VideoCodecChoice::H264, encoder: VideoEncoderChoice::Quality, rate: VideoRate::High, max_short_edge: None, keep_audio: true,
+        trim_start: None, trim_end: None, crop: None, hdr_to_sdr: true, max_fps: None,
+        output: VideoOutput::Live { apple: true, android: true, cover_at: 0.2, max_long_edge: 1920 }, cover_at: None,
+    };
+    let engine = Engine::new(None);
+    let (tx, rx) = mpsc::channel();
+    let naming = Naming { template: "{name}-live".into(), lowercase: false, pinyin: false, hyphenate: false, date: "20261018".into() };
+    let job = engine.run_videos(vec![src.to_string_lossy().into()], Place::Folder { path: dir.to_string_lossy().into() }, naming, settings, Arc::new(Collect(Mutex::new(tx))));
+    let results = wait(&rx);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].state, ItemState::Done, "{:?}", results[0].message);
+    let names: Vec<String> = results[0].outputs.iter().map(|o| Path::new(&o.path).file_name().unwrap().to_string_lossy().into_owned()).collect();
+    assert_eq!(names, ["片段-live-2.jpg", "片段-live-2.mov", "片段-live-2.MP.jpg"]);
+    job.undo().unwrap();
+    assert!(results[0].outputs.iter().all(|o| !Path::new(&o.path).exists()));
+    let _ = std::fs::remove_dir_all(&dir);
+}

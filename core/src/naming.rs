@@ -155,6 +155,22 @@ pub fn unique_path(dir: &Path, stem: &str, ext: &str, reserved: &mut HashSet<Pat
     candidate
 }
 
+/// 同一个名字配几种扩展名（如实况的 `.jpg` + `.mov`）：找一个每种扩展名都没被占用的名字，
+/// 依次试 `stem`、`stem-2`……返回名字（不含扩展名），并把这几个路径都预留。
+pub fn unique_stem(dir: &Path, stem: &str, exts: &[&str], reserved: &mut HashSet<PathBuf>) -> String {
+    let taken = |s: &str, reserved: &HashSet<PathBuf>| exts.iter().any(|e| { let p = dir.join(format!("{s}.{e}")); p.exists() || reserved.contains(&p) });
+    let mut candidate = stem.to_string();
+    let mut n = 2;
+    while taken(&candidate, reserved) {
+        candidate = format!("{stem}-{n}");
+        n += 1;
+    }
+    for e in exts {
+        reserved.insert(dir.join(format!("{candidate}.{e}")));
+    }
+    candidate
+}
+
 /// 宽高化成最简比例，写成 `3x4`。
 pub fn ratio_label(width: u32, height: u32) -> String {
     fn gcd(a: u32, b: u32) -> u32 {
