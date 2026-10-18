@@ -2,10 +2,10 @@ import AppKit
 import Observation
 import SwiftUI
 
-/// 教学的总调度（设计稿 V2.2 · D / E）：
+/// 教学的总调度（设计稿 V3）：
 /// - 功能小教学：每类（图片 / 视频 / PDF）第一次拖进文件后自动出现一次；标题栏「? 再看一遍教学」随时再看。
-/// - 访达圆环教学：第一次打开应用时出现一次；设置 › 通用 › 入口 里「再看一遍」。
-/// 跳过、知道了、关掉（含 Esc）都记为看过（`AppSettings.guidesSeen`），之后不再自动出现。
+/// - 访达圆环教学：不自动出现；点首页「访达圆环」卡片打开（每次点都开），设置 › 入口 里「再看一遍」也能开。
+/// 小教学跳过、知道了、关掉（含 Esc）都记为看过（`AppSettings.guidesSeen`），之后不再自动出现。
 ///
 /// 教学盖在整个主窗口上（含标题栏、顶部大标签）：浮层视图直接放进窗口的边框视图最上层，
 /// 跟着窗口圆角裁切、跟着窗口缩放；聚光框的位置从各张卡登记的 `GuideTarget` 现场换算。
@@ -97,7 +97,7 @@ final class GuideCenter {
 
     private var autoCandidate: MediaType? {
         let model = AppModel.shared
-        guard !model.showHome, settings.guideSeen("ring") else { return nil }
+        guard !model.showHome else { return nil }
         let ws = model.current
         guard !ws.files.isEmpty, !ws.showResult, !ws.running, !settings.guideSeen(ws.type.rawValue) else { return nil }
         guard mainWindow?.isVisible == true else { return nil }
@@ -106,18 +106,7 @@ final class GuideCenter {
 
     // MARK: 圆环教学
 
-    /// 第一次打开应用：主窗口出来后弹一次。
-    func considerRingOnLaunch() {
-        guard !settings.guideSeen("ring"), active == nil else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self, self.active == nil, !self.settings.guideSeen("ring") else { return }
-                self.showRing()
-            }
-        }
-    }
-
-    /// 设置里「再看一遍」：把主窗口叫到前面再弹。
+    /// 首页圆环卡、设置里「再看一遍」：把主窗口叫到前面再弹。
     func showRing() {
         pendingAuto?.cancel()
         if mainWindow?.isVisible != true {
@@ -339,10 +328,7 @@ struct GuideWindowProbe: NSViewRepresentable {
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             guard let window else { return }
-            MainActor.assumeIsolated {
-                GuideCenter.shared.registerWindow(window)
-                GuideCenter.shared.considerRingOnLaunch()
-            }
+            MainActor.assumeIsolated { GuideCenter.shared.registerWindow(window) }
         }
 
         override func hitTest(_ point: NSPoint) -> NSView? { nil }

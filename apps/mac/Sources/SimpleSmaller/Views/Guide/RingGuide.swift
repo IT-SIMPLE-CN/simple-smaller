@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 访达圆环教学弹窗（设计稿 V2.2 · D）：3 步——在什么场景用（访达画面 + 真实圆环）→ 三步用法 → 快捷键与辅助功能权限。
 /// 宽 724、圆角 30，页面压暗；右上 × 关闭，底部左分页点、右「上一步 / 下一步」，最后一步「知道了，去试试」。
-/// 「不再显示」勾选不做：第一次打开应用时出现一次，怎么关掉都记为看过（共用说明第 3 条）。
+/// 不自动出现（V3）：点首页「访达圆环」卡片、或设置 › 入口「再看一遍」打开，所以不做「不再显示」勾选。
 struct RingGuide: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var center: GuideCenter { .shared }
@@ -58,7 +58,7 @@ struct RingGuide: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("访达圆环怎么用").font(.system(size: 15, weight: .bold)).accessibilityAddTraits(.isHeader)
-                Text("设置 › 入口 里可以再看").font(.system(size: 11)).foregroundStyle(Bento.secondary)
+                Text("点首页「访达圆环」卡片打开 · 设置 › 入口 也能打开").font(.system(size: 11)).foregroundStyle(Bento.secondary)
             }
             Spacer()
             Button { center.finish() } label: {

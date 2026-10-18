@@ -25,6 +25,7 @@ final class AppSettings {
     var lastImageRatio: String { didSet { d.set(lastImageRatio, forKey: "lastImageRatio") } }
     /// 看过的教学：图片 / 视频 / PDF 的小教学（MediaType 的 rawValue）与访达圆环教学（"ring"）。
     /// 跳过、知道了、关掉都记为看过，之后不再自动出现；测试时用启动参数 `--reset-guides` 清空。
+    /// 圆环教学 V3 起不再自动弹，"ring" 只是照旧记下，不再用来判断。
     var guidesSeen: Set<String> { didSet { d.set(Array(guidesSeen).sorted(), forKey: "guidesSeen") } }
     /// 监视的文件夹与各自的配方。
     var watchFolders: [WatchFolder] {

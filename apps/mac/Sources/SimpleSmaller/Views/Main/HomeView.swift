@@ -247,7 +247,7 @@ struct HomeCard: View {
             case .image: "WebP、AVIF、JPG 一键变小，一次出多档尺寸；按比例批量裁切。"
             case .video: "按体积压到 25 MB，裁成 9:16，拆成序列帧，或者做成实况。"
             case .pdf: "邮件、阅读、打印三档。"
-            case .ring: "在访达里按住 ⌥ 点文件，圆环里点一下就好。第一次用要在设置里开启。"
+            case .ring: "在访达里按住 ⌥ 点文件，圆环里点一下就好。点这张卡看怎么用。"
             }
         }
 
@@ -289,7 +289,6 @@ struct HomeCard: View {
     }
 
     @Environment(AppModel.self) private var model
-    @Environment(\.openSettings) private var openSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let kind: Kind
     /// 拖进来、指针在这张卡上：分成几格。
@@ -298,6 +297,8 @@ struct HomeCard: View {
     /// 这批文件放不进去的格子：变淡、不高亮。
     var blocked: Set<Int> = []
     @State private var hovering = false
+    /// 圆环卡：辅助功能权限开没开（照圆环教学第 3 步，每秒查一次）。
+    @State private var trusted = RingController.shared.isTrusted
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -305,13 +306,25 @@ struct HomeCard: View {
                 .aspectRatio(4 / 3, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(alignment: .topTrailing) {
-                    // 右上角挖出一个白色缺口放图标（设计稿）。
-                    LineIcon(glyph: kind.glyph, size: 16, weight: 1.8)
-                        .foregroundStyle(Color.primary)
-                        .frame(width: 34, height: 34)
-                        .background(Circle().fill(Bento.fill))
-                        .padding([.leading, .bottom], 12)
-                        .background(UnevenRoundedRectangle(bottomLeadingRadius: 16, style: .continuous).fill(Bento.card))
+                    // 右上角挖出一个白色缺口放图标（设计稿）；圆环卡在辅助功能没开时，图标旁加「未开启」。
+                    HStack(spacing: 6) {
+                        if kind == .ring && !trusted {
+                            Text("未开启")
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .foregroundStyle(Bento.alertText)
+                                .padding(.horizontal, 8)
+                                .frame(height: 20)
+                                .background(Capsule().fill(Bento.alertFill))
+                                .transition(.opacity)
+                        }
+                        LineIcon(glyph: kind.glyph, size: 16, weight: 1.8)
+                            .foregroundStyle(Color.primary)
+                            .frame(width: 34, height: 34)
+                            .background(Circle().fill(Bento.fill))
+                    }
+                    .padding([.leading, .bottom], 12)
+                    .background(UnevenRoundedRectangle(bottomLeadingRadius: 16, style: .continuous).fill(Bento.card))
+                    .animation(.smooth(duration: 0.25), value: trusted)
                 }
                 .accessibilityHidden(true)
             Text(kind.title)
@@ -346,7 +359,7 @@ struct HomeCard: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(BentoPressStyle())
-                .accessibilityLabel(kind.type == nil ? "打开设置" : "进入\(kind.title)")
+                .accessibilityLabel(kind.type == nil ? "看访达圆环怎么用" : "进入\(kind.title)")
                 Spacer()
                 Text(kind.formats).font(.system(size: 10)).tracking(0.4).foregroundStyle(Bento.secondary)
             }
@@ -366,7 +379,10 @@ struct HomeCard: View {
         .animation(.smooth(duration: 0.2), value: hovering)
         .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.8), value: split)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(kind.features.isEmpty ? kind.title : "\(kind.title)：\(kind.features.map(\.title).joined(separator: " · "))")
+        .accessibilityLabel(kind.features.isEmpty ? (trusted ? kind.title : "\(kind.title)，辅助功能未开启") : "\(kind.title)：\(kind.features.map(\.title).joined(separator: " · "))")
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            if kind == .ring { trusted = RingController.shared.isTrusted }
+        }
     }
 
     /// 小标签：图标 + 名称，点了直接进这个功能。
@@ -444,7 +460,7 @@ struct HomeCard: View {
         if let type = kind.type {
             model.selectedType = type
         } else {
-            openSettings()
+            GuideCenter.shared.showRing()
         }
     }
 }
