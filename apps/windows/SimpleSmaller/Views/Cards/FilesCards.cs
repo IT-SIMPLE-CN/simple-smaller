@@ -16,24 +16,30 @@ namespace SimpleSmaller.Views.Cards;
 
 // MARK: - 左大卡：拖放 / 文件
 
-/// 没有文件时的左大卡：整张卡就是拖放区，也可以选取或粘贴（设计稿 V2.1 · 02 空状态）。
-/// 斜纹底 + 2px 内描边，中间红色插画、标题、格式、按钮与一句提示。图片、视频、PDF 三种共用。
+/// 没有文件时的左大卡：整块虚线区就是一个「选取文件」按钮，点哪都打开选取文件；也能拖进来、粘贴（设计稿 V3 · 11 空状态）。
+/// 斜纹底 + 2px 内描边，中间红色插画、标题、格式、「点任意位置选取」+ 粘贴与一句提示。图片、视频、PDF 三种共用。
+/// 悬停或拖着文件经过：整块红框 + 浅红底（深色用提示红底），「点任意位置选取」变品牌红，0.2 秒过渡。
 internal sealed class DropCard : UserControl
 {
     private readonly Workspace ws;
     private readonly Border zone = new() { CornerRadius = new CornerRadius(18), BorderThickness = new Thickness(2) };
-    private readonly Border tint = new() { CornerRadius = new CornerRadius(16), IsHitTestVisible = false, Opacity = 0 };
+    // 高亮的三层（红框、浅红底、品牌红的「点任意位置选取」）都用 Composition 透明度淡入淡出。
+    private readonly Border ring = new() { CornerRadius = new CornerRadius(18), BorderThickness = new Thickness(2), BorderBrush = Palette.Brand, IsHitTestVisible = false };
+    private readonly Border tint = new() { CornerRadius = new CornerRadius(16), IsHitTestVisible = false };
+    private readonly Border hintInk = new() { Height = 40, CornerRadius = new CornerRadius(20), Padding = new Thickness(18, 0, 18, 0) };
+    private readonly Border hintBrand = new() { Height = 40, CornerRadius = new CornerRadius(20), Padding = new Thickness(18, 0, 18, 0), Background = Palette.Brand };
     private readonly FrameworkElement art = DropArt.Illustration();
     private readonly Border pasteBack = new() { Height = 40, CornerRadius = new CornerRadius(20), Padding = new Thickness(18, 0, 18, 0), BorderThickness = new Thickness(1) };
-    private bool targeted;
+    private bool targeted, hovering, lit;
 
     public DropCard(Workspace ws)
     {
         this.ws = ws;
         var center = new StackPanel { Spacing = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Padding = new Thickness(12, 0, 12, 0) };
         art.HorizontalAlignment = HorizontalAlignment.Center;
+        art.IsHitTestVisible = false;
         center.Children.Add(art);
-        var texts = new StackPanel { Spacing = 6 };
+        var texts = new StackPanel { Spacing = 6, IsHitTestVisible = false };
         var title = Themed.Text(Title, 22, "BentoPrimary", Themed.Bold);
         title.HorizontalAlignment = HorizontalAlignment.Center;
         title.TextAlignment = TextAlignment.Center;
@@ -51,24 +57,18 @@ internal sealed class DropCard : UserControl
         }
         center.Children.Add(texts);
 
+        // 「点任意位置选取」只是提示（整块才是按钮）：墨黑胶囊，高亮时盖一层品牌红的同款。
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center };
-        var pick = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"] };
-        Motion.SetPress(pick, true);
-        var pickRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
-        pickRow.Children.Add(new LineIcon(Icons.Plus, 15, 2.2, "BentoOnInk") { VerticalAlignment = VerticalAlignment.Center });
-        pickRow.Children.Add(Themed.Text("选取文件…", 13, "BentoOnInk", Themed.Semibold));
-        var pickBack = new Border { Height = 40, CornerRadius = new CornerRadius(20), Padding = new Thickness(18, 0, 18, 0), Child = pickRow };
-        Themed.OnTheme(pickBack, () => pickBack.Background = Palette.Get(pickBack, "BentoInk"));
-        pick.Content = pickBack;
-        AutomationProperties.SetName(pick, "选取文件…");
-        pick.Click += async (_, _) =>
-        {
-            if (ws.Type == MediaType.Pdf) await PdfFilePicker.PickAsync(ws);
-            else await FilePicker.PickAsync(ws.Type);
-        };
-        pick.KeyboardAccelerators.Add(new KeyboardAccelerator { Key = VirtualKey.O, Modifiers = VirtualKeyModifiers.Control });
-        pick.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
-        buttons.Children.Add(pick);
+        var inkText = Themed.Text("点任意位置选取", 13, "BentoOnInk", Themed.Semibold);
+        inkText.VerticalAlignment = VerticalAlignment.Center;
+        hintInk.Child = inkText;
+        hintBrand.Child = new TextBlock { Text = "点任意位置选取", FontSize = 13, FontWeight = Themed.Semibold, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), VerticalAlignment = VerticalAlignment.Center };
+        var hint = new Grid { IsHitTestVisible = false };
+        hint.Children.Add(hintInk);
+        hint.Children.Add(hintBrand);
+        AutomationProperties.SetAccessibilityView(hint, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+        Themed.OnTheme(hintInk, () => hintInk.Background = Palette.Get(hintInk, "BentoInk"));
+        buttons.Children.Add(hint);
         if (ws.Type == MediaType.Image)
         {
             var paste = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"] };
@@ -90,14 +90,44 @@ internal sealed class DropCard : UserControl
         note.HorizontalAlignment = HorizontalAlignment.Center;
         note.TextAlignment = TextAlignment.Center;
         note.TextWrapping = TextWrapping.Wrap;
+        note.IsHitTestVisible = false;
         center.Children.Add(note);
+
+        // 整块的按钮垫在内容下面：文字、插画不接点击（点上去落到它），粘贴按钮照常单独响应。
+        var pick = new Button
+        {
+            Style = (Style)Application.Current.Resources["BentoBareButton"],
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            FocusVisualMargin = new Thickness(0),
+        };
+        AutomationProperties.SetName(pick, "选取文件");
+        AutomationProperties.SetHelpText(pick, Title);
+        ToolTipService.SetToolTip(pick, "选取文件（Ctrl+O）");
+        pick.Click += async (_, _) =>
+        {
+            if (ws.Type == MediaType.Pdf) await PdfFilePicker.PickAsync(ws);
+            else await FilePicker.PickAsync(ws.Type);
+        };
+        pick.KeyboardAccelerators.Add(new KeyboardAccelerator { Key = VirtualKey.O, Modifiers = VirtualKeyModifiers.Control });
+        pick.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
 
         var area = new Grid();
         area.Children.Add(DropArt.Stripes());
         area.Children.Add(tint);
+        area.Children.Add(pick);
         area.Children.Add(center);
         zone.Child = area;
-        Content = Card.Create(zone, new Thickness(14));
+        var frame = new Grid();
+        frame.Children.Add(zone);
+        frame.Children.Add(ring);
+        Content = Card.Create(frame, new Thickness(14));
+        foreach (var layer in new UIElement[] { ring, tint, hintBrand }) Motion.VisualOf(layer).Opacity = 0;
+
+        // 悬停算在整块上（指针移到粘贴按钮上也还亮着）。
+        zone.PointerEntered += (_, _) => { hovering = true; Light(); };
+        zone.PointerExited += (_, _) => { hovering = false; Light(); };
+        zone.PointerCanceled += (_, _) => { hovering = false; Light(); };
 
         AllowDrop = true;
         DragEnter += (_, e) => Target(e.DataView.Contains(StandardDataFormats.StorageItems));
@@ -139,7 +169,7 @@ internal sealed class DropCard : UserControl
             return;
         }
         targeted = on;
-        Paint();
+        Light();
         if (on)
         {
             Motion.SpringScale(art, 1.04f, 0.45f);
@@ -147,20 +177,50 @@ internal sealed class DropCard : UserControl
         }
     }
 
+    /// 悬停或拖着文件经过：红框、浅红底、品牌红提示一起淡入（0.2 秒）；离开淡出。
+    private void Light()
+    {
+        var on = targeted || hovering;
+        if (on == lit)
+        {
+            return;
+        }
+        lit = on;
+        foreach (var layer in new UIElement[] { ring, tint, hintBrand }) Fade(layer, on ? 1 : 0);
+    }
+
+    private static void Fade(UIElement element, float to)
+    {
+        var visual = Motion.VisualOf(element);
+        if (!Motion.Enabled)
+        {
+            visual.StopAnimation("Opacity");
+            visual.Opacity = to;
+            return;
+        }
+        var c = visual.Compositor;
+        var fade = c.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(1, to, Motion.Ease(c));
+        fade.Duration = TimeSpan.FromMilliseconds(200);
+        visual.StartAnimation("Opacity", fade);
+    }
+
     private void Paint()
     {
-        zone.BorderBrush = targeted ? Palette.Brand : DropArt.Edge(this);
-        tint.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(18, 0xEF, 0x39, 0x22));
-        tint.Opacity = targeted ? 1 : 0;
+        zone.BorderBrush = DropArt.Edge(this);
+        // 浅色照设计稿 #FFF5F2；深色用色板的提示红底。
+        tint.Background = ActualTheme == ElementTheme.Dark
+            ? Palette.Get(this, "BentoAlertFill")
+            : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0xFF, 0xF5, 0xF2));
         pasteBack.Background = Palette.Get(this, "BentoCard");
         pasteBack.BorderBrush = DropArt.Edge(this);
     }
 
     private string Title => ws.Type switch
     {
-        MediaType.Image => "把图片或文件夹拖到这里",
-        MediaType.Video => "把视频或文件夹拖到这里",
-        _ => ws.PdfSegment == PdfSegment.FromImages ? "把图片拖到这里" : "把 PDF 或文件夹拖到这里",
+        MediaType.Image => "点这里，或把图片 / 文件夹拖进来",
+        MediaType.Video => "点这里，或把视频拖进来",
+        _ => ws.PdfSegment == PdfSegment.FromImages ? "点这里，或把图片拖进来" : "点这里，或把 PDF 拖进来",
     };
 
     private string? Formats => ws.Type switch
@@ -197,6 +257,7 @@ internal sealed class FilesCard : Reactive
         var trailing = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         trailing.Children.Add(viewSwitch);
         trailing.Children.Add(add);
+        trailing.Children.Add(ClearButton.Create(ws));
         if (ws.Type == MediaType.Image)
         {
             var paste = new CircleIconButton("", "粘贴剪贴板（Ctrl+Shift+V）");

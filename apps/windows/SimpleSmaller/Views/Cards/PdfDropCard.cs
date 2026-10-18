@@ -8,7 +8,7 @@ using Windows.Storage.Pickers;
 
 namespace SimpleSmaller.Views.Cards;
 
-/// PDF 没有文件时的左大卡：与图片、视频共用设计稿 V2.1 · 02 的拖放区（DropCard）。
+/// PDF 没有文件时的左大卡：与图片、视频共用设计稿 V3 · 11 的拖放区（DropCard）。
 /// 拖进来的文件由主窗口统一接收分类；选取按分段选 PDF 或图片。
 internal sealed class PdfDropCard : UserControl
 {

@@ -46,7 +46,10 @@ internal sealed class PdfFilesView : Reactive
         ctrlO.Invoked += async (_, e) => { e.Handled = true; await PdfFilePicker.PickAsync(ws); };
         add.KeyboardAccelerators.Add(ctrlO);
         add.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
-        head.Trailing = add;
+        var trailing = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        trailing.Children.Add(add);
+        trailing.Children.Add(Common.ClearButton.Create(ws));
+        head.Trailing = trailing;
         root.Children.Add(head);
         list = new PdfFileList(ws);
         Grid.SetRow(list, 1);

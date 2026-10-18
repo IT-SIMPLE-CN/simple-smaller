@@ -16,6 +16,8 @@ internal sealed partial class AppModel
             Flash("先设好打开密码，或者关掉「输出加打开密码」");
             return;
         }
+        // 开始处理后「撤销清空 / 移除」就不再提供（不往跑着或跑完的一批里塞回文件）。
+        if (PendingUndo is { } pending && pending.Ws == ws) DismissUndo();
         ws.LastRun = new LastRun(ws.Draft, ws.SegmentKey);
         Log.Info($"开始 {ws.Type.Title()}：{ws.Files.Count} 个文件，配方「{ws.Draft.Name}」");
         var items = retrying ?? ws.Files.ToList();

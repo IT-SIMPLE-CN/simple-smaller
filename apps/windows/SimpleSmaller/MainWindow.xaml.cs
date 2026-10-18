@@ -63,6 +63,9 @@ public sealed partial class MainWindow : Window
         Capsule.Apply(toast);
         Grid.SetRow(toast, 1);
         Root.Children.Add(toast);
+        var undoBar = new UndoBar();
+        Grid.SetRow(undoBar, 1);
+        Root.Children.Add(undoBar);
         SetTitleBar(titleBar);
         guides = new Views.Guide.GuideHost(Root, center);
 
@@ -117,7 +120,8 @@ public sealed partial class MainWindow : Window
     // ---------- 快捷键（mac 的 AppCommands）与关闭 ----------
 
     /// Ctrl+O 选取文件、Ctrl+Shift+V 粘贴、Ctrl+0 首页、Ctrl+1/2/3 切类型、Ctrl+, 设置、
-    /// Ctrl+Shift+R 重试失败的、Ctrl+Delete 从列表移除所选。开始（Ctrl+Enter）与停止（Ctrl+.）在开始块上。
+    /// Ctrl+Shift+R 重试失败的、Ctrl+Delete 从列表移除所选、Ctrl+Shift+Delete 清空这一批、Ctrl+Z 撤销清空 / 移除（提示条在时）。
+    /// 开始（Ctrl+Enter）与停止（Ctrl+.）在开始块上。
     private void HookShortcuts()
     {
         void add(Windows.System.VirtualKey key, Windows.System.VirtualKeyModifiers mods, Action action)
@@ -147,6 +151,23 @@ public sealed partial class MainWindow : Window
             var ws = model.Current;
             if (!ws.Running && ws.Selection.Count > 0) model.Remove(ws.Selection, ws);
         });
+        add(Windows.System.VirtualKey.Delete, ctrlShift, () =>
+        {
+            var ws = model.Current;
+            if (!model.ShowHome && !ws.ShowResult && !guides.IsOpen) model.ClearUndoable(ws);
+        });
+        // Ctrl+Z 撤销清空 / 移除：只在提示条还在时；图片调框页的「Ctrl+Z 撤回这一张」优先（不拦，交给调框页）。
+        var undo = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = Windows.System.VirtualKey.Z, Modifiers = ctrl };
+        undo.Invoked += (_, e) =>
+        {
+            var ws = model.Current;
+            if (model.PendingUndo is null || guides.IsOpen) return;
+            if (!model.ShowHome && ws.Type == MediaType.Image && ws.IsCropping && ws.CropEditing && ws.Files.Count > 0) return;
+            if (Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(Root.XamlRoot) is TextBox) return;
+            e.Handled = true;
+            model.UndoRemoval();
+        };
+        Root.KeyboardAccelerators.Add(undo);
         Root.KeyboardAcceleratorPlacementMode = Microsoft.UI.Xaml.Input.KeyboardAcceleratorPlacementMode.Hidden;
     }
 

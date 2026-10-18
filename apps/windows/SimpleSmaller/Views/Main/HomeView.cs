@@ -255,7 +255,7 @@ internal sealed class HomeView : UserControl
 
 /// 首页的一张功能卡（设计稿 V2.2 H1）：插图、标题、一排小标签（点了直接进那个功能）、说明、箭头（进第一个功能）。
 /// 拖文件进来、指针停在卡上时分成几格（「放到哪一格？」），悬停的格子品牌红底。
-/// 资源管理器圆环卡没有标签、不分格，整张卡点了打开设置。
+/// 资源管理器圆环卡没有标签、不分格，整张卡点了打开圆环教学（设计稿 V3）。
 internal sealed class HomeCard : UserControl
 {
     public enum Kind { Image, Video, Pdf, Ring }
@@ -323,7 +323,7 @@ internal sealed class HomeCard : UserControl
             Kind.Image => "WebP、AVIF、JPG 一键变小，一次出多档尺寸；按比例批量裁切。",
             Kind.Video => "按体积压到 25 MB，裁成 9:16，拆成序列帧，或者做成实况。",
             Kind.Pdf => "邮件、阅读、打印三档。",
-            _ => "在资源管理器里按住 Alt 点文件，圆环里点一下就好。第一次用要在设置里开启。",
+            _ => "在资源管理器里按住 Alt 点文件，圆环里点一下就好。点这张卡看怎么用。",
         };
         formats.Text = kind switch { Kind.Image => "JPG · PNG · HEIC", Kind.Video => "MP4 · MOV · GIF", Kind.Pdf => "PDF", _ => "Windows" };
         glyph = new LineIcon(kind switch { Kind.Image => Icons.Image, Kind.Video => Icons.Video, Kind.Pdf => Icons.Pdf, _ => Icons.Ring }, 16);
@@ -365,14 +365,14 @@ internal sealed class HomeCard : UserControl
 
         if (Type is null)
         {
-            // 圆环卡：整张卡是一个按钮。
+            // 圆环卡：整张卡是一个按钮，点了打开圆环教学（每次点都打开）。
             arrow.HorizontalAlignment = HorizontalAlignment.Left;
             bottom.Children.Add(arrow);
             var b = new Button { Style = (Style)Application.Current.Resources["BentoBareButton"], Content = back, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
             Motion.SetPress(b, true);
             AutomationProperties.SetName(b, $"{title.Text}：{subtitle.Text}");
             AutomationProperties.SetHelpText(b, text.Text);
-            b.Click += (_, _) => App.OpenSettings("自动");
+            b.Click += (_, _) => Views.Guide.GuideHost.Shared?.ShowRing();
             root.Children.Add(b);
         }
         else
