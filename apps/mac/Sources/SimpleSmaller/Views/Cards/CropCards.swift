@@ -61,6 +61,7 @@ struct FrameCard: View {
 
     private func choose(_ preset: CropPreset?) {
         guard ws.draft.image.crop?.id != preset?.id else { return }
+        if let preset { AppSettings.shared.lastImageRatio = preset.id }
         withAnimation(.smooth(duration: 0.3)) {
             ws.draft.image.crop = preset
             ws.draft.image.cropWidth = nil

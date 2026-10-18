@@ -53,14 +53,13 @@ extension AppModel {
         showHome = false
     }
 
-    /// 按分段名切到当前类型的某个分段（与工具栏分段切换效果相同）。
+    /// 按分段名切到当前类型的某个分段（与顶部大标签切换效果相同）。
     func openSegment(_ name: String) {
         let ws = current
         switch ws.type {
         case .image:
-            // 图片不再分段；「裁切」等于换成第一个带比例的配方，验证用。
-            let id = name == "裁切" ? "img.xhs" : "img.web"
-            if let r = store.recipe(id: id) { ws.select(recipe: r) }
+            // 图片不分页：「压缩」= 原比例，「裁切」= 上次用过的比例。
+            openImage(crop: name == "裁切")
         case .video:
             guard let s = Workspace.VideoSegment(rawValue: name) else { return }
             ws.videoSegment = s
@@ -68,6 +67,35 @@ extension AppModel {
         case .pdf:
             if let s = Workspace.PdfSegment(rawValue: name) { ws.pdfSegment = s; ws.enterPdfSegment(s) }
         }
+    }
+
+    /// 图片的「压缩 / 裁切」入口（首页标签、拖到格子上）：都进同一个图片页，只是比例不同。
+    /// 「压缩」把比例设成原比例；「裁切」设成上次用过的比例（没用过是小红书 3:4）。
+    /// 有对得上的常用就换成它（按设置里的顺序找第一个），没有就只改比例。
+    func openImage(crop: Bool) {
+        let ws = workspace(.image)
+        let preset: CropPreset? = crop
+            ? (CropPreset.imagePresets.first { $0.id == settings.lastImageRatio } ?? CropPreset.imagePresets[0])
+            : nil
+        guard ws.draft.image.crop?.id != preset?.id else { return }
+        if let r = store.ordered(.image).first(where: { $0.image.crop?.id == preset?.id }) {
+            ws.select(recipe: r)
+        } else {
+            ws.draft.image.crop = preset
+            ws.draft.image.cropWidth = nil
+            ws.resetCrop()
+            ws.cropEditing = false
+        }
+    }
+
+    /// 首页：点卡片上的小标签，或把文件放到卡片分出来的某一格，直接进这个功能（带着这个分段）。
+    /// 拖进来的文件里这一类进这个功能，其余类型照旧按类型分到各自的工作区。
+    func enter(_ type: MediaType, feature: String, with urls: [URL] = []) {
+        selectedType = type
+        openSegment(feature)
+        guard !urls.isEmpty else { return }
+        add(urls, preferred: type)
+        selectedType = type
     }
 
     // MARK: 加密的 PDF

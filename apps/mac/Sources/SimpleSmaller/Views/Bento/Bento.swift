@@ -34,6 +34,10 @@ enum Bento {
     static let onInkSecondary = dynamic(0xB9BCC2, 0x5A5E66)
     /// 更淡的说明字 #8A8E95（分隔线上的小字）。
     static let tertiary = dynamic(0x8A8E95, 0x80848B)
+    /// 卡片正文 #3E4248。
+    static let body = dynamic(0x3E4248, 0xC4C7CC)
+    /// 拖放格子的虚线框 #D3D6DB。
+    static let dash = dynamic(0xD3D6DB, 0x4A4D52)
     /// 次要文字 #63676E。
     static let secondary = dynamic(0x63676E, 0x9DA1A8)
     /// 未选开关、描边 #D9DCE0。

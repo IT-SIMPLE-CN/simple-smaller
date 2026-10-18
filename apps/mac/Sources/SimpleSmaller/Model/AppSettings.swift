@@ -21,6 +21,8 @@ final class AppSettings {
     var clipboardAuto: Bool { didSet { d.set(clipboardAuto, forKey: "clipboardAuto"); Self.later { ClipboardWatcher.shared.refresh() } } }
     /// 剪贴板图片的长边上限；0 为不缩小。
     var clipboardMaxEdge: Int { didSet { d.set(clipboardMaxEdge, forKey: "clipboardMaxEdge") } }
+    /// 图片上次用过的裁切比例（CropPreset 的 id）。首页「裁切」标签、拖到「裁切」格时用它，没用过是小红书 3:4。
+    var lastImageRatio: String { didSet { d.set(lastImageRatio, forKey: "lastImageRatio") } }
     /// 监视的文件夹与各自的配方。
     var watchFolders: [WatchFolder] {
         didSet {
@@ -42,6 +44,7 @@ final class AppSettings {
             "menuBarIcon": true,
             "clipboardAuto": false,
             "clipboardMaxEdge": 0,
+            "lastImageRatio": "xhs",
         ])
         outputLocation = OutputLocation(rawValue: d.string(forKey: "outputLocation") ?? "") ?? .beside
         outputFolder = d.string(forKey: "outputFolder") ?? ""
@@ -49,6 +52,7 @@ final class AppSettings {
         menuBarIcon = d.bool(forKey: "menuBarIcon")
         clipboardAuto = d.bool(forKey: "clipboardAuto")
         clipboardMaxEdge = d.integer(forKey: "clipboardMaxEdge")
+        lastImageRatio = d.string(forKey: "lastImageRatio") ?? "xhs"
         watchFolders = d.data(forKey: "watchFolders").flatMap { try? JSONDecoder().decode([WatchFolder].self, from: $0) } ?? []
     }
 

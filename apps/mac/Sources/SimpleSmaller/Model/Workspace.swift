@@ -112,6 +112,7 @@ final class Workspace {
         recipeID = recipe.id
         base = recipe
         draft = recipe
+        if type == .image, let c = recipe.image.crop { AppSettings.shared.lastImageRatio = c.id }
         if type == .video {
             if recipe.video.outputFrames { videoSegment = .frames }
             else if videoSegment == .frames { videoSegment = .compress }
