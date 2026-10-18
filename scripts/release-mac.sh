@@ -130,6 +130,9 @@ if [ -z "$APP_ONLY" ]; then
   rm -rf "$STAGE"
   codesign --force --timestamp --sign "$IDENTITY" "$DMG"
   step "公证 DMG"
+  # DMG 还挂载着时 notarytool 会卡在预检、不上传也不报错（2026-10-18 踩过）：先卸掉。
+  hdiutil info | awk -v img="$DMG" '$1 == "image-path" { f = (index($0, img) > 0) } f && $1 ~ /^\/dev\/disk[0-9]+$/ { print $1; f = 0 }' |
+    while IFS= read -r dev; do hdiutil detach "$dev" -force > /dev/null; done
   notarize "$DMG"
   xcrun stapler staple "$DMG" > /dev/null
   xcrun stapler validate "$DMG"
