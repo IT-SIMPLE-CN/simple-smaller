@@ -100,3 +100,19 @@ Sparkle 不降级。新版有问题时：
 ## 回滚
 
 Velopack 不降级。新版有问题时发一个版本号更高的修复版。
+
+# GitHub Releases
+
+上线（OSS + 更新源）之后，同一版本再发到仓库的 GitHub Releases，方便从仓库页面下载和留档。自动更新不读这里，仍走 OSS 与 bots.it-simple.cn。
+
+- 两端版本号各自走，分开发：tag 用 `mac-v<版本>`、`windows-v<版本>`，打在构建那一版的提交上（mac 的构建号 = main 的提交数，`git rev-list --count <提交>` 对得上的那个）。
+- mac 传 `SimpleSmaller-<版本>.dmg` 与它的 `SHA256SUMS`；Windows 传两个安装程序，文件名加上版本号（`SimpleSmaller-<版本>-win-x64-Setup.exe`、`…-win-arm64-Setup.exe`），按新名字重算 `SHA256SUMS`。更新包（zip / nupkg）不传。
+- 说明照 `release-notes/` 写「这一版」，再加「安装」：系统要求、Windows 未签名时 SmartScreen 怎么放行、`SHA256SUMS` 用法。
+- 传完用 `gh release view <tag> --json assets` 核对每个文件的 sha256 和本地一致。
+
+```bash
+git tag -a mac-v0.9.7 <提交> -m "简单小一点 mac 0.9.7（构建 168）" && git push origin mac-v0.9.7
+gh release create mac-v0.9.7 --title "简单小一点 mac 0.9.7" --notes-file notes.md SimpleSmaller-0.9.7.dmg SHA256SUMS
+```
+
+仓库目前是私有的，Releases 只有组织成员能看到；仓库公开后自动对外。
