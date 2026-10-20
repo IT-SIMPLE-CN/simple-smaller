@@ -1,22 +1,22 @@
 #!/bin/bash
 # macOS 正式包：通用二进制 → Developer ID 签名 → Apple 公证 → 装订票据 → Sparkle 更新包与 appcast → DMG。
-# 每步校验后才继续；做法与 dotnfilm-bots 的 scripts/release-mac.mjs 一致，见 docs/release.md。
+# 每步校验后才继续，见 docs/release.md。
 #
 #   scripts/release-mac.sh            完整流程
 #   scripts/release-mac.sh --app-only 只出签名并公证过的 .app 与更新包，不做 DMG
 #
 # 签名证书取钥匙串里唯一的 Developer ID Application（可用 APPLE_SIGNING_IDENTITY 指定）；
-# 公证用 notarytool 的 keychain profile（默认 dotnfilm-notary，可用 NOTARY_KEYCHAIN_PROFILE 指定）；
+# 公证用 notarytool 的 keychain profile（NOTARY_KEYCHAIN_PROFILE，写在 .local/private/release.env）；
 # 更新包的 EdDSA 私钥在钥匙串的 simple-smaller 账户下。私钥与凭据都不进命令行参数、不写日志。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_ONLY=""
 [ "${1:-}" = "--app-only" ] && APP_ONLY=1
-PROFILE="${NOTARY_KEYCHAIN_PROFILE:-dotnfilm-notary}"
 SPARKLE_BIN="$ROOT/.local/sparkle-tools/2.9.6/bin"
 SPARKLE_SHA="52bf9e88cdd972fc0c81501377a880e90d47031bd8ca5462488f843e2609e192"
 . "$ROOT/scripts/release-env.sh"
+PROFILE="${NOTARY_KEYCHAIN_PROFILE:?release.env 里没有 NOTARY_KEYCHAIN_PROFILE（notarytool 的钥匙串 profile）}"
 step() { printf '\n▸ %s\n' "$1"; }
 
 VERSION="$(tr -d ' \n' < "$ROOT/apps/mac/version.txt")"

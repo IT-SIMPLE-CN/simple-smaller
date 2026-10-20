@@ -1,6 +1,8 @@
 #!/bin/bash
-# 把 VM 里 scripts\release-windows.ps1 做好的产物发布出去：安装程序与更新包传阿里云 OSS（smaller/win/），
-# Velopack 更新源（releases.<频道>.json）放到 bots.it-simple.cn/downloads/smaller/win/。做法同 publish-mac.sh，见 docs/release.md。
+# 把 Windows 构建机（虚拟机）里 scripts\release-windows.ps1 做好的产物发布出去：安装程序与更新包传阿里云 OSS（smaller/win/），
+# Velopack 更新源（releases.<频道>.json）放到更新源服务器的 win/ 下。做法同 publish-mac.sh，见 docs/release.md。
+# 虚拟机名、虚拟机里的仓库路径、虚拟机里看到的 Mac 主目录写在 .local/private/release.env（SMALLER_VM、SMALLER_VM_REPO、SMALLER_VM_HOME）；
+# 在虚拟机里执行命令用本机的 .local/vm.sh（不进仓库）。
 #
 #   scripts/publish-windows.sh            发布 apps/windows/version.txt 指定的版本
 #   scripts/publish-windows.sh --dry-run  只取回产物、核对校验和与分发桶，不上传
@@ -17,20 +19,24 @@ ENV_FILE="$ROOT/.local/oss.env"
 WIN_PREFIX="$PREFIX/win"
 WIN_ASSETS="$ASSETS/win"
 WIN_REMOTE="$REMOTE/win"
-WIN_FEED="https://bots.it-simple.cn/downloads/smaller/win"
-VM="${SMALLER_VM:-Windows 11 (1)}"
+WIN_FEED="${FEED%/appcast.xml}/win"
+VM="${SMALLER_VM:?release.env 里没有 SMALLER_VM（Windows 构建虚拟机名）}"
+VM_REPO="${SMALLER_VM_REPO:?release.env 里没有 SMALLER_VM_REPO（虚拟机里的仓库路径）}"
+VM_HOME="${SMALLER_VM_HOME:?release.env 里没有 SMALLER_VM_HOME（虚拟机里看到的 Mac 主目录，如 Z:）}"
+export SMALLER_VM
 step() { printf '\n▸ %s\n' "$1"; }
 
 VERSION="$(tr -d ' \n' < "$ROOT/apps/windows/version.txt")"
 OUT="$ROOT/.local/win-releases/$VERSION"
 [ -f "$ENV_FILE" ] || { echo "缺少 ${ENV_FILE}（OSS 凭据）"; exit 1; }
 
-step "从 VM 取回 $VERSION 的产物"
+step "从虚拟机取回 $VERSION 的产物"
 rm -rf "$OUT" && mkdir -p "$OUT"
-win_out="Z:${OUT#$HOME}"; win_out="${win_out//\//\\}"
-"$ROOT/.local/vm.sh" "Copy-Item 'C:\\dev\\simple-smaller\\.local\\win-releases\\$VERSION\\*' '$win_out' -Force; 'copied'" > /dev/null
+OUT="$(cd "$OUT" && pwd -P)"
+win_out="$VM_HOME${OUT#$HOME}"; win_out="${win_out//\//\\}"
+"$ROOT/.local/vm.sh" "Copy-Item '$VM_REPO\\.local\\win-releases\\$VERSION\\*' '$win_out' -Force; 'copied'" > /dev/null
 cd "$OUT"
-[ -f SHA256SUMS ] || { echo "VM 里没有 $VERSION 的产物，先在 VM 跑 scripts\\release-windows.ps1"; exit 1; }
+[ -f SHA256SUMS ] || { echo "虚拟机里没有 $VERSION 的产物，先在虚拟机里跑 scripts\\release-windows.ps1"; exit 1; }
 tr -d '\r' < SHA256SUMS > SHA256SUMS.unix && mv SHA256SUMS.unix SHA256SUMS
 shasum -a 256 -c SHA256SUMS
 FEEDS="$(ls releases.*.json 2> /dev/null || true)"

@@ -1,0 +1,33 @@
+name: 功能建议
+description: 想要的新功能或改进
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: 请先搜一下有没有人提过同样的建议，有的话在原 Issue 里补充就好。
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台
+      multiple: true
+      options:
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么问题
+      description: 你在做什么事、哪一步不方便。
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 希望怎么解决
+  - type: textarea
+    id: extra
+    attributes:
+      label: 其他补充
+      description: 参考截图、其他工具的做法等。

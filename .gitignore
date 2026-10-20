@@ -23,3 +23,7 @@ apps/windows/**/obj/
 
 # MiSans 字体：协议不允许单独分发，构建时由 scripts/fetch-misans.ps1 下载
 apps/windows/SimpleSmaller/Assets/Fonts/
+
+# 本地 AI 协作说明与工具配置，不进仓库
+CLAUDE.md
+.claude/

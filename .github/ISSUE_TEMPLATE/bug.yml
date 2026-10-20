@@ -1,0 +1,72 @@
+name: 问题反馈
+description: 用起来出错、结果不对、界面异常
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢反馈。请**不要上传含隐私的文件**（证件、合同、私人照片等）；需要样本时，请换一份能复现问题的无关文件。
+        安全问题（如恶意文件导致崩溃或执行代码）请不要在这里提，按 [SECURITY.md](https://github.com/IT-SIMPLE-CN/simple-smaller/blob/main/SECURITY.md) 私下报告。
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台
+      options:
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: 系统版本与芯片
+      placeholder: 例如 macOS 26.1 Apple 芯片 / Windows 11 24H2 x64
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: 应用版本
+      description: 见「关于」
+      placeholder: 例如 0.9.11
+    validations:
+      required: true
+  - type: dropdown
+    id: file-type
+    attributes:
+      label: 文件类型
+      multiple: true
+      options:
+        - 图片
+        - 视频
+        - 实况照片
+        - PDF
+        - 不涉及具体文件
+    validations:
+      required: true
+  - type: input
+    id: file-detail
+    attributes:
+      label: 文件格式与大小
+      placeholder: 例如 HEIC 4032×3024 3 MB / MP4 4K 60fps 2 分钟
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开图片页，拖入……
+        2. 选择……
+        3. 点「开始」
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望的结果与实际的结果
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 截图或其他补充
+      description: 截图前请确认画面里没有隐私内容。

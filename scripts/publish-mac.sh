@@ -1,6 +1,6 @@
 #!/bin/bash
-# 把 scripts/release-mac.sh 做好的产物发布出去：安装包传阿里云 OSS，appcast 换到 bots.it-simple.cn 下。
-# 做法与 dotnfilm-bots 的 scripts/publish-mac.mjs 一致，见 docs/release.md。
+# 把 scripts/release-mac.sh 做好的产物发布出去：安装包传阿里云 OSS，appcast 换到更新源服务器上。
+# 地址见 scripts/release-env.sh，服务器与目录在 .local/private/release.env，见 docs/release.md。
 #
 #   scripts/publish-mac.sh            发布 apps/mac/version.txt 指定版本的最新一次产物
 #   scripts/publish-mac.sh --dry-run  只核对产物、分发桶与线上 appcast，不上传
