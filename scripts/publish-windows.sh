@@ -112,10 +112,10 @@ for f in $PACKAGES; do
 done
 
 step "替换更新源"
-ssh "$HOST" "sudo mkdir -p $WIN_REMOTE"
+ssh "$HOST" "mkdir -p $WIN_REMOTE"
 for f in $FEEDS; do
   ssh "$HOST" "cat > /tmp/smaller-$f.tmp" < "$f"
-  ssh "$HOST" "sudo mv /tmp/smaller-$f.tmp $WIN_REMOTE/$f && sudo chmod 644 $WIN_REMOTE/$f"
+  ssh "$HOST" "mv /tmp/smaller-$f.tmp $WIN_REMOTE/$f && chmod 644 $WIN_REMOTE/$f"
   curl -fsS "$WIN_FEED/$f" | grep -q "\"$VERSION\"" || { echo "   线上 $f 里没有 $VERSION"; exit 1; }
   echo "   $WIN_FEED/$f 已是 $VERSION"
 done

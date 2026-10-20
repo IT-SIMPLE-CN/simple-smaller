@@ -105,7 +105,7 @@ done
 
 step "替换 appcast"
 ssh "$HOST" "cat > /tmp/smaller-appcast.xml.tmp" < appcast.published.xml
-ssh "$HOST" "sudo mkdir -p $REMOTE && sudo mv /tmp/smaller-appcast.xml.tmp $REMOTE/appcast.xml && sudo chmod 644 $REMOTE/appcast.xml"
+ssh "$HOST" "mkdir -p $REMOTE && mv /tmp/smaller-appcast.xml.tmp $REMOTE/appcast.xml && chmod 644 $REMOTE/appcast.xml"
 BUILD_NOW="$(sed -n 's/.*<sparkle:version>\([^<]*\)<.*/\1/p' appcast.xml | head -1)"
 curl -fsS "$FEED" | grep -q "<sparkle:version>$BUILD_NOW</sparkle:version>" || { echo "   线上 appcast 里没有 $BUILD_NOW"; exit 1; }
 echo "   $FEED 已是 ${VERSION}（${BUILD_NOW}）"
