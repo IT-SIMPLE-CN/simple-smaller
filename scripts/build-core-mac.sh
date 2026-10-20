@@ -25,6 +25,14 @@ unset MACOSX_DEPLOYMENT_TARGET
 export CFLAGS="-mmacosx-version-min=14.0"
 export CXXFLAGS="-mmacosx-version-min=14.0"
 
+# 编译产物里不留本机路径（panic 信息、调试信息里的源码位置）：仓库、cargo 注册表、主目录都映射成短名。
+# 仓库路径带空格，RUSTFLAGS 按空格拆分会拆坏，用 CARGO_ENCODED_RUSTFLAGS（参数之间用 0x1f 分隔）。
+# 同一路径匹配多条时后写的优先，所以主目录写在最前面。
+CARGO_HOME_DIR="${CARGO_HOME:-$HOME/.cargo}"
+SEP=$'\x1f'
+export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$HOME=~${SEP}--remap-path-prefix=$CARGO_HOME_DIR/registry/src=/cargo${SEP}--remap-path-prefix=$CARGO_HOME_DIR/git/checkouts=/cargo-git${SEP}--remap-path-prefix=$ROOT=/smaller"
+unset RUSTFLAGS
+
 FLAG=""
 [ "$PROFILE" = "release" ] && FLAG="--release"
 if [ "$UNIVERSAL" = "universal" ]; then

@@ -20,6 +20,18 @@ $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 $ErrorActionPreference = 'Continue'
 function Assert-Ok([string]$What) { if ($LASTEXITCODE -ne 0) { throw "$What 失败（$LASTEXITCODE）" } }
 
+# 编译产物里不留本机路径（panic 信息、调试信息里的源码位置）：仓库、cargo 注册表、用户目录都映射成短名。
+# 仓库路径可能带空格，RUSTFLAGS 按空格拆分会拆坏，用 CARGO_ENCODED_RUSTFLAGS（参数之间用 0x1f 分隔）。
+# 同一路径匹配多条时后写的优先，所以用户目录写在最前面。
+$cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
+$env:CARGO_ENCODED_RUSTFLAGS = @(
+  "--remap-path-prefix=$env:USERPROFILE=~",
+  "--remap-path-prefix=$cargoHome\registry\src=\cargo",
+  "--remap-path-prefix=$cargoHome\git\checkouts=\cargo-git",
+  "--remap-path-prefix=$Root=\smaller"
+) -join [char]0x1f
+Remove-Item Env:RUSTFLAGS -ErrorAction SilentlyContinue
+
 Set-Location $Root
 if ($Profile -eq 'release') { cargo build --release -p smaller-core --target $Triple } else { cargo build -p smaller-core --target $Triple }
 Assert-Ok 'cargo build' 

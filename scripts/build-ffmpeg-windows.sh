@@ -134,6 +134,7 @@ EOF
 echo "✓ dav1d"
 
 # ffmpeg：关掉自动探测，只开明确需要的组件。-static 让 libc++、libunwind、winpthread 都静态链进去。
+# 不要 hls、concat 解复用：这两种格式会按文件里写的路径去读别的文件，打开别人给的文件时不该这样。
 # n9.0 的 mfenc.c 无条件用到 D3D11 的类型，不开 d3d11va 编不过；它只在运行时按需加载 d3d11.dll。
 fetch ffmpeg "$FFMPEG_TAG" https://git.ffmpeg.org/ffmpeg.git
 rm -rf "$BUILD/ffmpeg" && mkdir -p "$BUILD/ffmpeg"
@@ -144,9 +145,12 @@ rm -rf "$BUILD/ffmpeg" && mkdir -p "$BUILD/ffmpeg"
     --extra-cflags="-I$PREFIX/include" --extra-ldflags="-L$PREFIX/lib -static" --extra-libs="-lc++" \
     --enable-gpl --enable-version3 --enable-static --disable-shared \
     --disable-autodetect --disable-doc --disable-debug --disable-network --disable-ffplay \
+    --disable-demuxer=hls,concat \
     --enable-w32threads --enable-zlib --enable-libx264 --enable-libzimg --enable-libdav1d \
     --enable-mediafoundation --enable-d3d11va \
     > configure.log
+  # 编译配置会原样写进程序（-buildconf、数据目录），把本机主目录换成 ~，产物里不留本机路径。
+  sed -i '' "s#$HOME#~#g" config.h
   make -j"$JOBS" > build.log && make install > install.log
 )
 cp "$PREFIX/bin/ffmpeg.exe" "$PREFIX/bin/ffprobe.exe" "$OUT/"

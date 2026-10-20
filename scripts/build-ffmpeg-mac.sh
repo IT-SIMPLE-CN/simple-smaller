@@ -56,6 +56,7 @@ rm -rf "$BUILD/zimg" && cp -R "$SRC/zimg" "$BUILD/zimg"
 echo "✓ zimg"
 
 # ffmpeg：关掉自动探测，只开明确需要的组件，不会误链本机 Homebrew 的库。
+# 不要 hls、concat 解复用：这两种格式会按文件里写的路径去读别的文件，打开别人给的文件时不该这样。
 if stale "$SRC/ffmpeg" "$FFMPEG_TAG"; then
   rm -rf "$SRC/ffmpeg"
   git clone -q --depth 1 --branch "$FFMPEG_TAG" https://git.ffmpeg.org/ffmpeg.git "$SRC/ffmpeg"
@@ -68,9 +69,12 @@ mkdir -p "$BUILD/ffmpeg"
     --extra-cflags="$CFLAGS_ARCH -I$PREFIX/include" --extra-ldflags="$CFLAGS_ARCH -L$PREFIX/lib" \
     --enable-gpl --enable-version3 --enable-static --disable-shared \
     --disable-autodetect --disable-doc --disable-debug --disable-network --disable-ffplay \
+    --disable-demuxer=hls,concat \
     --enable-libx264 --enable-libzimg --enable-zlib \
     --enable-videotoolbox --enable-audiotoolbox \
     > configure.log
+  # 编译配置会原样写进程序（-buildconf、数据目录），把本机主目录换成 ~，产物里不留本机路径。
+  sed -i '' "s#$HOME#~#g" config.h
   make -j"$JOBS" > build.log && make install > install.log
 )
 cp "$PREFIX/bin/ffmpeg" "$PREFIX/bin/ffprobe" "$OUT/"
