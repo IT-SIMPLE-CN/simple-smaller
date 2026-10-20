@@ -46,7 +46,7 @@ internal sealed class UndoBar : Grid
         Children.Add(pill);
         AutomationProperties.SetLiveSetting(this, AutomationLiveSetting.Polite);
 
-        // 左大卡换内容时会被挪到新卡上（先卸再装）：装上时按当前状态摆好，卸下时退订。
+        // 每张左大卡各有一个（换内容时新建，不搬动）：装上时按当前状态摆好，卸下时退订。
         Loaded += (_, _) =>
         {
             model.PropertyChanged -= OnModelChanged;
@@ -54,7 +54,7 @@ internal sealed class UndoBar : Grid
             Paint();
             Sync();
         };
-        // 挪位置时旧位置的 Unloaded 可能晚于新位置的 Loaded：已经装在新卡上就不退订。
+        // 窄档 / 宽档切换时整张卡连同提示条被搬进新网格，WinUI 会在新位置 Loaded 之后才补发旧的 Unloaded：还装着就不退订。
         Unloaded += (_, _) => { if (!IsLoaded) model.PropertyChanged -= OnModelChanged; };
         ActualThemeChanged += (_, _) => Paint();
     }

@@ -23,13 +23,10 @@ internal sealed class WorkView : Reactive
     private string contentKey = "";
     private bool? narrow;
     private UIElement? main, bar, upper, lowerLeft, lowerRight;
-    /// 清空 / 移除后的提示条：照设计稿 V3 · 11 浮在左大卡底部居中（左大卡换内容时挪到新卡上）。
-    private readonly UndoBar undoBar;
 
     public WorkView(Workspace ws)
     {
         this.ws = ws;
-        undoBar = new UndoBar(ws);
         Content = host;
         Watch(ws, nameof(Workspace.ShowResult), nameof(Workspace.Running), nameof(Workspace.SegmentKey),
             nameof(Workspace.IsCropping), nameof(Workspace.CropEditing), nameof(Workspace.VideoSegment), nameof(Workspace.PdfSegment));
@@ -88,13 +85,14 @@ internal sealed class WorkView : Reactive
         }
     }
 
-    /// 左大卡上盖一层提示条（不占布局）。
+    /// 左大卡上盖一层清空 / 移除后的提示条（设计稿 V3 · 11，不占布局）。
+    /// 每张卡各建一个、不在卡之间搬：提示条带 Composition 阴影，搬动父容器会让 XAML 底层崩溃（完成页「改设置再做一次」必现）。
+    /// 新建的提示条装上时按当前状态直接摆好，不重播出现动画。
     private UIElement WithUndoBar(UIElement card)
     {
-        if (undoBar.Parent is Panel old) old.Children.Remove(undoBar);
         var g = new Grid();
         g.Children.Add(card);
-        g.Children.Add(undoBar);
+        g.Children.Add(new UndoBar(ws));
         return g;
     }
 
