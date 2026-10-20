@@ -1,0 +1,18 @@
+[package]
+name = "smaller-core-host"
+description = "简单小一点的引擎宿主：把 smaller-core 包成独立进程，经标准输入输出（行分隔 JSON）供 Windows 应用调用"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish = false
+
+# 编出来叫 smaller-core-host（不和引擎库的 smaller_core.pdb 撞名），构建脚本拷进应用时改名为 smaller-core.exe，
+# 与 SimpleSmaller.exe、ffmpeg.exe 放在同一目录。
+[[bin]]
+name = "smaller-core-host"
+path = "src/main.rs"
+
+[dependencies]
+smaller-core = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

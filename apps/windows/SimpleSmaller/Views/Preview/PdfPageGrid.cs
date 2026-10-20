@@ -7,7 +7,7 @@ using Microsoft.UI.Xaml.Media;
 using SimpleSmaller.Bento;
 using Windows.Foundation;
 using Windows.System;
-using uniffi.smaller_core;
+using SimpleSmaller.Core;
 
 namespace SimpleSmaller.Views.Preview;
 

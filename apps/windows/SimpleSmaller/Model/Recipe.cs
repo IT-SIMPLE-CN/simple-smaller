@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using uniffi.smaller_core;
+using SimpleSmaller.Core;
 
 namespace SimpleSmaller;
 
@@ -20,9 +20,9 @@ internal static class MediaTypes
 
     public static Kind EngineKind(this MediaType t) => t switch
     {
-        MediaType.Image => uniffi.smaller_core.Kind.Image,
-        MediaType.Video => uniffi.smaller_core.Kind.Video,
-        _ => uniffi.smaller_core.Kind.Pdf,
+        MediaType.Image => SimpleSmaller.Core.Kind.Image,
+        MediaType.Video => SimpleSmaller.Core.Kind.Video,
+        _ => SimpleSmaller.Core.Kind.Pdf,
     };
 
     public static MediaType? Of(string path)

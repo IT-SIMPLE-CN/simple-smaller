@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
-using uniffi.smaller_core;
+using SimpleSmaller.Core;
 
 namespace SimpleSmaller;
 

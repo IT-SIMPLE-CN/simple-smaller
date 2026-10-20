@@ -18,7 +18,7 @@ internal sealed record LiveFiles(string? Photo, string? Video, string? Motion)
     public IReadOnlyList<string> All => new[] { Photo, Video, Motion }.Where(p => p != null).Select(p => p!).ToList();
     public bool IsPair => Photo != null && Video != null;
 
-    public static LiveFiles Of(IEnumerable<uniffi.smaller_core.Output> outputs)
+    public static LiveFiles Of(IEnumerable<SimpleSmaller.Core.Output> outputs)
     {
         string? photo = null, video = null, motion = null;
         foreach (var o in outputs)

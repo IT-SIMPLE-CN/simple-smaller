@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Windows.AppLifecycle;
@@ -179,6 +179,8 @@ public partial class App : Application
         notifier?.Teardown();
         AppModel.ClearUnlocked();
         foreach (var w in OpenSubWindows().ToList()) w.Close();
+        // 引擎进程（及它起的 ffmpeg）随之结束；进程意外退出时由作业对象兜底。
+        Core.EngineHost.Shared.Shutdown();
         Current.Exit();
     }
 }

@@ -41,9 +41,11 @@ foreach ($a in $Arch) {
   if (Test-Path $pub) { Remove-Item -Recurse -Force $pub }
   dotnet publish "$App\SimpleSmaller.csproj" -c Release -r $rid -p:Platform=$platform --self-contained -p:Version=$Version -o $pub -nologo -v q | Select-Object -Last 5
   Assert-Ok "dotnet publish $rid"
-  foreach ($f in 'SimpleSmaller.exe', 'smaller_core.dll', 'ffmpeg.exe', 'ffprobe.exe', 'Assets\Fonts\MiSansVF.ttf', 'Assets\Fonts\MiSans-License.pdf') {
+  # 引擎是独立进程 smaller-core.exe；应用进程里不应再有引擎 DLL。
+  foreach ($f in 'SimpleSmaller.exe', 'smaller-core.exe', 'ffmpeg.exe', 'ffprobe.exe', 'Assets\Fonts\MiSansVF.ttf', 'Assets\Fonts\MiSans-License.pdf') {
     if (-not (Test-Path "$pub\$f")) { throw "发布目录里缺 $f" }
   }
+  if (Test-Path "$pub\smaller_core.dll") { throw "发布目录里不该有 smaller_core.dll（引擎已改为独立进程）" }
   "▸ $rid：打包"
   # 只建开始菜单快捷方式（和 mac 一样不往桌面放东西）；不出便携版。
   vpk pack --packId SimpleSmaller --packVersion $Version --packDir $pub --mainExe SimpleSmaller.exe `

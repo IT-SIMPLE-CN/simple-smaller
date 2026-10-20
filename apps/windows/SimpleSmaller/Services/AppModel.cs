@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
-using uniffi.smaller_core;
+using SimpleSmaller.Core;
 
 namespace SimpleSmaller;
 
@@ -25,7 +25,7 @@ internal sealed partial class AppModel : ObservableObject
     }
 
     // 平台解码：mac 用 ImageIO 解 HEIC；Windows 暂不接，引擎自带的解码器处理其余格式。
-    public Engine Engine { get; } = new(null);
+    public Engine Engine { get; } = new();
     public RecipeStore Store { get; } = new();
     public AppSettings Settings => AppSettings.Shared;
     public IPlatform Platform { get; }
