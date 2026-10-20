@@ -43,6 +43,8 @@ Sparkle 与 Velopack 都不降级。新版有问题时：
 - mac 传 `SimpleSmaller-<版本>.dmg` 与它的 `SHA256SUMS`；Windows 传两个安装程序，文件名带上版本号（`SimpleSmaller-<版本>-win-x64-Setup.exe`、`…-win-arm64-Setup.exe`），按新名字重算 `SHA256SUMS`。更新包（zip / nupkg）不传。
 - 说明照 `release-notes/` 写「这一版」，再加「安装」：系统要求、Windows 未签名时 SmartScreen 怎么放行、`SHA256SUMS` 用法。
 - 传完用 `gh release view <tag> --json assets` 核对每个文件的 sha256 和本地一致。
+- GPL / AGPL 组件的源码随发布提供：FFmpeg、x264、zimg、dav1d、zlib、MuPDF（含子模块）的源码归档（从构建脚本固定版本的 checkout 用 `git archive` 打），gifski、imagequant 的 `.crate` 原包（sha256 与 `Cargo.lock` 的 checksum 一致）；Windows 版再附两种架构的 ffmpeg 预编译包（`ffmpeg.exe`、`ffprobe.exe` 与许可证）。这些库的版本没变时，新版本的说明里链接到上一次附带它们的 Release 即可。
+- 发版前确认许可证清单是新的：Rust 依赖变了跑 `scripts/gen-licenses.sh` 与 `cargo deny check licenses`，库升级了同步 `licenses/`、`THIRD_PARTY_NOTICES.md` 与两份 `Licenses.txt`（见 [licenses/README.md](../licenses/README.md)）。
 
 ```bash
 git tag -a mac-v0.9.7 <提交> -m "简单小一点 mac 0.9.7（构建 168）" && git push origin mac-v0.9.7
