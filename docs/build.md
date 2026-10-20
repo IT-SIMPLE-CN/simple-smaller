@@ -121,7 +121,7 @@ scripts/build-ffmpeg-windows.sh x64      # 或 all 两套都编
 1. `scripts\build-codecs-windows.ps1 -Arch arm64`：jpegli、libwebp、aom、libavif → `.local\codecs\win-<架构>`。
 2. `scripts\build-mupdf-windows.ps1 -Arch arm64`：MuPDF → `.local\mupdf\win-<架构>`。
 3. `scripts\fetch-misans.ps1`：下载 MiSans 字体到 `apps\windows\SimpleSmaller\Assets\Fonts`（按其许可协议不进仓库，见脚本说明）。
-4. `scripts\build-core-windows.ps1 -Arch arm64`：编 Rust 引擎、生成 C# 绑定，并和 ffmpeg.exe / ffprobe.exe 一起放到 `apps\windows\SimpleSmaller\Native\<架构>`。
+4. `scripts\build-core-windows.ps1 -Arch arm64`：编 Rust 引擎宿主程序 `smaller-core.exe`（独立进程，界面经标准输入输出调用），并和 ffmpeg.exe / ffprobe.exe 一起放到 `apps\windows\SimpleSmaller\Native\<架构>`。
 
 前三步只在第一次或升级库版本时跑；改了引擎重跑第 4 步。
 

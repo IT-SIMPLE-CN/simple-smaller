@@ -9,8 +9,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="$HOME/.cargo/bin:$PATH"
 cd "$ROOT"
 command -v cargo-about > /dev/null || { echo "需要 cargo-about：cargo install --locked cargo-about --features cli" >&2; exit 1; }
+# mac 直接链接引擎库（core）；Windows 随包的是引擎宿主程序 smaller-core.exe（core-host，含 core 与 JSON 通信用的库）。
 for p in mac windows; do
-  cargo about generate --locked -c "licenses/about/$p.toml" -m core/Cargo.toml \
+  manifest=core/Cargo.toml
+  [ "$p" = windows ] && manifest=core-host/Cargo.toml
+  cargo about generate --locked -c "licenses/about/$p.toml" -m "$manifest" \
     licenses/about/crates.hbs -o "licenses/$p/rust-crates.txt"
   echo "✓ licenses/$p/rust-crates.txt"
 done
