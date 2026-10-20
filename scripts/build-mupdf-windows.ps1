@@ -35,7 +35,10 @@ foreach ($proj in Get-ChildItem "$Src\platform\win32" -Filter '*.vcxproj') {
 }
 
 $platform = if ($Arch -eq 'x64') { 'x64' } else { 'ARM64' }
-$env:CL = '/DTOFU /DTOFU_CJK'
+# FZ_ENABLE_HYPHEN=0：不带断字表（hyph-all.zip，只给 HTML 排版用，各语言词表许可证不一），PDF 处理用不上。
+$env:CL = '/DTOFU /DTOFU_CJK /DFZ_ENABLE_HYPHEN=0'
+# 编译选项不进 msbuild 的增量判断，每次从干净目录编，免得沿用旧选项编出的目标文件。
+if (Test-Path "$Src\platform\win32\$platform\Release") { Remove-Item -Recurse -Force "$Src\platform\win32\$platform\Release" }
 $ErrorActionPreference = 'Continue'
 msbuild "$Src\platform\win32\mupdf.sln" /t:libmupdf /p:Configuration=Release /p:Platform=$platform /p:PlatformToolset=v143 /m /v:minimal /nologo *> $Log
 $code = $LASTEXITCODE
@@ -47,8 +50,8 @@ $built = "$Src\platform\win32\$platform\Release"
 $names = @{
   'libmupdf.lib' = 'mupdf.lib'; 'libthirdparty.lib' = 'mupdf-third.lib'; 'libresources.lib' = 'mupdf-resources.lib'
   'libpkcs7.lib' = 'mupdf-pkcs7.lib'; 'libharfbuzz.lib' = 'mupdf-harfbuzz.lib'; 'libextract.lib' = 'mupdf-extract.lib'
-  'libmubarcode.lib' = 'mupdf-barcode.lib'; 'libzxing.lib' = 'mupdf-zxing.lib'
 }
+# 条码库（libmubarcode / libzxing）不拷：引擎用不到条码，不拷就保证链接时不会带进 zxing-cpp / zint。
 Remove-Item "$Out\lib\*.lib" -ErrorAction SilentlyContinue
 foreach ($k in $names.Keys) {
   if (Test-Path "$built\$k") { Copy-Item "$built\$k" "$Out\lib\$($names[$k])" }

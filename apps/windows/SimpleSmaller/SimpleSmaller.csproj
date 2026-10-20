@@ -52,6 +52,11 @@
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- 第三方许可证全文（AGPL 等要求随二进制附带）：仓库 licenses\common 加 Windows 专属的 licenses\windows，装到 Assets\ThirdParty。 -->
+  <ItemGroup>
+    <Content Include="..\..\..\licenses\common\*;..\..\..\licenses\windows\*" Link="Assets\ThirdParty\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- 引擎 DLL 由 scripts/build-core-windows.ps1 放到 Native\<架构>。 -->
   <ItemGroup>
     <None Include="Native\$(NativeArch)\smaller_core.dll" Link="smaller_core.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Native\$(NativeArch)\smaller_core.dll')" />

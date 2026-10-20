@@ -23,9 +23,12 @@ if stale "$SRC" "$MUPDF_TAG"; then
 fi
 
 # TOFU：不内置 Noto 兜底字体（PDF 绝大多数自带嵌入字体），否则静态库要大几十 MB。
+# FZ_ENABLE_HYPHEN=0：不带断字表（hyph-all.zip，只给 HTML 排版用，各语言词表许可证不一），PDF 处理用不上。
+# 编译选项不进 make 的依赖判断，每次从干净目录编，免得沿用旧选项编出的目标文件。
+rm -rf "$SRC/build/release-$ARCH"
 make -C "$SRC" -j"$JOBS" build=release OUT="build/release-$ARCH" \
   HAVE_X11=no HAVE_GLUT=no HAVE_CURL=no HAVE_LEPTONICA=no HAVE_TESSERACT=no \
-  XCFLAGS="-arch $ARCH -mmacosx-version-min=14.0 -DTOFU -DTOFU_CJK" \
+  XCFLAGS="-arch $ARCH -mmacosx-version-min=14.0 -DTOFU -DTOFU_CJK -DFZ_ENABLE_HYPHEN=0" \
   XLDFLAGS="-arch $ARCH -mmacosx-version-min=14.0" \
   libs > "$WORK/mupdf-$ARCH.build.log"
 

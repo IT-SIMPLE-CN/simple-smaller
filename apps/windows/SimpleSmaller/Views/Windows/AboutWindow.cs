@@ -13,7 +13,7 @@ namespace SimpleSmaller.Views.Sub;
 /// mac 的红绿灯换成 Windows 右上角的系统关闭按钮。
 internal sealed class AboutWindow : SubWindow
 {
-    public AboutWindow() : base("关于简单小一点", 420, 556, "BentoCard", showTitle: false)
+    public AboutWindow() : base("关于简单小一点", 420, 578, "BentoCard", showTitle: false)
     {
         OverlayTitle();
         var page = new Grid();
@@ -70,8 +70,16 @@ internal sealed class AboutWindow : SubWindow
         var licenses = new TextCapsule("开源组件与许可证", 44, 13, 16) { HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 8, 0, 0) };
         licenses.Click += (_, _) => App.OpenLicenses();
         s.Children.Add(licenses);
-        var copyright = FormTheme.Text("© 2021–2026 IT-SIMPLE · AGPLv3", 11, "BentoSecondary");
-        s.Children.Add(Center(copyright, 16));
+        // AGPL-3.0 第 0、5(d) 条：交互界面里写明许可、无担保，并给出源代码。
+        var notice = new TextBlock { FontSize = 11, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap };
+        notice.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "本程序以 AGPL-3.0 授权，不提供任何担保。" });
+        var source = new Microsoft.UI.Xaml.Documents.Hyperlink { NavigateUri = new Uri(AppLinks.Source), UnderlineStyle = Microsoft.UI.Xaml.Documents.UnderlineStyle.None };
+        source.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "源代码" });
+        notice.Inlines.Add(source);
+        FormTheme.On(notice, () => { notice.Foreground = Palette.Get(notice, "BentoSecondary"); source.Foreground = Palette.Brand; });
+        s.Children.Add(Center(notice, 16));
+        var copyright = FormTheme.Text("© 2021–2026 IT-SIMPLE · AGPL-3.0", 11, "BentoSecondary");
+        s.Children.Add(Center(copyright, 4));
         page.Children.Add(s);
         Body.Children.Add(page);
     }
@@ -129,6 +137,14 @@ internal sealed class LicensesWindow : SubWindow
         var scroll = new ScrollViewer { Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollMode = ScrollMode.Auto };
         var done = new BrandButton("完成", 34, 13, 20) { HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12) };
         done.Click += (_, _) => Close();
+        // 左下：打开安装目录里的许可证全文（Assets\ThirdParty）、源代码仓库。
+        var full = new TextCapsule("打开许可证全文", 34, 13, 16);
+        full.Click += (_, _) => OpenThirdParty();
+        var code = new TextCapsule("源代码", 34, 13, 16);
+        code.Click += async (_, _) => await Windows.System.Launcher.LaunchUriAsync(new Uri(AppLinks.Source));
+        var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12) };
+        left.Children.Add(full);
+        left.Children.Add(code);
         var g = new Grid();
         g.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -137,8 +153,25 @@ internal sealed class LicensesWindow : SubWindow
         FormTheme.On(line, () => line.Background = Palette.Get(line, "BentoLine"));
         Grid.SetRow(line, 1);
         Grid.SetRow(done, 1);
+        Grid.SetRow(left, 1);
         g.Children.Add(line);
+        g.Children.Add(left);
         g.Children.Add(done);
         Body.Children.Add(g);
     }
+
+    private static void OpenThirdParty()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "Assets", "ThirdParty");
+        if (!Directory.Exists(dir)) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true }); }
+        catch { }
+    }
+}
+
+/// 对外链接。
+internal static class AppLinks
+{
+    /// 源代码仓库（AGPL-3.0 要求向用户提供源代码）；每个版本对应 tag windows-v<版本>。
+    public const string Source = "https://github.com/IT-SIMPLE-CN/simple-smaller";
 }

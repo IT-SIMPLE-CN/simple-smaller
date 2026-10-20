@@ -34,6 +34,9 @@ else
   cp "$ROOT/.local/ffmpeg/$ARCH/bin/ffmpeg" "$ROOT/.local/ffmpeg/$ARCH/bin/ffprobe" "$APP/Contents/Resources/bin/"
 fi
 cp "$ROOT/apps/mac/Resources/"* "$APP/Contents/Resources/"
+# 第三方许可证全文（AGPL 等要求随二进制附带）：两端共用的 licenses/common 加 mac 专属的 licenses/mac。
+mkdir -p "$APP/Contents/Resources/ThirdParty"
+cp "$ROOT/licenses/common/"* "$ROOT/licenses/mac/"* "$APP/Contents/Resources/ThirdParty/"
 # 强调色（品牌红）与应用图标编成 Assets.car：系统按 macOS 规则在开关、滑杆、进度、选中处用强调色。
 xcrun actool "$ROOT/apps/mac/Assets.xcassets" --compile "$APP/Contents/Resources" --platform macosx \
   --minimum-deployment-target 14.0 --app-icon AppIcon --accent-color AccentColor \

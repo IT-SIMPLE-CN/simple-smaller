@@ -48,6 +48,10 @@ foreach ($a in $Arch) {
   foreach ($f in 'SimpleSmaller.exe', 'smaller_core.dll', 'ffmpeg.exe', 'ffprobe.exe', 'Assets\Fonts\MiSansVF.ttf', 'Assets\Fonts\MiSans-License.pdf') {
     if (-not (Test-Path "$pub\$f")) { throw "发布目录里缺 $f" }
   }
+  # 许可证全文（AGPL 等要求随二进制附带，见 licenses\ 与 THIRD_PARTY_NOTICES.md）。
+  foreach ($f in 'SimpleSmaller-AGPL-3.0.txt', 'FFmpeg-LICENSE.md', 'MuPDF-COPYING.txt', 'WindowsAppSDK-2.5.1-license.txt', 'dotnet-THIRD-PARTY-NOTICES.txt', 'rust-crates.txt') {
+    if (-not (Test-Path "$pub\Assets\ThirdParty\$f")) { throw "发布目录里缺许可证 Assets\ThirdParty\$f" }
+  }
   "▸ $rid：打包"
   # 只建开始菜单快捷方式（和 mac 一样不往桌面放东西）；不出便携版。
   vpk pack --packId SimpleSmaller --packVersion $Version --packDir $pub --mainExe SimpleSmaller.exe `

@@ -1,0 +1,16 @@
+gifski 1.34.0 —— https://github.com/ImageOptim/gifski
+作者（crate 元数据）：Kornel <kornel@geekhood.net>
+
+许可证：AGPL-3.0-or-later（crate 元数据 license = "AGPL-3.0-or-later"）。
+gifski 的 README 原文：
+
+  ## License
+
+  AGPL 3 or later. I can offer alternative licensing options, including
+  [commercial licenses](https://supso.org/projects/pngquant). Let
+  [me](https://kornel.ski/contact) know if you'd like to use it in a product
+  incompatible with this license.
+
+本应用启用了 gifski 的 gifsicle 特性：有损 GIF 压缩（Rust 实现，源自 giflossy），
+是 gifski 自身的代码，随 gifski 按 AGPL-3.0-or-later 授权。
+AGPL-3.0 全文见同目录 SimpleSmaller-AGPL-3.0.txt。
