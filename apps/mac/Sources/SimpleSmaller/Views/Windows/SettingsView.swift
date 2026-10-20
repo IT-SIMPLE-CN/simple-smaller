@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 设置（设计稿 V2.1 · 10）：便当盒小窗，通用 / 配方 / 自动 三页。
+/// 设置（设计稿 V2.1 · 10）：便当盒小窗，通用 / 常用 / 自动 三页。
 struct SettingsView: View {
     enum Tab: String, CaseIterable { case general = "通用", recipes = "常用", auto = "自动" }
     @State private var tab: Tab = .general

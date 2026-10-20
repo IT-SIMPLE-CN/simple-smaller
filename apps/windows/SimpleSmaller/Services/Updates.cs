@@ -29,8 +29,13 @@ internal sealed partial class Updates : ObservableObject
         {
             if (managerCache is null && !managerFailed)
             {
-                // 测试用：设了 SMALLER_UPDATE_URL（本地目录或网址）就从那里取更新源和安装包，验证更新流程不用先发到线上。
+#if UPDATE_TEST
+                // 只在测试打包（release-windows.ps1 -UpdateTest）里有：设了 SMALLER_UPDATE_URL（本地目录或网址）
+                // 就从那里取更新源和安装包，验证更新流程不用先发到线上。正式版不认这个变量。
                 var test = Environment.GetEnvironmentVariable("SMALLER_UPDATE_URL");
+#else
+                string? test = null;
+#endif
                 try { managerCache = string.IsNullOrEmpty(test) ? new UpdateManager(new SplitSource()) : new UpdateManager(test); }
                 catch (Exception e) { managerFailed = true; Log.Error($"自动更新不可用：{e.Message}"); }
             }

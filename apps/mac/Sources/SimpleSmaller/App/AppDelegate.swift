@@ -102,7 +102,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ClipboardWatcher.shared.refresh()
             FolderWatcher.shared.refresh()
             ServiceProvider.register()
+            #if DEBUG
             ScriptHooks.install()
+            #endif
             // 命令行 `--open <路径>...` 等同拖入，供脚本化验证。
             let args = CommandLine.arguments
             if let i = args.firstIndex(of: "--open") {

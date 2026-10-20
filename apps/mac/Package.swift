@@ -12,7 +12,7 @@ let sdkVersion = ProcessInfo.processInfo.environment["SMALLER_SDK_VERSION"] ?? "
 let package = Package(
     name: "SimpleSmaller",
     platforms: [.macOS(.v14)],
-    // 自动更新（与 dotnfilm-bots 同一版本）。
+    // 自动更新（Sparkle，固定版本）。
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6"),
     ],

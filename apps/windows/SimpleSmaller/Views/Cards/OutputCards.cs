@@ -184,7 +184,7 @@ internal static class Lock
     }
 }
 
-/// 「已修改」+「存为新配方」（卡片头右侧）。
+/// 「已修改」+「存为常用」（卡片头右侧）。
 internal sealed class SaveRecipeAccessory : StackPanel
 {
     private readonly Workspace ws;

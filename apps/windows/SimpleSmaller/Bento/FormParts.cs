@@ -205,7 +205,7 @@ public sealed class Chip : Button
     }
 }
 
-/// 品牌红胶囊主按钮（「存储」「新建配方」「在资源管理器中显示」）。不可用时变淡。
+/// 品牌红胶囊主按钮（「存储」「新建常用」「在资源管理器中显示」）。不可用时变淡。
 public sealed class BrandButton : Button
 {
     private readonly Border back = new();

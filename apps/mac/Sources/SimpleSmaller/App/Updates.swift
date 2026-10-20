@@ -2,7 +2,7 @@ import AppKit
 import Observation
 import Sparkle
 
-/// 自动更新（Sparkle，做法与 dotnfilm-bots 一致）：每 6 小时在后台查一次，
+/// 自动更新（Sparkle）：每 6 小时在后台查一次，
 /// 发现新版本先弹系统样式的提示，用户同意才下载安装；更新包用 EdDSA 验签。
 @Observable
 @MainActor

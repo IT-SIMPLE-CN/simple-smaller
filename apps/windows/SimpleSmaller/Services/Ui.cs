@@ -33,8 +33,30 @@ internal static class Ui
 }
 
 /// 处理日志：写到调试输出（DebugView / VS 输出窗口可看）。
+/// 错误另外追加到 %LOCALAPPDATA%\SimpleSmaller\error.log，便于用户反馈问题时自己附上；
+/// 超过 1 MB 就从头写。只在本机，不收集、不上传。
 internal static class Log
 {
+    private static readonly object FileLock = new();
+    private const long MaxBytes = 1_000_000;
+
+    public static string ErrorFilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SimpleSmaller", "error.log");
+
     public static void Info(string message) => Trace.WriteLine($"[smaller] {message}");
-    public static void Error(string message) => Trace.WriteLine($"[smaller] 错误 {message}");
+
+    public static void Error(string message)
+    {
+        Trace.WriteLine($"[smaller] 错误 {message}");
+        try
+        {
+            lock (FileLock)
+            {
+                var path = ErrorFilePath;
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                if (File.Exists(path) && new FileInfo(path).Length > MaxBytes) File.Delete(path);
+                File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}\n");
+            }
+        }
+        catch { }
+    }
 }

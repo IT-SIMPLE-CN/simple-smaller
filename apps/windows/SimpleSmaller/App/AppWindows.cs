@@ -14,7 +14,7 @@ public partial class App
     /// 设置窗口句柄（文件选择器用）；没开时用主窗口。
     internal static IntPtr SettingsHwnd => settings?.Hwnd ?? MainHwnd;
 
-    /// 设置窗口；tab 是「通用」「配方」「自动」之一。
+    /// 设置窗口；tab 是「通用」「常用」「自动」之一。
     internal static void OpenSettings(string? tab = null)
     {
         if (settings is null)

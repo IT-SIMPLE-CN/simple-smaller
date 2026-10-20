@@ -276,14 +276,14 @@ extension AppModel {
         let wasFinished = item.state.isFinished
         item.outputs = r.outputs
         if r.state != .failed {
-            Self.log.info("\(item.name, privacy: .public)：\(String(describing: r.state), privacy: .public)，\(r.outputs.count) 个输出")
+            Self.log.info("\(item.name, privacy: .private)：\(String(describing: r.state), privacy: .public)，\(r.outputs.count) 个输出")
         }
         switch r.state {
         case .done: item.state = .done
         case .keptOriginal: item.state = .kept
         case .failed:
             item.state = .failed(r.message ?? "失败")
-            Self.log.error("处理失败 \(item.name, privacy: .public)：\(r.message ?? "", privacy: .public)")
+            Self.log.error("处理失败 \(item.name, privacy: .private)：\(r.message ?? "", privacy: .public)")
         case .cancelled: item.state = .cancelled
         }
         // 合并、图片转 PDF 只出一个结果：其余文件也算完成。

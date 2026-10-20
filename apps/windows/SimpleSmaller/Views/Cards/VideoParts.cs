@@ -101,7 +101,7 @@ internal static class VideoParts
         IsTabStop = false,
     };
 
-    /// 卡片头右边：「已修改」（改过才出现）+「另存为配方」（设计稿 V2.1 · 06 / 07）。
+    /// 卡片头右边：「已修改」（改过才出现）+「存为常用」（设计稿 V2.1 · 06 / 07）。
     public static (StackPanel Panel, Border Modified) RecipeAccessory(Workspace ws)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };

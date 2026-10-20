@@ -1,7 +1,9 @@
 import AppKit
 import SwiftUI
 
+#if DEBUG
 /// 脚本化验证（和 `--open`、`--segment`、`--start` 同一用途）：只有带 `--script` 启动时才听。
+/// 只编进开发构建（DEBUG）；正式版里没有这段代码，外部程序发通知驱动不了应用。
 /// 屏幕锁着、点不了也截不了屏的时候，用分布式通知驱动应用、把主窗口离屏画成图。
 /// 发送：通知名 `cn.it-simple.smaller.script`，object 是一行命令，例如
 ///   snapshot /路径/a.png · size 1280 800 · appearance dark · home · enter video 实况 /路径/x.mp4
@@ -98,3 +100,4 @@ enum ScriptHooks {
         }
     }
 }
+#endif

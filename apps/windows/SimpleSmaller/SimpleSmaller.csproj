@@ -31,6 +31,9 @@
     <Copyright>IT-SIMPLE · AGPLv3</Copyright>
     <!-- 入口在 Program.cs（单实例、以后的 Velopack 钩子），不用 XAML 生成的 Main。 -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <!-- 测试打包（release-windows.ps1 -UpdateTest 传 -p:UpdateTest=true）：允许用 SMALLER_UPDATE_URL 指定更新源。
+         不直接传 -p:DefineConstants，那样会整个覆盖上面这行。 -->
+    <DefineConstants Condition="'$(UpdateTest)' == 'true'">$(DefineConstants);UPDATE_TEST</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup>

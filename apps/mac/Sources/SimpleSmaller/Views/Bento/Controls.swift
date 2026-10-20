@@ -2,7 +2,7 @@ import AppKit
 import QuickLook
 import SwiftUI
 
-/// 「已修改」+「存为新配方」。
+/// 「已修改」+「存为常用」。
 struct SaveRecipeAccessory: View {
     let ws: Workspace
     @Binding var saving: Recipe?
@@ -232,7 +232,7 @@ struct IconSegmented<Value: Hashable>: View {
     }
 }
 
-/// 顶栏居中的分段（白底胶囊，选中墨黑）：压缩 / 裁切 等，设置的通用 / 配方 / 自动。
+/// 顶栏居中的分段（白底胶囊，选中墨黑）：压缩 / 裁切 等，设置的通用 / 常用 / 自动。
 struct TopTabs<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String)]

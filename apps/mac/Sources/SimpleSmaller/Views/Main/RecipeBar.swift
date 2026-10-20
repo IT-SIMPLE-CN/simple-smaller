@@ -71,7 +71,7 @@ struct RecipeBar: View {
             .help(r.summary)
     }
 
-    /// 导出成 .smaller 文件，发给同事后在「新建配方 → 从文件导入」里导入。
+    /// 导出成 .smaller 文件，发给同事后在「设置 → 常用 → 导入…」里导入。
     private func export(_ recipe: Recipe) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "\(recipe.name).smaller"
