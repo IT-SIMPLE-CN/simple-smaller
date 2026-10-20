@@ -2,7 +2,7 @@
 
 ## 随包编码库
 
-由 `scripts/build-codecs-mac.sh` 按固定版本从源码编成静态库，装到 `.local/codecs/<架构>`。升级版本时改脚本顶部的版本号，并在这里记录原因与实测结果。
+由 `scripts/build-codecs-mac.sh`（mac，装到 `.local/codecs/<架构>`）与 `scripts/build-codecs-windows.ps1`（Windows，用 MSVC 编，装到 `.local\codecs\win-<架构>`）按固定版本从源码编成静态库，两边版本一致。升级版本时两个脚本顶部的版本号一起改，并在这里记录原因与实测结果。
 
 | 库 | 版本 | 用途 | 许可证 |
 | --- | --- | --- | --- |
@@ -49,7 +49,7 @@
 | zimg | 3.0.6 | WTFPL |
 | gifski | 1.34 | AGPL-3.0 |
 
-Windows 版的 ffmpeg.exe / ffprobe.exe 由 `scripts/build-ffmpeg-windows.sh` 在 Mac 上用 llvm-mingw 20260922（LLVM 23.1.2，UCRT）交叉编译 ARM64 与 x64 两套，全部静态链接，只依赖系统 DLL，单个 exe ARM64 约 23 MB、x64 约 31 MB。组件与 mac 相同（FFmpeg n9.0.2 + x264 `b35605ac` + zimg 3.0.6，另编 zlib 1.3.2 静态库），系统侧换成 Media Foundation：速度优先用 `h264_mf` / `hevc_mf`（会挑显卡厂商的硬件编码器，H.264 没有硬件时用系统软件编码器；HEVC 只走硬件或系统扩展）。另加 dav1d 1.5.4（BSD-2-Clause）做 AV1 软件解码，因为 ffmpeg 自带的 av1 解码器只走硬件，而 Windows 没有 VideoToolbox 那样的系统兜底。为了编过 n9.0 的 Media Foundation 编码器同时开了 d3d11va。不带 x265、NVENC、QSV、AMF 及其他编码库。之前临时用的 BtbN 构建带 x265、单个 exe 90–158 MB，已弃用。
+Windows 版的 ffmpeg.exe / ffprobe.exe 由 `scripts/build-ffmpeg-windows.sh` 在 Mac 上用 llvm-mingw 20260922（LLVM 23.1.2，UCRT）交叉编译 ARM64 与 x64 两套，全部静态链接，只依赖系统 DLL，单个 exe ARM64 约 23 MB、x64 约 31 MB。组件与 mac 相同（FFmpeg n9.0.2 + x264 `b35605ac` + zimg 3.0.6，另编 zlib 1.3.2 静态库），系统侧换成 Media Foundation：速度优先用 `h264_mf` / `hevc_mf`（会挑显卡厂商的硬件编码器，H.264 没有硬件时用系统软件编码器；HEVC 只走硬件或系统扩展）。另加 dav1d 1.5.4（BSD-2-Clause）做 AV1 软件解码，因为 ffmpeg 自带的 av1 解码器只走硬件，而 Windows 没有 VideoToolbox 那样的系统兜底。为了编过 n9.0 的 Media Foundation 编码器同时开了 d3d11va。不带 x265、NVENC、QSV、AMF 及其他编码库。
 
 | 组件（仅 Windows） | 版本 | 许可证 |
 | --- | --- | --- |
@@ -72,7 +72,7 @@ Windows 版的 ffmpeg.exe / ffprobe.exe 由 `scripts/build-ffmpeg-windows.sh` �
 
 ## PDF 管线（`core/src/pdf.rs`）
 
-MuPDF 1.28.5（AGPL-3.0）由 `scripts/build-mupdf-mac.sh` 编成静态库（同样在无空格目录编译）。用 `-DTOFU -DTOFU_CJK` 去掉内置的 Noto 兜底字体，静态库从几十 MB 降到 16 MB；代价是 PDF 没有嵌入字体时，缩略图与转图片里这部分文字显示不出来，压缩与合并不受影响。外壳 `core/native/pdf_shim.c` 用 `fz_try` 接住错误，并关掉 MuPDF 往 stderr 打印日志。
+MuPDF 1.28.5（AGPL-3.0）由 `scripts/build-mupdf-mac.sh` 编成静态库（同样在无空格目录编译）；Windows 版由 `scripts/build-mupdf-windows.ps1` 用 MuPDF 自带的 VS 解决方案按 v143 工具集编，选项相同。用 `-DTOFU -DTOFU_CJK` 去掉内置的 Noto 兜底字体，静态库从几十 MB 降到 16 MB；代价是 PDF 没有嵌入字体时，缩略图与转图片里这部分文字显示不出来，压缩与合并不受影响。外壳 `core/native/pdf_shim.c` 用 `fz_try` 接住错误，并关掉 MuPDF 往 stderr 打印日志。
 
 1. 压缩：彩色、灰度图超过目标 dpi 的 1.5 倍时按目标 dpi 降采样，重压为 JPEG；黑白图降采样后用 CCITT G4。MuPDF 只在单张新图更小时替换。可选字体子集化、去掉 Info 与 XMP 元数据。保存时深比较去重（garbage 4）、压缩流与对象流。
 2. 兜底：重压后仍剩原体积 90% 以上时再试「只重新保存」，取更小者；都不比原文件小就保留原文件、不写出。

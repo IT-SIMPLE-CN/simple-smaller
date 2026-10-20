@@ -43,13 +43,12 @@ $app = "$Root\apps\windows\SimpleSmaller"
 New-Item -ItemType Directory -Force "$app\Core", "$app\Native\$Arch" | Out-Null
 Copy-Item "$out\smaller_core.cs" "$app\Core\smaller_core.cs" -Force
 Copy-Item $dll "$app\Native\$Arch\smaller_core.dll" -Force
-# ffmpeg / ffprobe 放在应用旁边（引擎按可执行文件旁边找）。它们在 Mac 上用 scripts/build-ffmpeg-windows.sh 交叉编译，
-# 产物在 Mac 仓库的 .local/ffmpeg/win-<arch>/bin。VM 里的仓库（C:\dev\simple-smaller）没有时，从共享文件夹 Z:（Mac 主目录）
-# 里的仓库拷一份到本地；Mac 那边重新编过（文件更新）也会重新拷。
+# ffmpeg / ffprobe 放在应用旁边（引擎按可执行文件旁边找）。它们在 macOS / Linux 上用 scripts/build-ffmpeg-windows.sh 交叉编译，
+# 产物在那边仓库的 .local/ffmpeg/win-<arch>/bin，拷到这边仓库的同一位置即可。
+# 也可以设环境变量 SMALLER_MAC_REPO 指向共享文件夹里的那份仓库：这边没有或那边重新编过（文件更新）时自动拷过来。
 $ff = "$Root\.local\ffmpeg\win-$Arch\bin"
-$shared = if ($env:SMALLER_MAC_REPO) { $env:SMALLER_MAC_REPO } else { 'Z:\Development\SIMPLE SMALLER' }
-$sharedFf = "$shared\.local\ffmpeg\win-$Arch\bin"
-if ((Test-Path "$sharedFf\ffmpeg.exe") -and ($sharedFf -ne $ff)) {
+$sharedFf = if ($env:SMALLER_MAC_REPO) { "$env:SMALLER_MAC_REPO\.local\ffmpeg\win-$Arch\bin" } else { '' }
+if ($sharedFf -and (Test-Path "$sharedFf\ffmpeg.exe") -and ($sharedFf -ne $ff)) {
   New-Item -ItemType Directory -Force $ff | Out-Null
   foreach ($exe in 'ffmpeg.exe', 'ffprobe.exe') {
     $from = Get-Item "$sharedFf\$exe"
@@ -57,5 +56,5 @@ if ((Test-Path "$sharedFf\ffmpeg.exe") -and ($sharedFf -ne $ff)) {
     if (-not $to -or $to.Length -ne $from.Length -or $to.LastWriteTimeUtc -lt $from.LastWriteTimeUtc) { Copy-Item $from.FullName "$ff\$exe" -Force }
   }
 }
-if (Test-Path "$ff\ffmpeg.exe") { Copy-Item "$ff\ffmpeg.exe", "$ff\ffprobe.exe" "$app\Native\$Arch\" -Force } else { Write-Warning "没有 ffmpeg：先在 Mac 上运行 scripts/build-ffmpeg-windows.sh $Arch" }
+if (Test-Path "$ff\ffmpeg.exe") { Copy-Item "$ff\ffmpeg.exe", "$ff\ffprobe.exe" "$app\Native\$Arch\" -Force } else { Write-Warning "没有 ffmpeg：先在 macOS / Linux 上运行 scripts/build-ffmpeg-windows.sh $Arch，或从 Releases 下载预编译包，放到 $ff" }
 "引擎已就绪：$Profile $Arch"
