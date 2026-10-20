@@ -114,57 +114,53 @@ impl Engine {
 
     pub fn run_images(self: Arc<Self>, inputs: Vec<String>, place: Place, naming: Naming, settings: ImageSettings, listener: Arc<dyn JobListener>) -> Arc<Job> {
         let job = Job::new();
-        let handle = job.clone();
-        std::thread::spawn(move || {
+        spawn_job(&job, listener, move |job, listener| {
             let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
             let plan = jobs::plan(&inputs, MediaKind::Image, &(&place).into());
-            *job.created_roots.lock().unwrap_or_else(|e| e.into_inner()) = plan.created_roots.clone();
+            job.set_plan(&plan);
             let image_job = settings.job(&naming);
             let decoder = |p: &Path| self.decode(p);
             // 开始处理某张时报 0 进度，界面据此把这一行标成「处理中」。
             let on_start = |i: usize| listener.on_progress(i as u32, 0.0);
-            let on_result = |r: &ItemResult| listener.on_item(JobItemResult::from(r));
-            let results = jobs::run_images(&plan, &image_job, &decoder, &on_start, &on_result, &job.cancel);
-            *job.results.lock().unwrap_or_else(|e| e.into_inner()) = results;
-            job.finish(&listener);
+            // 每张出结果就记下（中途出意外时，已写出的文件照样能撤销）。
+            let on_result = |r: &ItemResult| job.record(listener, r.clone());
+            jobs::run_images(&plan, &image_job, &decoder, &on_start, &on_result, &job.cancel);
+            job.results.lock().unwrap_or_else(|e| e.into_inner()).sort_by_key(|r| r.index);
         });
-        handle
+        job
     }
 
     pub fn run_videos(self: Arc<Self>, inputs: Vec<String>, place: Place, naming: Naming, settings: VideoSettings, listener: Arc<dyn JobListener>) -> Arc<Job> {
         let job = Job::new();
-        let handle = job.clone();
-        std::thread::spawn(move || {
+        spawn_job(&job, listener, move |job, listener| {
             let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
             let plan = jobs::plan(&inputs, MediaKind::Video, &(&place).into());
-            *job.created_roots.lock().unwrap_or_else(|e| e.into_inner()) = plan.created_roots.clone();
+            job.set_plan(&plan);
             let tools = video::Tools::locate();
             let mut reserved = std::collections::HashSet::new();
             for (i, item) in plan.items.iter().enumerate() {
                 if job.cancel.load(Ordering::Relaxed) {
-                    job.record(&listener, ItemResult { index: i, source: item.source.clone(), before_bytes: 0, outputs: vec![], status: ItemStatus::Cancelled });
+                    job.record(listener, ItemResult { index: i, source: item.source.clone(), before_bytes: 0, outputs: vec![], status: ItemStatus::Cancelled });
                     continue;
                 }
                 let r = match &tools {
-                    Ok(tools) => self.video_item(tools, i, item, &naming, &settings, &mut reserved, &listener, &job.cancel),
+                    Ok(tools) => self.video_item(tools, i, item, &naming, &settings, &mut reserved, listener, &job.cancel),
                     Err(e) => failed(i, &item.source, e.to_string()),
                 };
-                job.record(&listener, r);
+                job.record(listener, r);
             }
-            job.finish(&listener);
         });
-        handle
+        job
     }
 
     pub fn run_pdfs(self: Arc<Self>, inputs: Vec<String>, place: Place, naming: Naming, settings: PdfSettings, listener: Arc<dyn JobListener>) -> Arc<Job> {
         let job = Job::new();
-        let handle = job.clone();
-        std::thread::spawn(move || {
+        spawn_job(&job, listener, move |job, listener| {
             let inputs: Vec<PathBuf> = inputs.into_iter().map(PathBuf::from).collect();
             let kind = if matches!(settings.operation, PdfOperation::FromImages { .. }) { MediaKind::Image } else { MediaKind::Pdf };
             let plan = jobs::plan(&inputs, kind, &(&place).into());
-            *job.created_roots.lock().unwrap_or_else(|e| e.into_inner()) = plan.created_roots.clone();
-            for mut r in self.pdf_items(&plan, &naming, &settings, &listener, &job.cancel) {
+            job.set_plan(&plan);
+            for mut r in self.pdf_items(&plan, &naming, &settings, listener, &job.cancel) {
                 if let Some(pw) = settings.password.as_deref().filter(|p| !p.is_empty()) {
                     let mut failed = None;
                     for o in r.outputs.iter_mut().filter(|o| o.path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))) {
@@ -182,11 +178,10 @@ impl Engine {
                         r.status = ItemStatus::Failed(message);
                     }
                 }
-                job.record(&listener, r);
+                job.record(listener, r);
             }
-            job.finish(&listener);
         });
-        handle
+        job
     }
 }
 

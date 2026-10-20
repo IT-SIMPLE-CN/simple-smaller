@@ -10,7 +10,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use serde::Deserialize;
 
@@ -41,8 +41,10 @@ pub struct Tools {
 
 impl Tools {
     /// 依次找：环境变量 SMALLER_FFMPEG_DIR → 应用包 Contents/Resources/bin → 可执行文件旁边（Windows 安装目录）→ 开发目录 .local/ffmpeg。
+    /// 环境变量与开发目录只在开发构建与测试里认，正式版只用随包的那份。
     pub fn locate() -> Result<Self> {
         let mut dirs: Vec<PathBuf> = Vec::new();
+        #[cfg(any(debug_assertions, test))]
         if let Ok(dir) = std::env::var("SMALLER_FFMPEG_DIR") {
             dirs.push(dir.into());
         }
@@ -52,13 +54,16 @@ impl Tools {
             dirs.push(parent.join("../Resources/bin"));
             dirs.push(parent.to_path_buf());
         }
-        let arch = match (cfg!(windows), cfg!(target_arch = "aarch64")) {
-            (false, true) => "arm64",
-            (false, false) => "x86_64",
-            (true, true) => "win-arm64",
-            (true, false) => "win-x64",
-        };
-        dirs.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.local/ffmpeg").join(arch).join("bin"));
+        #[cfg(any(debug_assertions, test))]
+        {
+            let arch = match (cfg!(windows), cfg!(target_arch = "aarch64")) {
+                (false, true) => "arm64",
+                (false, false) => "x86_64",
+                (true, true) => "win-arm64",
+                (true, false) => "win-x64",
+            };
+            dirs.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.local/ffmpeg").join(arch).join("bin"));
+        }
         let exe = std::env::consts::EXE_SUFFIX;
         for dir in dirs {
             let (ffmpeg, ffprobe) = (dir.join(format!("ffmpeg{exe}")), dir.join(format!("ffprobe{exe}")));
@@ -414,8 +419,9 @@ pub fn transcode(
                 if info.bitrate > 0 {
                     kbps = kbps.min(info.bitrate / 1000);
                 }
-                let passlog = std::env::temp_dir().join(format!("smaller-x264-{}", std::process::id()));
-                let passlog = passlog.to_string_lossy().into_owned();
+                // 每个任务一份分析日志：同时压几个视频也不会互相覆盖；成功、失败、取消都会删掉（离开作用域时）。
+                let log = PassLog::new();
+                let passlog = log.prefix.clone();
                 // 第一遍只分析画面，不出文件。
                 let mut first = input_args(input, recipe.trim);
                 first.extend(["-map".into(), "0:v:0".into(), "-vf".into(), vf.clone()]);
@@ -432,7 +438,6 @@ pub fn transcode(
                     }
                     kbps = ((kbps as f64) * target as f64 / got as f64 * 0.97) as u64;
                 }
-                cleanup_passlog(&passlog);
                 Ok(())
             }
             (true, rate) => {
@@ -543,9 +548,26 @@ fn x264_args(bitrate: &str) -> Vec<String> {
         .collect()
 }
 
-fn cleanup_passlog(prefix: &str) {
-    for suffix in ["-0.log", "-0.log.mbtree", "-0.log.temp", "-0.log.mbtree.temp"] {
-        let _ = std::fs::remove_file(format!("{prefix}{suffix}"));
+/// x264 两遍编码的分析日志（临时目录里的几个文件），离开作用域时删掉。
+struct PassLog {
+    prefix: String,
+}
+
+impl PassLog {
+    fn new() -> Self {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
+        let path = std::env::temp_dir().join(format!("smaller-x264-{}-{n}-{nanos:x}", std::process::id()));
+        PassLog { prefix: path.to_string_lossy().into_owned() }
+    }
+}
+
+impl Drop for PassLog {
+    fn drop(&mut self) {
+        for suffix in ["-0.log", "-0.log.mbtree", "-0.log.temp", "-0.log.mbtree.temp"] {
+            let _ = std::fs::remove_file(format!("{}{suffix}", self.prefix));
+        }
     }
 }
 

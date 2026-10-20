@@ -360,11 +360,12 @@ impl BoxRef {
     }
 }
 
-/// 列出 `data[from..to]` 里的一层 box。
+/// 列出 `data[from..to]` 里的一层 box。长度字段来自文件本身，不可信：所有加法都查溢出，取下标前先查长度。
 pub fn boxes(data: &[u8], from: usize, to: usize) -> std::result::Result<Vec<BoxRef>, String> {
+    let to = to.min(data.len());
     let mut out = Vec::new();
     let mut p = from;
-    while p + 8 <= to {
+    while p.checked_add(8).is_some_and(|end| end <= to) {
         let size32 = u32::from_be_bytes(data[p..p + 4].try_into().unwrap()) as usize;
         let kind: [u8; 4] = data[p + 4..p + 8].try_into().unwrap();
         let (header, size) = match size32 {
@@ -373,15 +374,17 @@ pub fn boxes(data: &[u8], from: usize, to: usize) -> std::result::Result<Vec<Box
                 if p + 16 > to {
                     return Err("box 头不完整".into());
                 }
-                (16, u64::from_be_bytes(data[p + 8..p + 16].try_into().unwrap()) as usize)
+                let large = u64::from_be_bytes(data[p + 8..p + 16].try_into().unwrap());
+                (16, usize::try_from(large).map_err(|_| "box 长度不对".to_string())?)
             }
             n => (8, n),
         };
-        if size < header || p + size > to {
+        let end = p.checked_add(size).filter(|&end| size >= header && end <= to);
+        let Some(end) = end else {
             return Err(format!("box {} 长度不对", String::from_utf8_lossy(&kind)));
-        }
+        };
         out.push(BoxRef { kind, start: p, header, size });
-        p += size;
+        p = end;
     }
     Ok(out)
 }
@@ -501,7 +504,7 @@ pub fn add_live_metadata(data: &[u8], id: &str, still_time: f64) -> std::result:
     let mvhd = *children.iter().find(|b| &b.kind == b"mvhd").ok_or("没有 mvhd")?;
     let mut mvhd_bytes = data[mvhd.start..mvhd.start + mvhd.size].to_vec();
     let body = mvhd.header;
-    let version = mvhd_bytes[body];
+    let Some(&version) = mvhd_bytes.get(body) else { return Err("mvhd 不完整".into()) };
     let (timescale_at, duration_at, duration_len) = if version == 1 { (body + 20, body + 24, 8) } else { (body + 12, body + 16, 4) };
     if mvhd_bytes.len() < duration_at + duration_len + 4 {
         return Err("mvhd 不完整".into());
@@ -514,7 +517,8 @@ pub fn add_live_metadata(data: &[u8], id: &str, still_time: f64) -> std::result:
     };
     let next_at = mvhd_bytes.len() - 4;
     let track_id = u32::from_be_bytes(mvhd_bytes[next_at..].try_into().unwrap()).max(1);
-    mvhd_bytes[next_at..].copy_from_slice(&be32(track_id + 1));
+    let next_track = track_id.checked_add(1).ok_or("轨道编号用完了")?;
+    mvhd_bytes[next_at..].copy_from_slice(&be32(next_track));
 
     // 样本长一帧左右（33 毫秒）；封面贴着片尾时往前挪，整条轨不超出片长。
     let sample_ms: u32 = 33;
@@ -630,6 +634,24 @@ mod tests {
         mvhd[96..100].copy_from_slice(&next_track.to_be_bytes());
         let trak = bx(b"trak", &full(b"tkhd", 0, 0xF, &[0u8; 80]));
         [bx(b"ftyp", b"qt  \0\0\0\0qt  "), bx(b"mdat", &[7u8; 1000]), bx(b"moov", &[bx(b"mvhd", &mvhd), trak].concat())].concat()
+    }
+
+    #[test]
+    fn 坏的_box_报错不崩() {
+        // 64 位长度大得离谱（加上起点会溢出）
+        let mut huge = Vec::new();
+        huge.extend_from_slice(&1u32.to_be_bytes());
+        huge.extend_from_slice(b"mdat");
+        huge.extend_from_slice(&u64::MAX.to_be_bytes());
+        assert!(boxes(&huge, 0, huge.len()).is_err());
+        // 范围超出数据
+        assert!(boxes(&huge, 0, usize::MAX).is_err());
+        // mvhd 只有头没有内容
+        let empty_mvhd = [bx(b"ftyp", b"qt  "), bx(b"moov", &bx(b"mvhd", &[]))].concat();
+        assert!(add_live_metadata(&empty_mvhd, "x", 0.0).is_err());
+        // 下一个轨道编号已到上限
+        let full_ids = fake_mov(600, 600, u32::MAX);
+        assert!(add_live_metadata(&full_ids, "x", 0.0).is_err());
     }
 
     #[test]

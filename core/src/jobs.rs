@@ -132,9 +132,14 @@ fn is_package(path: &Path) -> bool {
 
 fn walk(dir: &Path, kind: MediaKind, out: &mut Vec<PathBuf>, skipped: &mut Vec<(PathBuf, String)>) {
     let Ok(entries) = std::fs::read_dir(dir) else { return };
-    let mut entries: Vec<PathBuf> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
-    entries.sort();
-    for path in entries {
+    // 不跟随符号链接（含 Windows 的目录联接）：文件夹里的链接可能指回上级（死循环）或指到文件夹外面。
+    // DirEntry::file_type 不解引用链接，看到的是链接本身。
+    let mut entries: Vec<(PathBuf, std::fs::FileType)> = entries.filter_map(|e| e.ok().and_then(|e| Some((e.path(), e.file_type().ok()?)))).collect();
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    for (path, file_type) in entries {
+        if file_type.is_symlink() {
+            continue;
+        }
         if out.len() >= MAX_FOLDER_FILES {
             skipped.push((path, format!("超过 {MAX_FOLDER_FILES} 个文件")));
             continue;
@@ -142,7 +147,7 @@ fn walk(dir: &Path, kind: MediaKind, out: &mut Vec<PathBuf>, skipped: &mut Vec<(
         if is_hidden(&path) {
             continue;
         }
-        if path.is_dir() {
+        if file_type.is_dir() {
             if is_previous_output_dir(&path) {
                 skipped.push((path, "之前的输出".into()));
             } else if !is_package(&path) {
@@ -643,6 +648,23 @@ mod tests {
         assert_eq!(p.items.len(), 2);
         assert_eq!(p.created_roots, vec![dir.join("秋季素材-small")]);
         assert!(p.items.iter().any(|i| i.out_dir == dir.join("秋季素材-small/细节")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn 文件夹里的符号链接不跟随() {
+        let dir = scratch("symlink");
+        let src = dir.join("素材");
+        let outside = dir.join("外面");
+        photo_file(&src.join("a.png"), 64, 64);
+        photo_file(&outside.join("b.png"), 64, 64);
+        // 指向外面的文件夹、指回自己（会死循环）、指向外面的文件
+        std::os::unix::fs::symlink(&outside, src.join("链到外面")).unwrap();
+        std::os::unix::fs::symlink(&src, src.join("链回自己")).unwrap();
+        std::os::unix::fs::symlink(outside.join("b.png"), src.join("b.png")).unwrap();
+        let p = plan(&[src.clone()], MediaKind::Image, &OutputPlace::BesideSource { folder_suffix: "-small".into() });
+        let names: Vec<PathBuf> = p.items.iter().map(|i| i.source.clone()).collect();
+        assert_eq!(names, vec![src.join("a.png")]);
     }
 
     #[test]

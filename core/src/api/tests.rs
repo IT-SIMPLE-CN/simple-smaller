@@ -95,17 +95,57 @@ fn 平台解码接管_heic() {
     assert!(Engine::new(None).decode(&heic).is_err());
 }
 
+/// 处理中出意外（panic）：整批不卡住，没报过的文件标成失败，一定报「完成」。
+#[test]
+fn 任务线程出意外_剩下的标失败并报完成() {
+    struct Boom;
+    impl PlatformDecoder for Boom {
+        fn decode(&self, _: String) -> Option<RawImage> {
+            panic!("测试用：解码器出意外");
+        }
+    }
+    let dir = std::env::temp_dir().join(format!("smaller-api-panic-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let ok = dir.join("a.png");
+    image::save_buffer(&ok, &[90u8; 16 * 16 * 4], 16, 16, image::ExtendedColorType::Rgba8).unwrap();
+    let bad = dir.join("b.heic");
+    std::fs::write(&bad, b"fake").unwrap();
+    let engine = Engine::new(Some(Arc::new(Boom)));
+    let (tx, rx) = mpsc::channel();
+    let inputs = vec![ok.to_string_lossy().into(), bad.to_string_lossy().into()];
+    let job = engine.run_images(inputs, Place::BesideSource { folder_suffix: "-small".into() }, naming("{name}"), settings(), Arc::new(Collect(Mutex::new(tx))));
+    let results = wait(&rx);
+    assert!(job.is_finished());
+    let mut indices: Vec<u32> = results.iter().map(|r| r.index).collect();
+    indices.sort();
+    assert_eq!(indices, [0, 1], "每个文件只报一次");
+    let heic = results.iter().find(|r| r.index == 1).unwrap();
+    assert_eq!(heic.state, ItemState::Failed);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// 实况走完整的任务：苹果实况一对同名，动态照片跟着叫 `.MP.jpg`；重名时整对一起换名字；撤销全部移走。
 #[test]
 fn 实况任务端到端_重名与撤销() {
-    let Ok(_) = crate::video::Tools::locate() else { return };
-    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../.local/vtest/半秒.mp4");
-    if !sample.exists() { return; }
+    let Ok(tools) = crate::video::Tools::locate() else { return };
     let dir = std::env::temp_dir().join(format!("smaller-api-live-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let src = dir.join("片段.mp4");
-    std::fs::copy(&sample, &src).unwrap();
+    // 有本地素材（.local/vtest/半秒.mp4，不进仓库）就用；没有就用 ffmpeg 的测试信号现场生成一段半秒的。
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../.local/vtest/半秒.mp4");
+    if sample.exists() {
+        std::fs::copy(&sample, &src).unwrap();
+    } else {
+        let status = crate::video::tool(&tools.ffmpeg)
+            .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30:duration=0.5"])
+            .args(["-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p"])
+            .arg(&src)
+            .status()
+            .unwrap();
+        assert!(status.success(), "生成测试视频失败");
+    }
     // 先占掉 .mov：整对要换成 -2。
     std::fs::write(dir.join("片段-live.mov"), b"x").unwrap();
     let settings = VideoSettings {

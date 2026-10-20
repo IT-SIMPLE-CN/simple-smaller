@@ -108,7 +108,8 @@ impl Engine {
                         let picks: Vec<Picture> = files.iter().step_by(step).take(48).filter_map(|f| img::load(f).ok()).collect();
                         if let Some(sheet) = jobs::contact_sheet(&picks, 6, 320) {
                             let bytes = img::encode(&sheet, OutputFormat::Jpeg, 85, false).map_err(|e| video::VideoError::Encode(e.to_string()))?;
-                            let path = item.out_dir.join(format!("{stem_name}_总览.jpg"));
+                            // 同名总览已存在时换成「-2」，不覆盖用户原有的文件。
+                            let path = naming::unique_path(&item.out_dir, &format!("{stem_name}_总览"), "jpg", reserved);
                             jobs::write_atomic(&path, &bytes)?;
                             outputs.push(OutputFile { path, bytes: bytes.len() as u64, width: sheet.width, height: sheet.height });
                         }
