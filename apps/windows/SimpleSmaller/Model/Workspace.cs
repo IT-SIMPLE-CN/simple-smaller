@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
-using uniffi.smaller_core;
+using SimpleSmaller.Core;
 
 namespace SimpleSmaller;
 

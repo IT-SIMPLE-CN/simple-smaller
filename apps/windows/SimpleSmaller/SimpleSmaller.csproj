@@ -20,7 +20,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- 生成的绑定里有大量可空与命名告警，不影响使用。 -->
+    <!-- 可空与命名类提示不影响使用，统一关掉。 -->
     <NoWarn>$(NoWarn);CS8618;CS8625;CS8603;CS8604;CS8600;CS8601;CS8602;CS0108;CS1591</NoWarn>
     <!-- 不发布 AOT：[ObservableProperty] 用字段写法（可带初始值），关掉「建议改用分部属性」的提示。 -->
     <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
@@ -57,9 +57,9 @@
     <Content Include="..\..\..\licenses\common\*;..\..\..\licenses\windows\*" Link="Assets\ThirdParty\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- 引擎 DLL 由 scripts/build-core-windows.ps1 放到 Native\<架构>。 -->
+  <!-- 引擎是独立进程 smaller-core.exe（经标准输入输出通信，见 Core/EngineHost.cs），与 ffmpeg 一起由 scripts/build-core-windows.ps1 放到 Native\<架构>。 -->
   <ItemGroup>
-    <None Include="Native\$(NativeArch)\smaller_core.dll" Link="smaller_core.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Native\$(NativeArch)\smaller_core.dll')" />
+    <None Include="Native\$(NativeArch)\smaller-core.exe" Link="smaller-core.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Native\$(NativeArch)\smaller-core.exe')" />
     <None Include="Native\$(NativeArch)\ffmpeg.exe" Link="ffmpeg.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Native\$(NativeArch)\ffmpeg.exe')" />
     <None Include="Native\$(NativeArch)\ffprobe.exe" Link="ffprobe.exe" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Native\$(NativeArch)\ffprobe.exe')" />
   </ItemGroup>

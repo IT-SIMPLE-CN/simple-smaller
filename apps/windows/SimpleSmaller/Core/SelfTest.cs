@@ -1,8 +1,8 @@
-using uniffi.smaller_core;
+using SimpleSmaller.Core;
 
 namespace SimpleSmaller;
 
-/// 不开界面跑一次图片压缩，确认引擎 DLL、绑定与回调都通。
+/// 不开界面跑一次图片压缩，确认引擎进程（smaller-core.exe）、通信与回调都通。
 internal static class SelfTest
 {
     private sealed class Listener : JobListener
@@ -19,7 +19,7 @@ internal static class SelfTest
         var log = Path.Combine(Path.GetTempPath(), "smaller-selftest.txt");
         try
         {
-            var engine = new Engine(null);
+            var engine = new Engine();
             var listener = new Listener();
             var settings = new ImageSettings(ImageFormat.Webp, 80, false, null, Array.Empty<uint>(), SizeBy.Width, null, Array.Empty<CropBox>());
             var naming = new Naming("{name}-small", false, false, false, DateTime.Now.ToString("yyyyMMdd"));

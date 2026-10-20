@@ -1,5 +1,5 @@
 using System.Globalization;
-using uniffi.smaller_core;
+using SimpleSmaller.Core;
 
 namespace SimpleSmaller;
 
@@ -99,9 +99,9 @@ internal static class Conversion
 
     public static PdfLevel PdfLevel(this Recipe recipe) => recipe.Pdf.Level switch
     {
-        PdfLevelChoice.Screen => uniffi.smaller_core.PdfLevel.Screen,
-        PdfLevelChoice.Email or PdfLevelChoice.Size => uniffi.smaller_core.PdfLevel.Email,
-        _ => uniffi.smaller_core.PdfLevel.Print,
+        PdfLevelChoice.Screen => SimpleSmaller.Core.PdfLevel.Screen,
+        PdfLevelChoice.Email or PdfLevelChoice.Size => SimpleSmaller.Core.PdfLevel.Email,
+        _ => SimpleSmaller.Core.PdfLevel.Print,
     };
 
     public static ulong? PdfTargetBytes(this Recipe recipe) => recipe.Pdf.Level switch
